@@ -383,7 +383,7 @@ class HVACRApp(ctk.CTk):
         )
         back_btn.pack(side="left", padx=5)
 
-        # Details frame - ΕΔΩ ΗΤΑΝ ΤΟ ΠΡΟΒΛΗΜΑ!
+        # Details frame
         details_frame = ctk.CTkFrame(
             self.main_frame,
             corner_radius=15,
@@ -404,7 +404,7 @@ class HVACRApp(ctk.CTk):
         if has_relations:
             total = len(relations['parents']) + len(relations['children'])
             position = len(relations['parents']) + 1
-            chain_info = f"🔗 Συνδεδεμένη εργασία:  Θέση {position} από {total + 1} στην αλυσίδα"
+            chain_info = f"🔗 Συνδεδεμένη εργασία:   Θέση {position} από {total + 1} στην αλυσίδα"
 
             chain_frame = ctk.CTkFrame(
                 scrollable,
@@ -463,70 +463,153 @@ class HVACRApp(ctk.CTk):
             )
             value_widget.pack(side="left", fill="x", expand=True)
 
-        # Show related tasks if any
-        if relations['parents'] or relations['children']:
+        # ═══════════════════════════════════════════════════════
+        # ΝΕΟ:  COMPACT CHAIN PREVIEW (αν υπάρχει αλυσίδα)
+        # ═══════════════════════════════════════════════════════
+
+        if has_relations:
             separator = ctk.CTkFrame(scrollable, height=2, fg_color=self.theme["card_border"])
             separator.pack(fill="x", pady=20, padx=10)
 
-            relations_header = ctk.CTkLabel(
-                scrollable,
-                text="🔗 Συνδεδεμένες Εργασίες - Κλικ '🔗 Συνδέσεις' για διαχείριση",
-                font=theme_config.get_font("body", "bold"),
+            # Header με κουμπί "Άνοιγμα Πλήρους Αλυσίδας"
+            chain_header_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
+            chain_header_frame.pack(fill="x", pady=(10, 15), padx=10)
+
+            ctk.CTkLabel(
+                chain_header_frame,
+                text="🔗 Αλυσίδα Εργασιών",
+                font=theme_config.get_font("heading", "bold"),
                 text_color=self.theme["accent_blue"]
+            ).pack(side="left")
+
+            ctk.CTkButton(
+                chain_header_frame,
+                text="🔗 Άνοιγμα Πλήρους Αλυσίδας",
+                command=lambda: self.show_task_relationships(task),
+                width=200,
+                height=32,
+                **theme_config.get_button_style("special")
+            ).pack(side="right")
+
+            # Compact Chain Timeline
+            self.create_compact_chain_preview(scrollable, task)
+
+    def create_compact_chain_preview(self, parent, task):
+        """Δημιουργία compact preview της αλυσίδας εργασιών"""
+
+        # Get full chain
+        from ui_components import TaskRelationshipsView
+        temp_view = TaskRelationshipsView(None, task, None)
+        full_chain = temp_view.get_full_chain(task['id'])
+
+        # Find current position
+        current_position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == task['id']), 1)
+        total_in_chain = len(full_chain)
+
+        # Info label
+        info_label = ctk.CTkLabel(
+            parent,
+            text=f"📊 {total_in_chain} εργασίες στην αλυσίδα  •  Θέση {current_position}/{total_in_chain}",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"]
+        )
+        info_label.pack(anchor="w", padx=20, pady=(0, 10))
+
+        # Compact timeline container
+        timeline_container = ctk.CTkFrame(
+            parent,
+            fg_color=self.theme["bg_secondary"],
+            corner_radius=10
+        )
+        timeline_container.pack(fill="x", padx=20, pady=10)
+
+        # Display each task in compact format
+        for idx, chain_task in enumerate(full_chain, 1):
+            is_current = (chain_task['id'] == task['id'])
+
+            # Task row
+            task_row = ctk.CTkFrame(
+                timeline_container,
+                fg_color=self.theme["card_bg"] if is_current else "transparent",
+                corner_radius=8
             )
-            relations_header.pack(pady=10)
+            task_row.pack(fill="x", padx=10, pady=3)
 
-            if relations['parents']:
-                parent_label = ctk.CTkLabel(
-                    scrollable,
-                    text="🔵 Αρχική Εργασία:",
-                    font=theme_config.get_font("small", "bold"),
-                    text_color=self.theme["accent_blue"]
-                )
-                parent_label.pack(anchor="w", padx=20, pady=(10, 5))
+            # Left:  Position + Icon
+            left_frame = ctk.CTkFrame(task_row, fg_color="transparent")
+            left_frame.pack(side="left", padx=10, pady=8)
 
-                for parent in relations['parents']:
-                    rel_text = f"   ↳ {parent['task_type_name']}"
-                    if parent.get('task_item_name'):
-                        rel_text += f" → {parent['task_item_name']}"
-                    rel_text += f"  •  {parent['created_date']}"
-                    if parent.get('description'):
-                        rel_text += f"\n      {parent['description'][: 60]}..."
+            # Position badge
+            position_color = self.theme["accent_orange"] if is_current else self.theme["text_disabled"]
+            ctk.CTkLabel(
+                left_frame,
+                text=f"[{idx}]",
+                font=theme_config.get_font("small", "bold"),
+                text_color=position_color,
+                width=30
+            ).pack(side="left")
 
-                    rel_label = ctk.CTkLabel(
-                        scrollable,
-                        text=rel_text,
-                        font=theme_config.get_font("small"),
-                        text_color=self.theme["text_secondary"],
-                        justify="left"
-                    )
-                    rel_label.pack(anchor="w", padx=40, pady=2)
+            # Type icon
+            if idx < current_position:
+                icon = "🔵"
+            elif is_current:
+                icon = "🟡"
+            else:
+                icon = "🟢"
 
-            if relations['children']:
-                child_label = ctk.CTkLabel(
-                    scrollable,
-                    text=f"🟢 Συνέχειες Εργασίας ({len(relations['children'])}):",
-                    font=theme_config.get_font("small", "bold"),
-                    text_color=self.theme["accent_green"]
-                )
-                child_label.pack(anchor="w", padx=20, pady=(15, 5))
+            ctk.CTkLabel(
+                left_frame,
+                text=icon,
+                font=theme_config.get_font("small")
+            ).pack(side="left", padx=5)
 
-                for idx, child in enumerate(relations['children'], 1):
-                    rel_text = f"   {idx}. {child['task_type_name']}"
-                    if child.get('task_item_name'):
-                        rel_text += f" → {child['task_item_name']}"
-                    rel_text += f"  •  {child['created_date']}"
-                    if child.get('description'):
-                        rel_text += f"\n      {child['description'][:60]}..."
+            # Middle: Date + Task info (compact)
+            info_frame = ctk.CTkFrame(task_row, fg_color="transparent")
+            info_frame.pack(side="left", fill="x", expand=True, padx=5)
 
-                    rel_label = ctk.CTkLabel(
-                        scrollable,
-                        text=rel_text,
-                        font=theme_config.get_font("small"),
-                        text_color=self.theme["text_secondary"],
-                        justify="left"
-                    )
-                    rel_label.pack(anchor="w", padx=40, pady=2)
+            # Build compact text
+            task_text = f"📅 {chain_task['created_date']}  •  {chain_task['task_type_name']}"
+            if chain_task.get('task_item_name'):
+                task_text += f" → {chain_task['task_item_name']}"
+
+            # Description (truncated)
+            if chain_task.get('description'):
+                desc_preview = chain_task['description'][:40] + "..." if len(chain_task['description']) > 40 else \
+                chain_task['description']
+                task_text += f"\n      {desc_preview}"
+
+            text_color = self.theme["text_primary"] if is_current else self.theme["text_secondary"]
+            font_weight = "bold" if is_current else "normal"
+
+            ctk.CTkLabel(
+                info_frame,
+                text=task_text,
+                font=theme_config.get_font("small", font_weight),
+                text_color=text_color,
+                anchor="w",
+                justify="left"
+            ).pack(side="left", fill="x", expand=True)
+
+            # Right: Current indicator
+            if is_current:
+                ctk.CTkLabel(
+                    task_row,
+                    text="← ΤΡΕΧΟΥΣΑ",
+                    font=theme_config.get_font("tiny", "bold"),
+                    text_color=self.theme["accent_orange"]
+                ).pack(side="right", padx=15)
+
+            # Arrow between tasks (except last)
+            if idx < total_in_chain:
+                arrow_frame = ctk.CTkFrame(timeline_container, fg_color="transparent")
+                arrow_frame.pack(fill="x", padx=10, pady=0)
+
+                ctk.CTkLabel(
+                    arrow_frame,
+                    text="       ↓",
+                    font=theme_config.get_font("small"),
+                    text_color=self.theme["text_disabled"]
+                ).pack(anchor="w", padx=20)
     
     def show_task_relationships(self, task):
         """Εμφάνιση διαχείρισης συνδέσεων εργασίας"""
