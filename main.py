@@ -656,6 +656,8 @@ class HVACRApp(ctk.CTk):
         if task_id in task_dict:
             chain.append(task_dict[task_id])
 
+        # Remove task_id from visited so get_children can process it
+        visited.discard(task_id)
         get_children(task_id)
 
         return chain
