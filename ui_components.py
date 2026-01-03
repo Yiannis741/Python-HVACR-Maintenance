@@ -69,8 +69,6 @@ class TaskCard(ctk.CTkFrame):
 
         return chain
 
-
-
     def create_card(self):
         """Δημιουργία της καρτέλας - Compact Layout"""
 
@@ -92,20 +90,19 @@ class TaskCard(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(fill="x", padx=12, pady=(8, 4))
 
-        # LEFT SECTION: Link Badge + Task Type
+        # LEFT SECTION:  Link Badge + Task Type
         left_section = ctk.CTkFrame(header_frame, fg_color="transparent")
         left_section.pack(side="left", fill="x", expand=True)
 
-        # Check for relationships
+        # Check for relationships - FIX: Υπολογισμός με ΟΛΟΚΛΗΡΗ την αλυσίδα
         if self.show_relations:
-            # ΝΕΑ ΛΟΓΙΚΗ: Υπολογισμός με ΟΛΟΚΛΗΡΗ την αλυσίδα
             full_chain = self._get_full_chain_simple(self.task['id'])
 
             if len(full_chain) > 1:  # Υπάρχει αλυσίδα
                 position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
                 chain_length = len(full_chain)
 
-                # Link badge
+                # Link badge - FIX: Εμφάνιση position/total
                 link_badge = ctk.CTkLabel(
                     left_section,
                     text=f"🔗 {position}/{chain_length}",
@@ -137,7 +134,7 @@ class TaskCard(ctk.CTkFrame):
         )
         type_label.pack(side="left")
 
-        # CENTER:  Status
+        # CENTER:   Status
         status_label = ctk.CTkLabel(
             header_frame,
             text=f"{status_icon} {status_text}",
@@ -2160,7 +2157,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
             self.create_arrow("προκάλεσε", dashed=True)
 
         # Display all tasks in chain
-        child_counter = 1  # Global counter for all children (increments for each child task)
+        child_counter = 0  # Global counter για σωστή αρίθμηση children
+
         for idx, task in enumerate(full_chain, 1):
             # Determine type
             if idx < current_position:
@@ -2171,27 +2169,18 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 sequence_num = None
             else:
                 item_type = "child"
-                sequence_num = child_counter  # Use global counter
-                child_counter += 1  # Increment for next child
+                child_counter += 1
+                sequence_num = child_counter
 
-            # ═══════════════════════════════════════════
-            # ΝΕΑ ΛΟΓΙΚΗ:   Removability Rules
-            # ═══════════════════════════════════════════
-
-            if item_type == "current":
-                # Η τρέχουσα δεν μπορεί να αφαιρεθεί
-                is_removable = False
-
+            # Removability Rules - ΝΕΟ:  Όλα removable εκτός από μοναδική εργασία
+            if total_in_chain == 1:
+                is_removable = False  # Μόνη εργασία
+            elif item_type == "current":
+                is_removable = True  # ← FIX: Η τρέχουσα ΜΠΟΡΕΙ να αφαιρεθεί
             elif item_type == "parent":
-                # Μπορείς να αφαιρέσεις ΜΟΝΟ την άμεση προηγούμενη (idx == current_position - 1)
-                # Γιατί:   Αν αφαιρέσεις την [1] ενώ είσαι [3], θα χαθεί η σύνδεση με την [2]
                 is_removable = (idx == current_position - 1)
-
             elif item_type == "child":
-                # Μπορείς να αφαιρέσεις ΟΠΟΙΑΔΗΠΟΤΕ child
-                # Γιατί:   Αφαιρείς τη σύνδεση current → child, όχι όλη την αλυσίδα
                 is_removable = True
-
             else:
                 is_removable = False
 
@@ -2251,30 +2240,20 @@ class TaskRelationshipsView(ctk.CTkFrame):
         )
         badge.pack(side="left", padx=10)
 
-        # Card container - Horizontal layout (card + remove button)
+        # Card container
         card_container = ctk.CTkFrame(item_container, fg_color="transparent")
         card_container.pack(fill="x")
 
-        # Left side - Task card
+        # Task card
         task_card_frame = ctk.CTkFrame(card_container, fg_color="transparent")
         task_card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        # Enhanced task card with date prominent
+        # Enhanced task card - FIX: Bold border για current
         card = ctk.CTkFrame(
             task_card_frame,
             fg_color=self.theme["card_bg"],
             border_color=badge_color,
-            border_width=3 if item_type == "current" else 2,
-            corner_radius=10
-        )
-        card.pack(fill="x", padx=(40, 0))  # Indent from position badge
-
-        # Enhanced task card
-        card = ctk.CTkFrame(
-            task_card_frame,
-            fg_color=self.theme["card_bg"],
-            border_color=badge_color,
-            border_width=3 if item_type == "current" else 2,
+            border_width=4 if item_type == "current" else 2,  # ← Bold για current
             corner_radius=10
         )
         card.pack(fill="x", padx=(40, 0))
@@ -2283,19 +2262,28 @@ class TaskRelationshipsView(ctk.CTkFrame):
         # REMOVE BUTTON - TOP RIGHT (inside card, prominent)
         # ═══════════════════════════════════════════════════
 
-        if is_removable and item_type != "current":
+        # ΝΕΟ: Εμφάνιση ΚΑΙ για την τρέχουσα
+        if is_removable:
             remove_container = ctk.CTkFrame(card, fg_color="transparent")
             remove_container.pack(fill="x", padx=12, pady=(10, 0))
 
             # Spacer (pushes button to right)
             ctk.CTkLabel(remove_container, text="").pack(side="left", fill="x", expand=True)
 
+            # Διαφορετικό κείμενο για current
+            if item_type == "current":
+                button_text = "✖ Αφαίρεση Τρέχουσας"
+                button_width = 165
+            else:
+                button_text = "✖ Αφαίρεση"
+                button_width = 100
+
             ctk.CTkButton(
                 remove_container,
-                text="✖ Αφαίρεση από Αλυσίδα",
+                text=button_text,
                 command=lambda t=task, it=item_type: self.remove_relationship(t, it),
-                width=160,
-                height=32,
+                width=button_width,
+                height=28,
                 fg_color=self.theme["accent_red"],
                 hover_color="#8B0000",
                 text_color="white",
@@ -2331,7 +2319,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         info_label.pack(anchor="w", padx=12, pady=(0, 5))
 
         # Description (truncated)
-        desc_text = task['description'][:80] + "..." if len(task['description']) > 80 else task['description']
+        desc_text = task['description'][: 80] + "..." if len(task['description']) > 80 else task['description']
         desc_label = ctk.CTkLabel(
             card,
             text=desc_text,
@@ -2363,26 +2351,6 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 font=theme_config.get_font("tiny"),
                 text_color=self.theme["text_disabled"]
             ).pack(side="left")
-
-        # ═══════════════════════════════════════════════════
-        # RIGHT SIDE - Remove button (outside card, clearly visible)
-        # ═══════════════════════════════════════════════════
-
-        if is_removable and item_type != "current":
-            remove_frame = ctk.CTkFrame(card_container, fg_color="transparent")
-            remove_frame.pack(side="right")
-            
-            ctk.CTkButton(
-                remove_frame,
-                text="✖\nΑφαίρεση",
-                command=lambda t=task, it=item_type: self.remove_relationship(t, it),
-                width=85,
-                height=60,
-                fg_color=self.theme["accent_red"],
-                hover_color="#8B0000",
-                text_color="white",
-                font=theme_config.get_font("small", "bold")
-            ).pack()
 
     def create_arrow(self, label_text, dashed=False):
         """Δημιουργία βέλους σύνδεσης"""
