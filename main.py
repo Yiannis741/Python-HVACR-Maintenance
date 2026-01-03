@@ -40,81 +40,24 @@ class HVACRApp(ctk.CTk):
         
         # Configure grid
         self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-        
-        # ----- ΠΑΝΩ ROW (Ομάδες Μονάδων) -----
-        self.top_frame = ctk.CTkFrame(self, height=80, corner_radius=0, fg_color=self.theme["bg_secondary"])
-        self.top_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
-        # Dynamic grid configuration will be set in create_top_bar()
-        
-        self.create_top_bar()
+        self.grid_rowconfigure(0, weight=1)
         
         # ----- ΑΡΙΣΤΕΡΗ SIDEBAR -----
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=self.theme["bg_secondary"])
-        self.sidebar.grid(row=1, column=0, sticky="nsw", padx=0, pady=0)
+        self.sidebar.grid(row=0, column=0, sticky="nsw", padx=0, pady=0)
         self.sidebar.grid_propagate(False)
         
         self.create_sidebar()
         
         # ----- ΚΕΝΤΡΙΚΗ ΠΕΡΙΟΧΗ -----
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        self.main_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
+        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(0, weight=1)
         
         # Αρχικό περιεχόμενο
         self.show_dashboard()
         
-    def create_top_bar(self):
-        """Δημιουργία της πάνω μπάρας με τις ομάδες μονάδων"""
-        
-        # Label
-        label = ctk.CTkLabel(
-            self.top_frame, 
-            text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:", 
-            font=theme_config.get_font("heading", "bold"),
-            text_color=self.theme["text_primary"]
-        )
-        label.grid(row=0, column=0, padx=20, pady=25, sticky="w")
-        
-        # Παίρνουμε τις ομάδες από τη database
-        groups = database.get_all_groups()
-        
-        # Dynamic grid column configuration
-        num_groups = len(groups)
-        for i in range(num_groups):
-            self.top_frame.grid_columnconfigure(i + 1, weight=1)
-        
-        # Dropdown για κάθε ομάδα
-        self.group_dropdowns = {}
-        
-        for idx, group in enumerate(groups):  # Εμφάνιση ΟΛΩΝ των ομάδων
-            frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
-            frame.grid(row=0, column=idx+1, padx=10, pady=15)
-            
-            group_label = ctk.CTkLabel(
-                frame, 
-                text=group['name'], 
-                font=theme_config.get_font("small", "bold"),
-                text_color=self.theme["text_primary"]
-            )
-            group_label.pack(anchor="w")
-            
-            # Παίρνουμε τις μονάδες της ομάδας
-            units = database.get_units_by_group(group['id'])
-            unit_names = [unit['name'] for unit in units] if units else ["Καμία μονάδα"]
-            
-            dropdown = ctk.CTkComboBox(
-                frame,
-                values=unit_names,
-                width=180,
-                state="readonly"
-            )
-            dropdown.pack()
-            dropdown.set(unit_names[0] if unit_names else "Καμία μονάδα")
-            
-            self.group_dropdowns[group['id']] = dropdown
-            
     def create_sidebar(self):
         """Δημιουργία της αριστερής sidebar με κουμπιά"""
         
@@ -324,7 +267,6 @@ class HVACRApp(ctk.CTk):
 
     def on_task_saved(self):
         """Callback όταν αποθηκευτεί μια εργασία"""
-        self.refresh_top_bar()
 
         # Αν είμαστε στο dashboard, κάνε μόνο reload των tasks (όχι rebuild όλου!)
         if hasattr(self, 'dashboard_tasks_frame') and self.dashboard_tasks_frame.winfo_exists():
@@ -604,7 +546,7 @@ class HVACRApp(ctk.CTk):
         )
         title.pack(pady=20)
         
-        ui_components.UnitsManagement(self.main_frame, self.refresh_top_bar)
+        ui_components.UnitsManagement(self.main_frame, lambda: None)
     
     def show_task_management(self):
         """Διαχείριση Εργασιών - Τύποι & Είδη - Phase 2.3"""
@@ -665,14 +607,6 @@ class HVACRApp(ctk.CTk):
         self.clear_main_frame()
         
         ui_components.RecycleBinView(self.main_frame, self.on_task_saved)
-        
-    def refresh_top_bar(self):
-        """Ανανέωση της πάνω μπάρας"""
-        # Καθαρισμός
-        for widget in self.top_frame.winfo_children():
-            widget.destroy()
-        # Επαναδημιουργία
-        self.create_top_bar()
         
     def load_initial_data(self):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""

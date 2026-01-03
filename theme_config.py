@@ -24,10 +24,10 @@ FONT_SIZES = {
     "title_large": 28,  # Large titles (from 24px)
     "title": 24,        # Section titles (from 20px)
     "subtitle": 18,     # Subtitles (from 16px)
-    "heading": 16,      # Headings (from 14px)
-    "body": 14,         # Body text (from 12px)
-    "small": 12,        # Small text (from 11px)
-    "tiny": 10          # Tiny text (from 9px)
+    "heading": 18,      # Headings (increased from 16px)
+    "body": 16,         # Body text (increased from 14px)
+    "small": 14,        # Small text (increased from 12px)
+    "tiny": 12          # Tiny text (increased from 10px)
 }
 
 # ==================== COLOR THEMES ====================
