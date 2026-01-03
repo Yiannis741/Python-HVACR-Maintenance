@@ -7,20 +7,24 @@ import customtkinter as ctk
 from datetime import datetime
 import database
 import ui_components
+import theme_config
 
-# Ρυθμίσεις CustomTkinter
-ctk.set_appearance_mode("light")
-ctk.set_default_color_theme("blue")
+# Εφαρμογή theme πριν τη δημιουργία του app
+theme_config.apply_theme()
 
 
 class HVACRApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
+        # Φόρτωση theme
+        self.theme = theme_config.get_current_theme()
+        
         # Ρυθμίσεις παραθύρου
         self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
         self.geometry("1400x800")
         self.minsize(1200, 700)
+        self.configure(fg_color=self.theme["bg_primary"])
         
         # Αρχικοποίηση database
         database.init_database()
@@ -39,14 +43,14 @@ class HVACRApp(ctk.CTk):
         self.grid_rowconfigure(1, weight=1)
         
         # ----- ΠΑΝΩ ROW (Ομάδες Μονάδων) -----
-        self.top_frame = ctk.CTkFrame(self, height=80, corner_radius=0)
+        self.top_frame = ctk.CTkFrame(self, height=80, corner_radius=0, fg_color=self.theme["bg_secondary"])
         self.top_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
         # Dynamic grid configuration will be set in create_top_bar()
         
         self.create_top_bar()
         
         # ----- ΑΡΙΣΤΕΡΗ SIDEBAR -----
-        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#2b2b2b")
+        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=self.theme["bg_secondary"])
         self.sidebar.grid(row=1, column=0, sticky="nsw", padx=0, pady=0)
         self.sidebar.grid_propagate(False)
         
@@ -68,7 +72,8 @@ class HVACRApp(ctk.CTk):
         label = ctk.CTkLabel(
             self.top_frame, 
             text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:", 
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=theme_config.get_font("heading", "bold"),
+            text_color=self.theme["text_primary"]
         )
         label.grid(row=0, column=0, padx=20, pady=25, sticky="w")
         
@@ -90,7 +95,8 @@ class HVACRApp(ctk.CTk):
             group_label = ctk.CTkLabel(
                 frame, 
                 text=group['name'], 
-                font=ctk.CTkFont(size=11, weight="bold")
+                font=theme_config.get_font("small", "bold"),
+                text_color=self.theme["text_primary"]
             )
             group_label.pack(anchor="w")
             
@@ -116,26 +122,27 @@ class HVACRApp(ctk.CTk):
         title_label = ctk.CTkLabel(
             self.sidebar,
             text="HVACR\nMAINTENANCE\nv2.0",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color="#1f6aa5"
+            font=theme_config.get_font("subtitle", "bold"),
+            text_color=self.theme["accent_blue"]
         )
         title_label.pack(pady=(20, 30))
         
-        # Κουμπιά
+        # Κουμπιά με style types
         buttons_config = [
-            ("🏠 Αρχική", self. show_dashboard, "#1f6aa5"),
-            ("➕ Νέα Εργασία", self.show_new_task, "#2fa572"),
-            ("📋 Συνολικό Ιστορικό", self.show_history, "#1f6aa5"),
-            ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "#1f6aa5"),
-            ("⚙️ Διαχείριση Μονάδων", self.show_units_management, "#1f6aa5"),
-            ("📅 Πρόγραμμα Βαρδιών", self.show_shifts, "#1f6aa5"),
-            ("📤 Εξαγωγή", self.show_export, "#1f6aa5"),
-            ("🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "#c94242"),
+            ("🏠 Αρχική", self.show_dashboard, "primary"),
+            ("➕ Νέα Εργασία", self.show_new_task, "success"),
+            ("📋 Συνολικό Ιστορικό", self.show_history, "primary"),
+            ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "primary"),
+            ("⚙️ Διαχείριση Μονάδων", self.show_units_management, "primary"),
+            ("📅 Πρόγραμμα Βαρδιών", self.show_shifts, "primary"),
+            ("📤 Εξαγωγή", self.show_export, "primary"),
+            ("🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "danger"),
         ]
         
         self.sidebar_buttons = {}
         
-        for btn_text, command, color in buttons_config: 
+        for btn_text, command, style_type in buttons_config: 
+            style = theme_config.get_button_style(style_type)
             btn = ctk.CTkButton(
                 self.sidebar,
                 text=btn_text,
@@ -143,25 +150,20 @@ class HVACRApp(ctk.CTk):
                 width=200,
                 height=45,
                 corner_radius=10,
-                font=ctk.CTkFont(size=14, weight="bold"),
-                fg_color=color,
-                hover_color=self.adjust_color(color, -20)
+                font=theme_config.get_font("body", "bold"),
+                fg_color=style["fg_color"],
+                hover_color=style["hover_color"]
             )
             btn.pack(pady=8, padx=10)
             self.sidebar_buttons[btn_text] = btn
             
     def adjust_color(self, hex_color, adjustment):
         """Προσαρμογή χρώματος για hover effect"""
-        hex_color = hex_color.lstrip('#')
-        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-        r = max(0, min(255, r + adjustment))
-        g = max(0, min(255, g + adjustment))
-        b = max(0, min(255, b + adjustment))
-        return f'#{r:02x}{g: 02x}{b:02x}'
+        return theme_config.adjust_color(hex_color, adjustment)
         
     def clear_main_frame(self):
         """Καθαρισμός της κεντρικής περιοχής"""
-        for widget in self.main_frame. winfo_children():
+        for widget in self.main_frame.winfo_children():
             widget.destroy()
             
     # ----- VIEWS -----
@@ -174,14 +176,16 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             self.main_frame,
             text="🏥 Καλώς ήρθατε στο Σύστημα HVACR Maintenance",
-            font=ctk.CTkFont(size=28, weight="bold")
+            font=theme_config.get_font("title_large", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=(40, 20))
         
         subtitle = ctk.CTkLabel(
             self.main_frame,
-            text=f"Σήμερα:  {datetime.now().strftime('%d/%m/%Y')} | Phase 2 - Ενημερωμένη Έκδοση",
-            font=ctk.CTkFont(size=16)
+            text=f"Σήμερα: {datetime.now().strftime('%d/%m/%Y')} | Phase 2 - Ενημερωμένη Έκδοση",
+            font=theme_config.get_font("heading"),
+            text_color=self.theme["text_secondary"]
         )
         subtitle.pack(pady=10)
         
@@ -201,7 +205,8 @@ class HVACRApp(ctk.CTk):
         recent_label = ctk.CTkLabel(
             self.main_frame,
             text="📌 Πρόσφατες Εργασίες (Κλικ για επεξεργασία)",
-            font=ctk.CTkFont(size=20, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         recent_label.pack(pady=(40, 20))
         
@@ -209,21 +214,28 @@ class HVACRApp(ctk.CTk):
         
     def create_stat_card(self, parent, title, value, column):
         """Δημιουργία καρτέλας στατιστικού"""
-        card = ctk.CTkFrame(parent, corner_radius=15)
+        card = ctk.CTkFrame(
+            parent, 
+            corner_radius=15,
+            fg_color=self.theme["card_bg"],
+            border_color=self.theme["card_border"],
+            border_width=1
+        )
         card.grid(row=0, column=column, padx=15, pady=20, sticky="ew")
         
         value_label = ctk.CTkLabel(
             card,
             text=str(value),
-            font=ctk.CTkFont(size=48, weight="bold"),
-            text_color="#1f6aa5"
+            font=theme_config.get_font("stat_value", "bold"),
+            text_color=self.theme["accent_blue"]
         )
         value_label.pack(pady=(20, 5))
         
         title_label = ctk.CTkLabel(
             card,
             text=title,
-            font=ctk.CTkFont(size=14)
+            font=theme_config.get_font("body"),
+            text_color=self.theme["text_secondary"]
         )
         title_label.pack(pady=(5, 20))
         
@@ -242,7 +254,7 @@ class HVACRApp(ctk.CTk):
             
         # Scrollable frame
         scrollable = ctk.CTkScrollableFrame(self.main_frame, height=250)
-        scrollable. pack(fill="both", expand=True, padx=40, pady=10)
+        scrollable.pack(fill="both", expand=True, padx=40, pady=10)
         
         for task in tasks:
             task_card = ui_components.TaskCard(scrollable, task, on_click=self.on_task_click_from_dashboard)
@@ -259,7 +271,8 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             self.main_frame,
             text="➕ Νέα Εργασία",
-            font=ctk. CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
@@ -278,10 +291,11 @@ class HVACRApp(ctk.CTk):
         """Εμφάνιση ιστορικού εργασιών με φίλτρα"""
         self.clear_main_frame()
         
-        title = ctk. CTkLabel(
-            self. main_frame,
+        title = ctk.CTkLabel(
+            self.main_frame,
             text="📋 Συνολικό Ιστορικό Εργασιών",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
@@ -292,10 +306,11 @@ class HVACRApp(ctk.CTk):
         """Επεξεργασία εγγραφής - Εμφάνιση λίστας εργασιών"""
         self.clear_main_frame()
         
-        title = ctk. CTkLabel(
-            self. main_frame,
+        title = ctk.CTkLabel(
+            self.main_frame,
             text="✏️ Επεξεργασία Εγγραφής - Επιλέξτε Εργασία",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
@@ -304,12 +319,13 @@ class HVACRApp(ctk.CTk):
     
     def show_task_edit(self, task):
         """Εμφάνιση φόρμας επεξεργασίας εργασίας"""
-        self. clear_main_frame()
+        self.clear_main_frame()
         
         title = ctk.CTkLabel(
             self.main_frame,
             text=f"✏️ Επεξεργασία Εργασίας #{task['id']}",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
@@ -330,7 +346,8 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             header_frame,
             text=f"📋 Λεπτομέρειες Εργασίας #{task['id']}",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(side="left")
         
@@ -343,7 +360,7 @@ class HVACRApp(ctk.CTk):
             text="✏️ Επεξεργασία",
             command=lambda: self.show_task_edit(task),
             width=140,
-            fg_color="#1f6aa5"
+            **theme_config.get_button_style("primary")
         )
         edit_btn.pack(side="left", padx=5)
         
@@ -352,7 +369,7 @@ class HVACRApp(ctk.CTk):
             text="🔗 Συνδέσεις",
             command=lambda: self.show_task_relationships(task),
             width=140,
-            fg_color="#9c27b0"
+            **theme_config.get_button_style("special")
         )
         relations_btn.pack(side="left", padx=5)
         
@@ -361,7 +378,7 @@ class HVACRApp(ctk.CTk):
             text="↩️ Πίσω",
             command=self.show_dashboard,
             width=100,
-            fg_color="#666"
+            **theme_config.get_button_style("secondary")
         )
         back_btn.pack(side="left", padx=5)
         
@@ -378,11 +395,11 @@ class HVACRApp(ctk.CTk):
             ("📍 Μονάδα:", f"{task['unit_name']} ({task['group_name']})"),
             ("📝 Περιγραφή:", task['description']),
             ("📊 Κατάσταση:", "✅ Ολοκληρωμένη" if task['status'] == 'completed' else "⏳ Εκκρεμής"),
-            ("⚠️ Προτεραιότητα:", task. get('priority', 'medium').upper()),
+            ("⚠️ Προτεραιότητα:", task.get('priority', 'medium').upper()),
             ("📅 Ημερομηνία Δημιουργίας:", task['created_date']),
-            ("✔️ Ημερομηνία Ολοκλήρωσης:", task. get('completed_date', 'N/A')),
-            ("👤 Τεχνικός:", task. get('technician_name', 'N/A')),
-            ("📝 Σημειώσεις:", task. get('notes', 'Καμία')),
+            ("✔️ Ημερομηνία Ολοκλήρωσης:", task.get('completed_date', 'N/A')),
+            ("👤 Τεχνικός:", task.get('technician_name', 'N/A')),
+            ("📝 Σημειώσεις:", task.get('notes', 'Καμία')),
         ]
         
         for label, value in details:
@@ -392,7 +409,8 @@ class HVACRApp(ctk.CTk):
             label_widget = ctk.CTkLabel(
                 row_frame,
                 text=label,
-                font=ctk.CTkFont(size=13, weight="bold"),
+                font=theme_config.get_font("body", "bold"),
+                text_color=self.theme["text_primary"],
                 anchor="w",
                 width=250
             )
@@ -401,7 +419,8 @@ class HVACRApp(ctk.CTk):
             value_widget = ctk.CTkLabel(
                 row_frame,
                 text=str(value),
-                font=ctk.CTkFont(size=13),
+                font=theme_config.get_font("body"),
+                text_color=self.theme["text_secondary"],
                 anchor="w",
                 wraplength=500
             )
@@ -443,7 +462,8 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             self.main_frame,
             text="⚙️ Διαχείριση Μονάδων & Εργασιών",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
@@ -456,14 +476,16 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             self.main_frame,
             text="📅 Πρόγραμμα Βαρδιών",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
         label = ctk.CTkLabel(
             self.main_frame,
             text="Εδώ θα εμφανίζεται το μηνιαίο πρόγραμμα βαρδιών\n(Υλοποιείται στην επόμενη φάση)",
-            font=ctk.CTkFont(size=14)
+            font=theme_config.get_font("body"),
+            text_color=self.theme["text_secondary"]
         )
         label.pack(pady=50)
         
@@ -474,14 +496,16 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             self.main_frame,
             text="📤 Εξαγωγή Δεδομένων",
-            font=ctk. CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
         label = ctk.CTkLabel(
             self.main_frame,
             text="Εδώ θα μπορείτε να εξάγετε αναφορές σε PDF/Excel\n(Υλοποιείται στην επόμενη φάση)",
-            font=ctk.CTkFont(size=14)
+            font=theme_config.get_font("body"),
+            text_color=self.theme["text_secondary"]
         )
         label.pack(pady=50)
         
@@ -497,7 +521,7 @@ class HVACRApp(ctk.CTk):
         for widget in self.top_frame.winfo_children():
             widget.destroy()
         # Επαναδημιουργία
-        self. create_top_bar()
+        self.create_top_bar()
         
     def load_initial_data(self):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""
