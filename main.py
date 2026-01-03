@@ -74,7 +74,7 @@ class HVACRApp(ctk.CTk):
         buttons_config = [
             ("🏠 Αρχική", self.show_dashboard, "primary"),
             ("➕ Νέα Εργασία", self.show_new_task, "success"),
-            ("📋 Συνολικό Ιστορικό", self.show_history, "primary"),
+            ("📋 Ιστορικό", self.show_history, "primary"),
             ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "primary"),
             ("🏢 Διαχείριση Μονάδων", self.show_units_management, "primary"),
             ("📋 Διαχείριση Εργασιών", self.show_task_management, "primary"),
@@ -275,19 +275,245 @@ class HVACRApp(ctk.CTk):
             self.show_dashboard()  # Full reload μόνο αν δεν είμαστε στο dashboard
         
     def show_history(self):
-        """Εμφάνιση ιστορικού εργασιών με φίλτρα"""
+        """Εμφάνιση ιστορικού εργασιών με φίλτρα ανά μονάδα"""
         self.clear_main_frame()
         
-        title = ctk.CTkLabel(
+        # ══════════════════════════════════════════════════
+        # TITLE IN STYLED BOX
+        # ══════════════════════════════════════════════════
+        title_frame = ctk.CTkFrame(
             self.main_frame,
-            text="📋 Συνολικό Ιστορικό Εργασιών",
-            font=theme_config.get_font("title", "bold"),
-            text_color=self.theme["text_primary"]
+            corner_radius=12,
+            fg_color=self.theme["bg_secondary"],
+            border_color=self.theme["accent_blue"],
+            border_width=2,
+            height=60
         )
-        title.pack(pady=20)
+        title_frame.pack(fill="x", padx=40, pady=(20, 10))
+        title_frame.pack_propagate(False)
         
-        # History view με φίλτρα
-        ui_components.TaskHistoryView(self.main_frame, on_task_select=self.show_task_detail)
+        title = ctk.CTkLabel(
+            title_frame,
+            text="📋 Ιστορικό Εργασιών",
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["accent_blue"]
+        )
+        title.pack(expand=True)
+        
+        # ══════════════════════════════════════════════════
+        # UNIT DROPDOWNS ROW (Groups → Units)
+        # ══════════════════════════════════════════════════
+        units_filter_frame = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.theme["bg_secondary"],
+            corner_radius=10,
+            height=70
+        )
+        units_filter_frame.pack(fill="x", padx=40, pady=(0, 10))
+        units_filter_frame.pack_propagate(False)
+        
+        # Content container
+        units_content = ctk.CTkFrame(units_filter_frame, fg_color="transparent")
+        units_content.pack(fill="x", padx=20, pady=15)
+        
+        # Label
+        ctk.CTkLabel(
+            units_content,
+            text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(0, 15))
+        
+        # "Όλες" button
+        self.all_units_btn = ctk.CTkButton(
+            units_content,
+            text="Όλες",
+            command=lambda: self.filter_by_unit(None),
+            width=100,
+            height=35,
+            **theme_config.get_button_style("primary")
+        )
+        self.all_units_btn.pack(side="left", padx=5)
+        
+        # Get groups and create dropdowns
+        groups = database.get_all_groups()
+        self.unit_filter_buttons = {}
+        
+        for group in groups:
+            units = database.get_units_by_group(group['id'])
+            
+            if units:
+                # Create dropdown per group
+                unit_names = [u['name'] for u in units]
+                unit_ids = {u['name']: u['id'] for u in units}
+                
+                # Helper to safely get unit ID
+                def make_unit_filter(uid_map):
+                    def handler(selected):
+                        unit_id = uid_map.get(selected)
+                        if unit_id is not None:
+                            self.filter_by_unit(unit_id)
+                    return handler
+                
+                dropdown = ctk.CTkComboBox(
+                    units_content,
+                    values=unit_names,
+                    width=180,
+                    height=35,
+                    state="readonly",
+                    command=make_unit_filter(unit_ids)
+                )
+                dropdown.set(group['name'])
+                dropdown.pack(side="left", padx=5)
+                
+                self.unit_filter_buttons[group['id']] = dropdown
+        
+        # ══════════════════════════════════════════════════
+        # COMPACT SEARCH ROW (NO "Μονάδα" field)
+        # ══════════════════════════════════════════════════
+        search_frame = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.theme["card_bg"],
+            corner_radius=10,
+            height=55
+        )
+        search_frame.pack(fill="x", padx=40, pady=(0, 10))
+        search_frame.pack_propagate(False)
+        
+        search_content = ctk.CTkFrame(search_frame, fg_color="transparent")
+        search_content.pack(fill="x", padx=15, pady=10)
+        
+        # Search
+        ctk.CTkLabel(
+            search_content,
+            text="🔍 Αναζήτηση:",
+            font=theme_config.get_font("small", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(0, 5))
+        
+        self.history_search_entry = ctk.CTkEntry(
+            search_content,
+            width=220,
+            height=32,
+            placeholder_text="Περιγραφή, σημειώσεις..."
+        )
+        self.history_search_entry.pack(side="left", padx=5)
+        self.history_search_entry.bind("<KeyRelease>", lambda e: self.apply_history_filters())
+        
+        # Status
+        ctk.CTkLabel(
+            search_content,
+            text="Κατάσταση:",
+            font=theme_config.get_font("small", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(15, 5))
+        
+        self.history_status_combo = ctk.CTkComboBox(
+            search_content,
+            values=["Όλες", "Εκκρεμείς", "Ολοκληρωμένες"],
+            width=150,
+            height=32,
+            state="readonly",
+            command=lambda e: self.apply_history_filters()
+        )
+        self.history_status_combo.set("Όλες")
+        self.history_status_combo.pack(side="left", padx=5)
+        
+        # Task Type
+        ctk.CTkLabel(
+            search_content,
+            text="Είδος:",
+            font=theme_config.get_font("small", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(15, 5))
+        
+        task_types = database.get_all_task_types()
+        type_names = ["Όλα"] + [tt['name'] for tt in task_types]
+        self.history_types_dict = {tt['name']: tt['id'] for tt in task_types}
+        
+        self.history_type_combo = ctk.CTkComboBox(
+            search_content,
+            values=type_names,
+            width=150,
+            height=32,
+            state="readonly",
+            command=lambda e: self.apply_history_filters()
+        )
+        self.history_type_combo.set("Όλα")
+        self.history_type_combo.pack(side="left", padx=5)
+        
+        # ══════════════════════════════════════════════════
+        # TASKS DISPLAY AREA
+        # ══════════════════════════════════════════════════
+        self.history_tasks_frame = ctk.CTkScrollableFrame(
+            self.main_frame,
+            fg_color="transparent"
+        )
+        self.history_tasks_frame.pack(fill="both", expand=True, padx=40, pady=10)
+        
+        # Initial load - Show ALL tasks
+        self.current_unit_filter = None
+        self.load_history_tasks()
+    
+    def filter_by_unit(self, unit_id):
+        """Filter tasks by selected unit"""
+        self.current_unit_filter = unit_id
+        self.load_history_tasks()
+
+    def apply_history_filters(self):
+        """Apply search filters to history view"""
+        self.load_history_tasks()
+
+    def load_history_tasks(self):
+        """Load and display filtered tasks"""
+        
+        # Clear existing
+        for widget in self.history_tasks_frame.winfo_children():
+            widget.destroy()
+        
+        # Get filter values (hasattr checks ensure we don't crash if called before UI init)
+        search_text = self.history_search_entry.get().strip() or None if hasattr(self, 'history_search_entry') else None
+        
+        status_map = {"Όλες": None, "Εκκρεμείς": "pending", "Ολοκληρωμένες": "completed"}
+        status = status_map.get(self.history_status_combo.get()) if hasattr(self, 'history_status_combo') else None
+        
+        type_key = self.history_type_combo.get() if hasattr(self, 'history_type_combo') else "Όλα"
+        task_type_id = self.history_types_dict.get(type_key) if type_key != "Όλα" else None
+        
+        # Apply filters
+        filtered_tasks = database.filter_tasks(
+            status=status,
+            unit_id=self.current_unit_filter,
+            task_type_id=task_type_id,
+            search_text=search_text
+        )
+        
+        if not filtered_tasks:
+            ctk.CTkLabel(
+                self.history_tasks_frame,
+                text="Δεν βρέθηκαν εργασίες με τα επιλεγμένα κριτήρια",
+                font=theme_config.get_font("body"),
+                text_color=self.theme["text_secondary"]
+            ).pack(pady=50)
+            return
+        
+        # Count label
+        count_label = ctk.CTkLabel(
+            self.history_tasks_frame,
+            text=f"📊 Βρέθηκαν {len(filtered_tasks)} εργασίες",
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["accent_blue"]
+        )
+        count_label.pack(anchor="w", padx=10, pady=10)
+        
+        # Display tasks
+        for task in filtered_tasks:
+            card = ui_components.TaskCard(
+                self.history_tasks_frame,
+                task,
+                on_click=self.show_task_detail
+            )
+            card.pack(fill="x", pady=3, padx=5)
         
     def show_edit(self):
         """Επεξεργασία εγγραφής - Εμφάνιση λίστας εργασιών"""
