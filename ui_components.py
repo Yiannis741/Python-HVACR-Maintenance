@@ -149,7 +149,7 @@ class TaskForm(ctk.CTkFrame):
             self.group_combo.set(list(self.groups_dict.keys())[0])
         
         # 2. Μονάδα (φιλτραρισμένη από ομάδα)
-        ctk.CTkLabel(scrollable, text="Μονάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Μονάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.units_dict = {}  # Will be populated by on_group_change
         self.unit_combo = ctk.CTkComboBox(
