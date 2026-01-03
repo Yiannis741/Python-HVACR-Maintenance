@@ -168,11 +168,11 @@ class HVACRApp(ctk.CTk):
             widget.destroy()
             
     # ----- VIEWS -----
-    
+
     def show_dashboard(self):
         """Εμφάνιση της αρχικής οθόνης"""
         self.clear_main_frame()
-        
+
         # Τίτλος
         title = ctk.CTkLabel(
             self.main_frame,
@@ -181,7 +181,7 @@ class HVACRApp(ctk.CTk):
             text_color=self.theme["text_primary"]
         )
         title.pack(pady=(40, 20))
-        
+
         subtitle = ctk.CTkLabel(
             self.main_frame,
             text=f"Σήμερα: {datetime.now().strftime('%d/%m/%Y')} | Phase 2 - Ενημερωμένη Έκδοση",
@@ -189,19 +189,22 @@ class HVACRApp(ctk.CTk):
             text_color=self.theme["text_secondary"]
         )
         subtitle.pack(pady=10)
-        
-        # Stats Frame
-        stats_frame = ctk.CTkFrame(self.main_frame)
-        stats_frame.pack(pady=40, padx=40, fill="x")
+
+        # Stats Frame (με frame για να μην rebuild)
+        stats_container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        stats_container.pack(pady=40, padx=40, fill="x")
+
+        stats_frame = ctk.CTkFrame(stats_container, fg_color="transparent")
+        stats_frame.pack(fill="x")
         stats_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        
+
         # Στατιστικά
         stats = database.get_dashboard_stats()
-        
+
         self.create_stat_card(stats_frame, "Σύνολο Μονάδων", stats['total_units'], 0)
         self.create_stat_card(stats_frame, "Εκκρεμείς Εργασίες", stats['pending_tasks'], 1)
         self.create_stat_card(stats_frame, "Εργασίες Σήμερα", stats['today_tasks'], 2)
-        
+
         # Πρόσφατες εργασίες
         recent_label = ctk.CTkLabel(
             self.main_frame,
@@ -210,8 +213,44 @@ class HVACRApp(ctk.CTk):
             text_color=self.theme["text_primary"]
         )
         recent_label.pack(pady=(40, 20))
-        
-        self.show_recent_tasks()
+
+        # Scrollable frame για tasks (ΝΕΟ - με fixed height)
+        self.dashboard_tasks_frame = ctk.CTkScrollableFrame(
+            self.main_frame,
+            height=400,  # Fixed height να μην αλλάζει
+            fg_color="transparent"
+        )
+        self.dashboard_tasks_frame.pack(fill="both", expand=True, padx=40, pady=10)
+
+        self.load_dashboard_tasks()
+
+    def load_dashboard_tasks(self):
+        """Φόρτωση tasks για το dashboard - Separated για performance"""
+
+        # Clear existing tasks only
+        if hasattr(self, 'dashboard_tasks_frame'):
+            for widget in self.dashboard_tasks_frame.winfo_children():
+                widget.destroy()
+
+        tasks = database.get_recent_tasks(10)  # Αύξησε από 5 σε 10 (επειδή είναι compact)
+
+        if not tasks:
+            no_tasks = ctk.CTkLabel(
+                self.dashboard_tasks_frame,
+                text="Δεν υπάρχουν πρόσφατες εργασίες",
+                font=theme_config.get_font("body"),
+                text_color=self.theme["text_secondary"]
+            )
+            no_tasks.pack(pady=20)
+            return
+
+        for task in tasks:
+            task_card = ui_components.TaskCard(
+                self.dashboard_tasks_frame,
+                task,
+                on_click=self.on_task_click_from_dashboard
+            )
+            task_card.pack(fill="x", pady=3, padx=5)
         
     def create_stat_card(self, parent, title, value, column):
         """Δημιουργία καρτέλας στατιστικού"""
@@ -282,11 +321,16 @@ class HVACRApp(ctk.CTk):
         form_frame.pack(pady=20, padx=100, fill="both", expand=True)
         
         ui_components.TaskForm(form_frame, self.on_task_saved)
-        
+
     def on_task_saved(self):
         """Callback όταν αποθηκευτεί μια εργασία"""
         self.refresh_top_bar()
-        self.show_dashboard()
+
+        # Αν είμαστε στο dashboard, κάνε μόνο reload των tasks (όχι rebuild όλου!)
+        if hasattr(self, 'dashboard_tasks_frame') and self.dashboard_tasks_frame.winfo_exists():
+            self.load_dashboard_tasks()  # Μόνο τα tasks, όχι όλο το dashboard
+        else:
+            self.show_dashboard()  # Full reload μόνο αν δεν είμαστε στο dashboard
         
     def show_history(self):
         """Εμφάνιση ιστορικού εργασιών με φίλτρα"""

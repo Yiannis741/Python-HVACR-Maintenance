@@ -1852,71 +1852,76 @@ class RecycleBinView(ctk.CTkFrame):
         # Tasks List
         self.tasks_frame = ctk.CTkScrollableFrame(self)
         self.tasks_frame.pack(fill="both", expand=True)
-        
+
     def load_deleted_tasks(self):
         """Φόρτωση διαγραμμένων εργασιών"""
-        
+
         # Clear existing
-        for widget in self.tasks_frame. winfo_children():
+        for widget in self.tasks_frame.winfo_children():
             widget.destroy()
-        
+
         tasks = database.get_deleted_tasks()
-        
+
         if not tasks:
             no_tasks = ctk.CTkLabel(
                 self.tasks_frame,
-                text="Ο Κάδος Ανακύκλωσης είναι άδειος",
-                font=theme_config.get_font("body")
+                text="🎉 Ο Κάδος Ανακύκλωσης είναι άδειος",
+                font=theme_config.get_font("body"),
+                text_color=theme_config.get_current_theme()["text_secondary"]
             )
             no_tasks.pack(pady=50)
             return
-        
-        # Task cards with action buttons
-        for task in tasks: 
+
+        # Count label
+        theme = theme_config.get_current_theme()
+        count_label = ctk.CTkLabel(
+            self.tasks_frame,
+            text=f"🗑️ {len(tasks)} διαγραμμένες εργασίες",
+            font=theme_config.get_font("body", "bold"),
+            text_color=theme["accent_red"]
+        )
+        count_label.pack(anchor="w", padx=10, pady=10)
+
+        # Task cards με action buttons
+        for task in tasks:
+            # Container για card + buttons
             container = ctk.CTkFrame(self.tasks_frame, fg_color="transparent")
-            container. pack(fill="x", pady=5, padx=10)
-            
-            # Task info
-            info_frame = ctk.CTkFrame(container, corner_radius=10, fg_color="#ffe0e0")
-            info_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-            
-            # Title
-            title_label = ctk.CTkLabel(
-                info_frame,
-                text=f"🔧 {task['task_type_name']}:  {task['description'][:50]}...",
-                font=theme_config.get_font("small", "bold"),
-                anchor="w"
+            container.pack(fill="x", pady=5, padx=10)
+
+            # Task card (αριστερά) - χρήση της compact TaskCard!
+            card_container = ctk.CTkFrame(container, fg_color="transparent")
+            card_container.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+            # Create TaskCard με red border για "deleted" look
+            task_card = TaskCard(card_container, task, on_click=None)  # No click για deleted
+            task_card.pack(fill="x")
+
+            # Override border color to red για deleted indicator
+            task_card.configure(
+                border_color=theme["accent_red"],
+                border_width=2
             )
-            title_label.pack(anchor="w", padx=15, pady=(10, 5))
-            
-            # Details
-            details_label = ctk.CTkLabel(
-                info_frame,
-                text=f"📍 {task['unit_name']} | 📅 {task['created_date']}",
-                font=theme_config.get_font("tiny"),
-                text_color="gray",
-                anchor="w"
-            )
-            details_label.pack(anchor="w", padx=15, pady=(0, 10))
-            
-            # Action buttons
+
+            # Action buttons (δεξιά)
             actions_frame = ctk.CTkFrame(container, fg_color="transparent")
-            actions_frame. pack(side="right")
-            
+            actions_frame.pack(side="right")
+
             restore_btn = ctk.CTkButton(
                 actions_frame,
                 text="↩️ Επαναφορά",
                 command=lambda t=task: self.restore_task(t['id']),
                 width=120,
+                height=32,
                 **theme_config.get_button_style("success")
             )
             restore_btn.pack(pady=2)
-            
+
             delete_btn = ctk.CTkButton(
                 actions_frame,
-                text="🗑️ Διαγραφή",
-                command=lambda t=task:  self.permanent_delete_task(t['id']),
+                text="🗑️ Οριστική Διαγραφή",
+                command=lambda t=task: self.permanent_delete_task(t['id']),
                 width=120,
+                height=32,
                 **theme_config.get_button_style("danger")
             )
             delete_btn.pack(pady=2)
