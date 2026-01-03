@@ -13,6 +13,7 @@ class TaskCard(ctk.CTkFrame):
     """Καρτέλα εργασίας για προβολή"""
     
     def __init__(self, parent, task_data, on_click=None):
+        self.theme = theme_config.get_current_theme()
         theme = theme_config.get_current_theme()
         super().__init__(
             parent, 
@@ -769,31 +770,32 @@ class UnitsManagement(ctk.CTkFrame):
 # ----- PHASE 2.3: NEW TASK MANAGEMENT COMPONENT -----
 
 class TaskManagement(ctk.CTkFrame):
-    """Διαχείριση Τύπων και Ειδών Εργασιών - Phase 2.3"""
-    
+    """Διαχείριση Τύπων και Ειδών Εργασιών - Phase 2. 3"""
+
     def __init__(self, parent):
         super().__init__(parent, fg_color="transparent")
-        
+
+        self.theme = theme_config.get_current_theme()
         self.pack(fill="both", expand=True, padx=20, pady=20)
-        
+
         self.create_ui()
-        
+
     def create_ui(self):
         """Δημιουργία UI"""
-        
+
         # Tabs
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(fill="both", expand=True)
-        
+
         self.tab1 = self.tabview.add("Τύποι Εργασιών")
         self.tab2 = self.tabview.add("Είδη Εργασιών")
-        
+
         # Tab Τύποι Εργασιών
         self.create_task_types_tab(self.tab1)
-        
+
         # Tab Είδη Εργασιών
         self.create_task_items_tab(self.tab2)
-    
+
     def refresh_ui(self):
         """Ανανέωση του UI"""
         # Clear and recreate tabs
@@ -807,19 +809,22 @@ class TaskManagement(ctk.CTkFrame):
         for widget in parent.winfo_children():
             widget.destroy()
 
-        theme = theme_config.get_current_theme()
-
         # Info label
-        info_frame = ctk.CTkFrame(parent, fg_color=theme["card_bg"], corner_radius=10,
-                                  border_color=theme["accent_blue"], border_width=1)
+        info_frame = ctk.CTkFrame(
+            parent,
+            fg_color=self.theme["card_bg"],
+            corner_radius=10,
+            border_color=self.theme["accent_blue"],
+            border_width=1
+        )
         info_frame.pack(fill="x", pady=10, padx=10)
 
         info_label = ctk.CTkLabel(
             info_frame,
-            text="ℹ️ Οι προκαθορισμένοι τύποι (Service, Βλάβη, Επισκευή, Απλός Έλεγχος) προστατεύονται και δεν μπορούν να διαγραφούν. Μπορείτε να προσθέσετε δικούς σας custom τύπους.",
+            text="ℹ️ Οι προκαθορισμένοι τύποι (Service, Βλάβη, Επισκευή, Απλός Έλεγχος) προστατεύονται και δεν μπορούν να διαγραφούν.  Μπορείτε να προσθέσετε δικούς σας custom τύπους.",
             font=theme_config.get_font("small"),
             wraplength=800,
-            text_color=theme["accent_blue"]
+            text_color=self.theme["accent_blue"]
         )
         info_label.pack(padx=15, pady=10)
 
@@ -850,15 +855,15 @@ class TaskManagement(ctk.CTkFrame):
                 scrollable,
                 text="📌 Προκαθορισμένοι Τύποι",
                 font=theme_config.get_font("body", "bold"),
-                text_color=theme["accent_blue"]
+                text_color=self.theme["accent_blue"]
             ).pack(anchor="w", padx=10, pady=(10, 5))
 
             for task_type in predefined_types:
                 type_frame = ctk.CTkFrame(
                     scrollable,
                     corner_radius=10,
-                    fg_color=theme["card_bg"],
-                    border_color=theme["accent_blue"],
+                    fg_color=self.theme["card_bg"],
+                    border_color=self.theme["accent_blue"],
                     border_width=2
                 )
                 type_frame.pack(fill="x", pady=5, padx=10)
@@ -871,7 +876,7 @@ class TaskManagement(ctk.CTkFrame):
                     type_frame,
                     text=info_text,
                     font=theme_config.get_font("small"),
-                    text_color=theme["text_primary"]
+                    text_color=self.theme["text_primary"]
                 )
                 label.pack(side="left", padx=15, pady=10)
 
@@ -881,15 +886,15 @@ class TaskManagement(ctk.CTkFrame):
                 scrollable,
                 text="⚙️ Custom Τύποι",
                 font=theme_config.get_font("body", "bold"),
-                text_color=theme["accent_green"]
+                text_color=self.theme["accent_green"]
             ).pack(anchor="w", padx=10, pady=(20, 5))
 
             for task_type in custom_types:
                 type_frame = ctk.CTkFrame(
                     scrollable,
                     corner_radius=10,
-                    fg_color=theme["card_bg"],
-                    border_color=theme["card_border"],
+                    fg_color=self.theme["card_bg"],
+                    border_color=self.theme["card_border"],
                     border_width=1
                 )
                 type_frame.pack(fill="x", pady=5, padx=10)
@@ -902,7 +907,7 @@ class TaskManagement(ctk.CTkFrame):
                     type_frame,
                     text=info_text,
                     font=theme_config.get_font("small"),
-                    text_color=theme["text_primary"]
+                    text_color=self.theme["text_primary"]
                 )
                 label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
 
@@ -922,35 +927,37 @@ class TaskManagement(ctk.CTkFrame):
                 scrollable,
                 text="Δεν υπάρχουν custom τύποι.  Προσθέστε έναν! ",
                 font=theme_config.get_font("small"),
-                text_color=theme["text_secondary"]
+                text_color=self.theme["text_secondary"]
             ).pack(pady=20)
-    
+
     def add_task_type_dialog(self):
         """Dialog για προσθήκη custom τύπου εργασίας"""
-        
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Προσθήκη Custom Τύπου Εργασίας")
         dialog.geometry("500x350")
         dialog.grab_set()
-        
+
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Τύπου:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Τύπου:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                                   pady=(20, 5))
         name_entry = ctk.CTkEntry(dialog, width=450)
         name_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Περιγραφή
-        ctk.CTkLabel(dialog, text="Περιγραφή:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Περιγραφή:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                                 pady=(10, 5))
         desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
         desc_text.pack(padx=20, pady=(0, 20))
-        
+
         def save():
             name = name_entry.get().strip()
             if not name:
                 messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
-            
+
             desc = desc_text.get("1.0", "end-1c").strip()
-            
+
             result = database.add_task_type(name, desc)
             if result:
                 messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας προστέθηκε με επιτυχία!")
@@ -958,59 +965,68 @@ class TaskManagement(ctk.CTkFrame):
                 self.refresh_ui()
             else:
                 messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
-        
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
-    
+
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
+                      height=40).pack(pady=10)
+
     def delete_task_type(self, task_type):
         """Διαγραφή custom τύπου εργασίας"""
-        
+
         result = messagebox.askyesno(
             "Επιβεβαίωση Διαγραφής",
             f"Είστε σίγουροι ότι θέλετε να διαγράψετε τον τύπο '{task_type['name']}';"
         )
-        
+
         if result:
             delete_result = database.delete_task_type(task_type['id'])
-            
-            if delete_result['success']:
+
+            if delete_result:
                 messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
                 self.refresh_ui()
             else:
-                messagebox.showerror("Σφάλμα", delete_result['error'])
-    
+                messagebox.showerror("Σφάλμα",
+                                     "Ο τύπος δεν μπορεί να διαγραφεί (είτε είναι προκαθορισμένος, είτε χρησιμοποιείται σε εργασίες).")
+
     def create_task_items_tab(self, parent):
         """Tab για διαχείριση ειδών εργασιών - Phase 2.3"""
-        
+
         # Clear existing widgets
         for widget in parent.winfo_children():
             widget.destroy()
-        
+
         # Info label
-        info_frame = ctk.CTkFrame(parent, fg_color="#e8f5e9", corner_radius=10)
+        info_frame = ctk.CTkFrame(
+            parent,
+            fg_color=self.theme["card_bg"],
+            corner_radius=10,
+            border_color=self.theme["accent_green"],
+            border_width=1
+        )
         info_frame.pack(fill="x", pady=10, padx=10)
-        
+
         info_label = ctk.CTkLabel(
             info_frame,
-            text="ℹ️ Τα είδη εργασιών είναι υποκατηγορίες των τύπων. Επιλέξτε έναν τύπο για να δείτε τα είδη του.",
-            font=ctk.CTkFont(size=11),
+            text="ℹ️ Τα είδη εργασιών είναι υποκατηγορίες των τύπων. Επιλέξτε έναν τύπο για να δείτε τα είδη του.  Μπορείτε να προσθέσετε, επεξεργαστείτε ή αφαιρέσετε είδη.",
+            font=theme_config.get_font("small"),
             wraplength=800,
-            text_color="#2e7d32"
+            text_color=self.theme["accent_green"]
         )
         info_label.pack(padx=15, pady=10)
-        
+
         # Επιλογή Τύπου Εργασίας
         selector_frame = ctk.CTkFrame(parent, fg_color="transparent")
         selector_frame.pack(fill="x", padx=10, pady=10)
-        
+
         ctk.CTkLabel(
             selector_frame,
             text="Τύπος Εργασίας:",
-            font=ctk.CTkFont(size=13, weight="bold")
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["text_primary"]
         ).pack(side="left", padx=10)
-        
+
         task_types = database.get_all_task_types()
         self.task_types_dict = {tt['name']: tt['id'] for tt in task_types}
-        
+
         self.selected_type_var = ctk.StringVar()
         self.type_selector = ctk.CTkComboBox(
             selector_frame,
@@ -1023,82 +1039,89 @@ class TaskManagement(ctk.CTkFrame):
         self.type_selector.pack(side="left", padx=10)
         if self.task_types_dict:
             self.type_selector.set(list(self.task_types_dict.keys())[0])
-        
+
         # Κουμπί προσθήκης
         self.add_item_btn = ctk.CTkButton(
             selector_frame,
             text="➕ Προσθήκη Είδους",
             command=self.add_task_item_dialog,
             height=35,
-            fg_color="#2fa572",
-            font=ctk.CTkFont(size=13, weight="bold")
+            **theme_config.get_button_style("success"),
+            font=theme_config.get_font("body", "bold")
         )
         self.add_item_btn.pack(side="right", padx=10)
-        
+
         # Λίστα ειδών
         self.items_scrollable = ctk.CTkScrollableFrame(parent)
         self.items_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
-        
+
         # Initial load
         self.load_items_for_selected_type()
-    
+
     def on_type_selected(self, selected_type):
         """Callback όταν επιλέγεται τύπος - Phase 2.3"""
         self.load_items_for_selected_type()
-    
+
     def load_items_for_selected_type(self):
         """Φόρτωση ειδών για τον επιλεγμένο τύπο - Phase 2.3"""
-        
+
         # Clear existing items
         for widget in self.items_scrollable.winfo_children():
             widget.destroy()
-        
+
         selected_type = self.type_selector.get()
         type_id = self.task_types_dict.get(selected_type)
-        
+
         if not type_id:
             return
-        
+
         items = database.get_task_items_by_type(type_id)
-        
+
         if not items:
             ctk.CTkLabel(
                 self.items_scrollable,
-                text="Δεν υπάρχουν είδη για αυτόν τον τύπο. Προσθέστε ένα!",
-                font=ctk.CTkFont(size=12),
-                text_color="gray"
+                text="Δεν υπάρχουν είδη για αυτόν τον τύπο.  Προσθέστε ένα!",
+                font=theme_config.get_font("small"),
+                text_color=self.theme["text_secondary"]
             ).pack(pady=30)
             return
-        
+
         # Count label
         ctk.CTkLabel(
             self.items_scrollable,
             text=f"📊 {len(items)} είδη για τον τύπο '{selected_type}'",
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#1976d2"
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["accent_blue"]
         ).pack(anchor="w", padx=10, pady=(10, 5))
-        
+
         # Display items
         for item in items:
-            item_frame = ctk.CTkFrame(self.items_scrollable, corner_radius=10, fg_color="#f5f5f5")
+            item_frame = ctk.CTkFrame(
+                self.items_scrollable,
+                corner_radius=10,
+                fg_color=self.theme["card_bg"],
+                border_color=self.theme["card_border"],
+                border_width=1
+            )
             item_frame.pack(fill="x", pady=5, padx=10)
-            
+
             info_text = f"📌 {item['name']}"
             if item.get('description'):
                 info_text += f"\n   {item['description']}"
-            
+
             label = ctk.CTkLabel(
                 item_frame,
                 text=info_text,
-                font=ctk.CTkFont(size=12),
+                font=theme_config.get_font("small"),
+                text_color=self.theme["text_primary"],
                 justify="left"
             )
             label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
-            
+
             # Action buttons
             btn_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
             btn_frame.pack(side="right", padx=10, pady=10)
-            
+
             # Edit button
             edit_btn = ctk.CTkButton(
                 btn_frame,
@@ -1106,10 +1129,10 @@ class TaskManagement(ctk.CTkFrame):
                 command=lambda i=item: self.edit_task_item_dialog(i),
                 width=35,
                 height=30,
-                fg_color="#1f6aa5"
+                **theme_config.get_button_style("primary")
             )
             edit_btn.pack(side="left", padx=2)
-            
+
             # Delete button
             delete_btn = ctk.CTkButton(
                 btn_frame,
@@ -1117,55 +1140,57 @@ class TaskManagement(ctk.CTkFrame):
                 command=lambda i=item: self.delete_task_item(i),
                 width=35,
                 height=30,
-                fg_color="#c94242"
+                **theme_config.get_button_style("danger")
             )
             delete_btn.pack(side="left", padx=2)
-    
+
     def add_task_item_dialog(self, item_data=None):
         """Dialog για προσθήκη/επεξεργασία είδους - Phase 2.3"""
-        
+
         is_edit_mode = item_data is not None
-        
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Επεξεργασία Είδους" if is_edit_mode else "Προσθήκη Νέου Είδους Εργασίας")
         dialog.geometry("500x400")
         dialog.grab_set()
-        
+
         # Current type
         selected_type = self.type_selector.get()
         type_id = self.task_types_dict.get(selected_type)
-        
+
         ctk.CTkLabel(
             dialog,
             text=f"Τύπος: {selected_type}",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#1976d2"
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["accent_blue"]
         ).pack(pady=(20, 10))
-        
+
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Είδους:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Είδους:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                                    pady=(10, 5))
         name_entry = ctk.CTkEntry(dialog, width=450)
         name_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Περιγραφή
-        ctk.CTkLabel(dialog, text="Περιγραφή:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Περιγραφή (προαιρετική):", font=theme_config.get_font("body", "bold")).pack(
+            anchor="w", padx=20, pady=(10, 5))
         desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
         desc_text.pack(padx=20, pady=(0, 20))
-        
+
         # Populate if editing
         if is_edit_mode:
             name_entry.insert(0, item_data['name'])
             if item_data.get('description'):
                 desc_text.insert("1.0", item_data['description'])
-        
+
         def save():
             name = name_entry.get().strip()
             if not name:
                 messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
-            
+
             desc = desc_text.get("1.0", "end-1c").strip()
-            
+
             try:
                 if is_edit_mode:
                     result = database.update_task_item(item_data['id'], name, desc)
@@ -1185,29 +1210,31 @@ class TaskManagement(ctk.CTkFrame):
                         messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
-        
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
-    
+
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
+                      height=40).pack(pady=10)
+
     def edit_task_item_dialog(self, item):
         """Wrapper για επεξεργασία είδους - Phase 2.3"""
         self.add_task_item_dialog(item_data=item)
-    
+
     def delete_task_item(self, item):
         """Διαγραφή είδους εργασίας - Phase 2.3"""
-        
+
         result = messagebox.askyesno(
             "Επιβεβαίωση Διαγραφής",
-            f"Είστε σίγουροι ότι θέλετε να διαγράψετε το είδος '{item['name']}'?"
+            f"Είστε σίγουροι ότι θέλετε να διαγράψετε το είδος '{item['name']}'?\n\nΑυτή η ενέργεία θα είναι δυνατή μόνο αν δεν χρησιμοποιείται σε υπάρχουσες εργασίες."
         )
-        
+
         if result:
             delete_result = database.delete_task_item(item['id'])
-            
-            if delete_result['success']:
+
+            if delete_result:
                 messagebox.showinfo("Επιτυχία", "Το είδος διαγράφηκε!")
                 self.load_items_for_selected_type()
             else:
-                messagebox.showerror("Σφάλμα", delete_result['error'])
+                messagebox.showerror("Σφάλμα",
+                                     "Το είδος δεν μπορεί να διαγραφεί γιατί χρησιμοποιείται σε υπάρχουσες εργασίες!")
 
 
 # ----- PHASE 2: NEW COMPONENTS -----
