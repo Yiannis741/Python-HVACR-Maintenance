@@ -133,7 +133,8 @@ class HVACRApp(ctk.CTk):
             ("➕ Νέα Εργασία", self.show_new_task, "success"),
             ("📋 Συνολικό Ιστορικό", self.show_history, "primary"),
             ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "primary"),
-            ("⚙️ Διαχείριση Μονάδων", self.show_units_management, "primary"),
+            ("🏢 Διαχείριση Μονάδων", self.show_units_management, "primary"),
+            ("📋 Διαχείριση Εργασιών", self.show_task_management, "primary"),
             ("📅 Πρόγραμμα Βαρδιών", self.show_shifts, "primary"),
             ("📤 Εξαγωγή", self.show_export, "primary"),
             ("🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "danger"),
@@ -408,7 +409,7 @@ class HVACRApp(ctk.CTk):
             ("✔️ Ημερομηνία Ολοκλήρωσης:", task.get('completed_date', 'N/A')),
             ("👤 Τεχνικός:", task.get('technician_name', 'N/A')),
             ("📝 Σημειώσεις:", task.get('notes', 'Καμία')),
-        ]
+        ])
         
         for label, value in details:
             row_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
@@ -464,12 +465,12 @@ class HVACRApp(ctk.CTk):
         ui_components.TaskRelationshipsView(self.main_frame, task, self.on_task_saved)
         
     def show_units_management(self):
-        """Διαχείριση μονάδων - Phase 2.3 Updated"""
+        """Διαχείριση μονάδων & ομάδων - Phase 2.3"""
         self.clear_main_frame()
         
         title = ctk.CTkLabel(
             self.main_frame,
-            text="⚙️ Διαχείριση Μονάδων & Εργασιών",
+            text="🏢 Διαχείριση Μονάδων & Ομάδων",
             font=theme_config.get_font("title", "bold"),
             text_color=self.theme["text_primary"]
         )
@@ -484,7 +485,8 @@ class HVACRApp(ctk.CTk):
         title = ctk.CTkLabel(
             self.main_frame,
             text="📋 Διαχείριση Τύπων & Ειδών Εργασιών",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["text_primary"]
         )
         title.pack(pady=20)
         
