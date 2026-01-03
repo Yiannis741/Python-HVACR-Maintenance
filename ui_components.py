@@ -38,6 +38,39 @@ class TaskCard(ctk.CTkFrame):
             self.configure(cursor="hand2")
             self.bind("<Button-1>", lambda e: on_click(task_data))
 
+    def _get_full_chain_simple(self, task_id):
+        """Lightweight chain calculation για το badge"""
+        chain = []
+        visited = set()
+
+        def get_parents(tid):
+            if tid in visited:
+                return
+            visited.add(tid)
+            rels = database.get_related_tasks(tid)
+            for parent in rels['parents']:
+                if parent['id'] not in [c['id'] for c in chain]:
+                    chain.insert(0, parent)
+                    get_parents(parent['id'])
+
+        def get_children(tid):
+            if tid in visited:
+                return
+            visited.add(tid)
+            rels = database.get_related_tasks(tid)
+            for child in rels['children']:
+                if child['id'] not in [c['id'] for c in chain]:
+                    chain.append(child)
+                    get_children(child['id'])
+
+        get_parents(task_id)
+        chain.append(self.task)
+        get_children(task_id)
+
+        return chain
+
+
+
     def create_card(self):
         """Δημιουργία της καρτέλας - Compact Layout"""
 
@@ -65,13 +98,12 @@ class TaskCard(ctk.CTkFrame):
 
         # Check for relationships
         if self.show_relations:
-            relations = database.get_related_tasks(self.task['id'])
-            total_relations = len(relations['parents']) + len(relations['children'])
+            # ΝΕΑ ΛΟΓΙΚΗ: Υπολογισμός με ΟΛΟΚΛΗΡΗ την αλυσίδα
+            full_chain = self._get_full_chain_simple(self.task['id'])
 
-            if total_relations > 0:
-                # Calculate position in chain
-                position = len(relations['parents']) + 1
-                chain_length = total_relations + 1
+            if len(full_chain) > 1:  # Υπάρχει αλυσίδα
+                position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
+                chain_length = len(full_chain)
 
                 # Link badge
                 link_badge = ctk.CTkLabel(
@@ -2236,6 +2268,40 @@ class TaskRelationshipsView(ctk.CTkFrame):
             corner_radius=10
         )
         card.pack(fill="x", padx=(40, 0))  # Indent from position badge
+
+        # Enhanced task card
+        card = ctk.CTkFrame(
+            task_card_frame,
+            fg_color=self.theme["card_bg"],
+            border_color=badge_color,
+            border_width=3 if item_type == "current" else 2,
+            corner_radius=10
+        )
+        card.pack(fill="x", padx=(40, 0))
+
+        # ═══════════════════════════════════════════════════
+        # REMOVE BUTTON - TOP RIGHT (inside card, prominent)
+        # ═══════════════════════════════════════════════════
+
+        if is_removable and item_type != "current":
+            remove_container = ctk.CTkFrame(card, fg_color="transparent")
+            remove_container.pack(fill="x", padx=12, pady=(10, 0))
+
+            # Spacer (pushes button to right)
+            ctk.CTkLabel(remove_container, text="").pack(side="left", fill="x", expand=True)
+
+            ctk.CTkButton(
+                remove_container,
+                text="✖ Αφαίρεση από Αλυσίδα",
+                command=lambda t=task, it=item_type: self.remove_relationship(t, it),
+                width=160,
+                height=32,
+                fg_color=self.theme["accent_red"],
+                hover_color="#8B0000",
+                text_color="white",
+                font=theme_config.get_font("small", "bold"),
+                corner_radius=6
+            ).pack(side="right")
 
         # Date badge (prominent)
         date_badge = ctk.CTkLabel(
