@@ -5,6 +5,7 @@ UI Components - Επαναχρησιμοποιήσιμα components - Phase 2
 import customtkinter as ctk
 from datetime import datetime
 import database
+import theme_config
 from tkinter import messagebox
 
 
@@ -12,15 +13,23 @@ class TaskCard(ctk.CTkFrame):
     """Καρτέλα εργασίας για προβολή"""
     
     def __init__(self, parent, task_data, on_click=None):
-        super().__init__(parent, corner_radius=10, fg_color="#f0f0f0")
+        theme = theme_config.get_current_theme()
+        super().__init__(
+            parent, 
+            corner_radius=10, 
+            fg_color=theme["card_bg"],
+            border_color=theme["card_border"],
+            border_width=1
+        )
         
         self.task = task_data
         self.on_click = on_click
+        self.theme = theme
         self.create_card()
         
         # Clickable
         if on_click:
-            self. configure(cursor="hand2")
+            self.configure(cursor="hand2")
             self.bind("<Button-1>", lambda e: on_click(task_data))
         
     def create_card(self):
@@ -41,15 +50,15 @@ class TaskCard(ctk.CTkFrame):
         status_label = ctk.CTkLabel(
             header_frame,
             text=status_text,
-            font=ctk.CTkFont(size=11, weight="bold"),
+            font=theme_config.get_font("small", "bold"),
             text_color=status_color
         )
-        status_label. pack(side="left")
+        status_label.pack(side="left")
         
         priority_label = ctk.CTkLabel(
             header_frame,
-            text=f"  •  {self.task. get('priority', 'medium').upper()}",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            text=f"  •  {self.task.get('priority', 'medium').upper()}",
+            font=theme_config.get_font("tiny", "bold"),
             text_color=priority_color
         )
         priority_label.pack(side="left")
@@ -58,16 +67,18 @@ class TaskCard(ctk.CTkFrame):
         type_label = ctk.CTkLabel(
             self,
             text=f"🔧 {self.task['task_type_name']}",
-            font=ctk.CTkFont(size=13, weight="bold")
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["text_primary"]
         )
         type_label.grid(row=1, column=0, sticky="w", padx=15, pady=2)
         
         # Description
-        desc_text = self.task['description'][: 80] + "..." if len(self.task['description']) > 80 else self.task['description']
+        desc_text = self.task['description'][:80] + "..." if len(self.task['description']) > 80 else self.task['description']
         desc_label = ctk.CTkLabel(
             self,
             text=desc_text,
-            font=ctk. CTkFont(size=12),
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"],
             wraplength=500,
             justify="left"
         )
@@ -75,14 +86,14 @@ class TaskCard(ctk.CTkFrame):
         
         # Unit and date
         info_text = f"📍 {self.task['unit_name']} ({self.task['group_name']}) | 📅 {self.task['created_date']}"
-        if self.task. get('technician_name'):
+        if self.task.get('technician_name'):
             info_text += f" | 👤 {self.task['technician_name']}"
         
-        info_label = ctk. CTkLabel(
+        info_label = ctk.CTkLabel(
             self,
             text=info_text,
-            font=ctk.CTkFont(size=10),
-            text_color="gray"
+            font=theme_config.get_font("tiny"),
+            text_color=self.theme["text_disabled"]
         )
         info_label.grid(row=3, column=0, sticky="w", padx=15, pady=(2, 10))
         
@@ -117,7 +128,7 @@ class TaskForm(ctk.CTkFrame):
         scrollable.pack(fill="both", expand=True)
         
         # Μονάδα
-        ctk.CTkLabel(scrollable, text="Μονάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Μονάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         units = database.get_all_units()
         self.units_dict = {f"{u['name']} - {u['group_name']}": u['id'] for u in units}
@@ -133,7 +144,7 @@ class TaskForm(ctk.CTkFrame):
             self.unit_combo.set(list(self.units_dict.keys())[0])
         
         # Είδος Εργασίας
-        ctk.CTkLabel(scrollable, text="Είδος Εργασίας:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Είδος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         task_types = database.get_all_task_types()
         self.task_types_dict = {tt['name']: tt['id'] for tt in task_types}
@@ -149,13 +160,13 @@ class TaskForm(ctk.CTkFrame):
             self.task_type_combo.set(list(self.task_types_dict. keys())[0])
         
         # Περιγραφή
-        ctk.CTkLabel(scrollable, text="Περιγραφή Εργασίας:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Περιγραφή Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.description_text = ctk.CTkTextbox(scrollable, width=400, height=100)
         self.description_text.pack(anchor="w", pady=(0, 15))
         
         # Κατάσταση
-        ctk.CTkLabel(scrollable, text="Κατάσταση:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Κατάσταση:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.status_var = ctk.StringVar(value="pending")
         
@@ -177,7 +188,7 @@ class TaskForm(ctk.CTkFrame):
         ).pack(side="left")
         
         # Προτεραιότητα
-        ctk.CTkLabel(scrollable, text="Προτεραιότητα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Προτεραιότητα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.priority_combo = ctk.CTkComboBox(
             scrollable,
@@ -189,20 +200,20 @@ class TaskForm(ctk.CTkFrame):
         self.priority_combo.set("Μεσαία (medium)")
         
         # Ημερομηνία Δημιουργίας
-        ctk.CTkLabel(scrollable, text="Ημερομηνία Δημιουργίας (YYYY-MM-DD):", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Ημερομηνία Δημιουργίας (YYYY-MM-DD):", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.created_date_entry = ctk.CTkEntry(scrollable, width=400)
         self.created_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self.created_date_entry. pack(anchor="w", pady=(0, 15))
         
         # Τεχνικός
-        ctk.CTkLabel(scrollable, text="Όνομα Τεχνικού:", font=ctk. CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Όνομα Τεχνικού:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.technician_entry = ctk.CTkEntry(scrollable, width=400)
         self.technician_entry. pack(anchor="w", pady=(0, 15))
         
         # Σημειώσεις
-        ctk.CTkLabel(scrollable, text="Σημειώσεις:", font=ctk. CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Σημειώσεις:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.notes_text = ctk.CTkTextbox(scrollable, width=400, height=80)
         self.notes_text.pack(anchor="w", pady=(0, 20))
@@ -219,8 +230,8 @@ class TaskForm(ctk.CTkFrame):
             width=150,
             height=40,
             corner_radius=10,
-            fg_color="#2fa572",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=theme_config.get_font("body", "bold"),
+            **theme_config.get_button_style("success")
         )
         save_btn.pack(side="left", padx=(0, 10))
         
@@ -231,8 +242,8 @@ class TaskForm(ctk.CTkFrame):
             width=150,
             height=40,
             corner_radius=10,
-            fg_color="#666",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=theme_config.get_font("body", "bold"),
+            **theme_config.get_button_style("secondary")
         )
         cancel_btn.pack(side="left")
         
@@ -245,8 +256,8 @@ class TaskForm(ctk.CTkFrame):
                 width=150,
                 height=40,
                 corner_radius=10,
-                fg_color="#c94242",
-                font=ctk. CTkFont(size=14, weight="bold")
+                font=theme_config.get_font("body", "bold"),
+                **theme_config.get_button_style("danger")
             )
             delete_btn.pack(side="left", padx=(10, 0))
     
@@ -406,8 +417,8 @@ class UnitsManagement(ctk.CTkFrame):
             text="➕ Προσθήκη Νέας Μονάδας",
             command=self.add_unit_dialog,
             height=40,
-            fg_color="#2fa572",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=theme_config.get_font("body", "bold"),
+            **theme_config.get_button_style("success")
         )
         add_btn.pack(pady=15)
         
@@ -426,7 +437,7 @@ class UnitsManagement(ctk.CTkFrame):
             label = ctk.CTkLabel(
                 unit_frame,
                 text=info_text,
-                font=ctk.CTkFont(size=12)
+                font=theme_config.get_font("small")
             )
             label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
             
@@ -437,7 +448,7 @@ class UnitsManagement(ctk.CTkFrame):
                 command=lambda u=unit: self.edit_unit_dialog(u),
                 width=40,
                 height=30,
-                fg_color="#1f6aa5"
+                **theme_config.get_button_style("primary")
             )
             edit_btn.pack(side="right", padx=10, pady=10)
             
@@ -454,8 +465,8 @@ class UnitsManagement(ctk.CTkFrame):
             text="➕ Προσθήκη Νέας Ομάδας",
             command=self.add_group_dialog,
             height=40,
-            fg_color="#2fa572",
-            font=ctk.CTkFont(size=14, weight="bold")
+            **theme_config.get_button_style("success"),
+            font=theme_config.get_font("body", "bold")
         )
         add_btn.pack(pady=15)
         
@@ -477,7 +488,7 @@ class UnitsManagement(ctk.CTkFrame):
             label = ctk.CTkLabel(
                 group_frame,
                 text=info_text,
-                font=ctk.CTkFont(size=12)
+                font=theme_config.get_font("small")
             )
             label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
             
@@ -488,7 +499,7 @@ class UnitsManagement(ctk.CTkFrame):
                 command=lambda g=group: self.edit_group_dialog(g),
                 width=40,
                 height=30,
-                fg_color="#1f6aa5"
+                **theme_config.get_button_style("primary")
             )
             edit_btn.pack(side="right", padx=10, pady=10)
 
@@ -504,12 +515,12 @@ class UnitsManagement(ctk.CTkFrame):
         dialog.grab_set()
         
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
         name_entry = ctk.CTkEntry(dialog, width=450)
         name_entry.pack(padx=20, pady=(0, 15))
         
         # Ομάδα
-        ctk.CTkLabel(dialog, text="Ομάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ομάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         groups = database.get_all_groups()
         groups_dict = {g['name']: g['id'] for g in groups}
         group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly")
@@ -518,22 +529,22 @@ class UnitsManagement(ctk.CTkFrame):
             group_combo.set(list(groups_dict.keys())[0])
         
         # Τοποθεσία
-        ctk.CTkLabel(dialog, text="Τοποθεσία:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         location_entry = ctk.CTkEntry(dialog, width=450)
         location_entry.pack(padx=20, pady=(0, 15))
         
         # Μοντέλο
-        ctk.CTkLabel(dialog, text="Μοντέλο:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Μοντέλο:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         model_entry = ctk.CTkEntry(dialog, width=450)
         model_entry.pack(padx=20, pady=(0, 15))
         
         # Serial Number
-        ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         serial_entry = ctk.CTkEntry(dialog, width=450)
         serial_entry.pack(padx=20, pady=(0, 15))
         
         # Ημερομηνία εγκατάστασης
-        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         install_entry = ctk.CTkEntry(dialog, width=450)
         install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         install_entry.pack(padx=20, pady=(0, 20))
@@ -578,7 +589,7 @@ class UnitsManagement(ctk.CTkFrame):
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
         
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
     
     def edit_unit_dialog(self, unit):
         """Wrapper για επεξεργασία μονάδας"""
@@ -595,12 +606,12 @@ class UnitsManagement(ctk.CTkFrame):
         dialog.grab_set()
         
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Ομάδας:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Ομάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
         name_entry = ctk.CTkEntry(dialog, width=450)
         name_entry.pack(padx=20, pady=(0, 15))
         
         # Περιγραφή
-        ctk.CTkLabel(dialog, text="Περιγραφή:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Περιγραφή:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
         desc_text.pack(padx=20, pady=(0, 20))
         
@@ -639,7 +650,7 @@ class UnitsManagement(ctk.CTkFrame):
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
         
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
     
     def edit_group_dialog(self, group):
         """Wrapper για επεξεργασία ομάδας"""
@@ -666,7 +677,7 @@ class UnitsManagement(ctk.CTkFrame):
         info_label = ctk.CTkLabel(
             info_frame,
             text="ℹ️ Οι προκαθορισμένοι τύποι (Service, Βλάβη, Επισκευή, Απλός Έλεγχος) προστατεύονται και δεν μπορούν να διαγραφούν.",
-            font=ctk.CTkFont(size=11),
+            font=theme_config.get_font("small"),
             wraplength=800,
             text_color="#1976d2"
         )
@@ -678,8 +689,8 @@ class UnitsManagement(ctk.CTkFrame):
             text="➕ Προσθήκη Custom Τύπου Εργασίας",
             command=self.add_task_type_dialog,
             height=40,
-            fg_color="#2fa572",
-            font=ctk.CTkFont(size=14, weight="bold")
+            **theme_config.get_button_style("success"),
+            font=theme_config.get_font("body", "bold")
         )
         add_btn.pack(pady=15)
         
@@ -698,7 +709,7 @@ class UnitsManagement(ctk.CTkFrame):
             ctk.CTkLabel(
                 scrollable,
                 text="📌 Προκαθορισμένοι Τύποι",
-                font=ctk.CTkFont(size=13, weight="bold"),
+                font=theme_config.get_font("body", "bold"),
                 text_color="#1976d2"
             ).pack(anchor="w", padx=10, pady=(10, 5))
             
@@ -713,7 +724,7 @@ class UnitsManagement(ctk.CTkFrame):
                 label = ctk.CTkLabel(
                     type_frame,
                     text=info_text,
-                    font=ctk.CTkFont(size=12)
+                    font=theme_config.get_font("small")
                 )
                 label.pack(side="left", padx=15, pady=10)
         
@@ -722,7 +733,7 @@ class UnitsManagement(ctk.CTkFrame):
             ctk.CTkLabel(
                 scrollable,
                 text="⚙️ Custom Τύποι",
-                font=ctk.CTkFont(size=13, weight="bold"),
+                font=theme_config.get_font("body", "bold"),
                 text_color="#2fa572"
             ).pack(anchor="w", padx=10, pady=(20, 5))
             
@@ -737,7 +748,7 @@ class UnitsManagement(ctk.CTkFrame):
                 label = ctk.CTkLabel(
                     type_frame,
                     text=info_text,
-                    font=ctk.CTkFont(size=12)
+                    font=theme_config.get_font("small")
                 )
                 label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
                 
@@ -748,7 +759,7 @@ class UnitsManagement(ctk.CTkFrame):
                     command=lambda tt=task_type: self.delete_task_type(tt),
                     width=40,
                     height=30,
-                    fg_color="#c94242"
+                    **theme_config.get_button_style("danger")
                 )
                 delete_btn.pack(side="right", padx=10, pady=10)
         
@@ -756,7 +767,7 @@ class UnitsManagement(ctk.CTkFrame):
             ctk.CTkLabel(
                 scrollable,
                 text="Δεν υπάρχουν custom τύποι. Προσθέστε έναν!",
-                font=ctk.CTkFont(size=11),
+                font=theme_config.get_font("small"),
                 text_color="gray"
             ).pack(pady=20)
     
@@ -769,12 +780,12 @@ class UnitsManagement(ctk.CTkFrame):
         dialog.grab_set()
         
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Τύπου:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Τύπου:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
         name_entry = ctk.CTkEntry(dialog, width=450)
         name_entry.pack(padx=20, pady=(0, 15))
         
         # Περιγραφή
-        ctk.CTkLabel(dialog, text="Περιγραφή:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Περιγραφή:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
         desc_text.pack(padx=20, pady=(0, 20))
         
@@ -794,7 +805,7 @@ class UnitsManagement(ctk.CTkFrame):
             else:
                 messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
         
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
     
     def delete_task_type(self, task_type):
         """Διαγραφή custom τύπου εργασίας"""
@@ -840,11 +851,11 @@ class TaskHistoryView(ctk.CTkFrame):
         row1 = ctk.CTkFrame(filters_frame, fg_color="transparent")
         row1.pack(fill="x", padx=10, pady=(10, 5))
         
-        ctk. CTkLabel(row1, text="🔍 Αναζήτηση:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 5))
+        ctk. CTkLabel(row1, text="🔍 Αναζήτηση:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(0, 5))
         self.search_entry = ctk. CTkEntry(row1, width=200, placeholder_text="Περιγραφή, σημειώσεις, μονάδα...")
         self.search_entry.pack(side="left", padx=5)
         
-        ctk.CTkLabel(row1, text="Κατάσταση:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(row1, text="Κατάσταση:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(20, 5))
         self.status_combo = ctk.CTkComboBox(row1, values=["Όλες", "Εκκρεμείς", "Ολοκληρωμένες"], width=150, state="readonly")
         self.status_combo.set("Όλες")
         self.status_combo.pack(side="left", padx=5)
@@ -853,7 +864,7 @@ class TaskHistoryView(ctk.CTkFrame):
         row2 = ctk.CTkFrame(filters_frame, fg_color="transparent")
         row2.pack(fill="x", padx=10, pady=5)
         
-        ctk.CTkLabel(row2, text="Μονάδα:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(0, 5))
+        ctk.CTkLabel(row2, text="Μονάδα:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(0, 5))
         units = database.get_all_units()
         unit_names = ["Όλες"] + [f"{u['name']} - {u['group_name']}" for u in units]
         self.units_dict = {f"{u['name']} - {u['group_name']}": u['id'] for u in units}
@@ -861,7 +872,7 @@ class TaskHistoryView(ctk.CTkFrame):
         self.unit_combo.set("Όλες")
         self.unit_combo.pack(side="left", padx=5)
         
-        ctk.CTkLabel(row2, text="Είδος:", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(row2, text="Είδος:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(20, 5))
         task_types = database.get_all_task_types()
         type_names = ["Όλα"] + [tt['name'] for tt in task_types]
         self.types_dict = {tt['name']: tt['id'] for tt in task_types}
@@ -873,8 +884,8 @@ class TaskHistoryView(ctk.CTkFrame):
         row3 = ctk.CTkFrame(filters_frame, fg_color="transparent")
         row3.pack(fill="x", padx=10, pady=(5, 10))
         
-        ctk. CTkButton(row3, text="🔍 Αναζήτηση", command=self.apply_filters, width=120, fg_color="#1f6aa5").pack(side="left", padx=5)
-        ctk.CTkButton(row3, text="🔄 Καθαρισμός", command=self.clear_filters, width=120, fg_color="#666").pack(side="left", padx=5)
+        ctk. CTkButton(row3, text="🔍 Αναζήτηση", command=self.apply_filters, width=120, **theme_config.get_button_style("primary")).pack(side="left", padx=5)
+        ctk.CTkButton(row3, text="🔄 Καθαρισμός", command=self.clear_filters, width=120, **theme_config.get_button_style("secondary")).pack(side="left", padx=5)
         
         # Tasks List
         self.tasks_frame = ctk.CTkScrollableFrame(self)
@@ -894,7 +905,7 @@ class TaskHistoryView(ctk.CTkFrame):
             no_tasks = ctk.CTkLabel(
                 self.tasks_frame,
                 text="Δεν βρέθηκαν εργασίες",
-                font=ctk.CTkFont(size=14)
+                font=theme_config.get_font("body")
             )
             no_tasks.pack(pady=50)
             return
@@ -973,7 +984,7 @@ class RecycleBinView(ctk.CTkFrame):
         ctk.CTkLabel(
             header_frame,
             text="🗑️ Διαγραμμένες Εργασίες",
-            font=ctk.CTkFont(size=20, weight="bold")
+            font=theme_config.get_font("title", "bold")
         ).pack(side="left", padx=10)
         
         ctk.CTkButton(
@@ -981,7 +992,7 @@ class RecycleBinView(ctk.CTkFrame):
             text="🔄 Ανανέωση",
             command=self.load_deleted_tasks,
             width=120,
-            fg_color="#1f6aa5"
+            **theme_config.get_button_style("primary")
         ).pack(side="right", padx=10)
         
         # Tasks List
@@ -1001,7 +1012,7 @@ class RecycleBinView(ctk.CTkFrame):
             no_tasks = ctk.CTkLabel(
                 self.tasks_frame,
                 text="Ο Κάδος Ανακύκλωσης είναι άδειος",
-                font=ctk.CTkFont(size=14)
+                font=theme_config.get_font("body")
             )
             no_tasks.pack(pady=50)
             return
@@ -1019,7 +1030,7 @@ class RecycleBinView(ctk.CTkFrame):
             title_label = ctk.CTkLabel(
                 info_frame,
                 text=f"🔧 {task['task_type_name']}:  {task['description'][:50]}...",
-                font=ctk.CTkFont(size=12, weight="bold"),
+                font=theme_config.get_font("small", "bold"),
                 anchor="w"
             )
             title_label.pack(anchor="w", padx=15, pady=(10, 5))
@@ -1028,7 +1039,7 @@ class RecycleBinView(ctk.CTkFrame):
             details_label = ctk.CTkLabel(
                 info_frame,
                 text=f"📍 {task['unit_name']} | 📅 {task['created_date']}",
-                font=ctk.CTkFont(size=10),
+                font=theme_config.get_font("tiny"),
                 text_color="gray",
                 anchor="w"
             )
@@ -1043,7 +1054,7 @@ class RecycleBinView(ctk.CTkFrame):
                 text="↩️ Επαναφορά",
                 command=lambda t=task: self.restore_task(t['id']),
                 width=120,
-                fg_color="#2fa572"
+                **theme_config.get_button_style("success")
             )
             restore_btn.pack(pady=2)
             
@@ -1052,7 +1063,7 @@ class RecycleBinView(ctk.CTkFrame):
                 text="🗑️ Διαγραφή",
                 command=lambda t=task:  self.permanent_delete_task(t['id']),
                 width=120,
-                fg_color="#c94242"
+                **theme_config.get_button_style("danger")
             )
             delete_btn.pack(pady=2)
     
@@ -1104,7 +1115,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         header_label = ctk.CTkLabel(
             self,
             text=f"🔗 Συνδεδεμένες Εργασίες για:  {self.task_data['description'][:50]}...",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=theme_config.get_font("heading", "bold"),
             wraplength=700
         )
         header_label. pack(pady=(0, 20))
@@ -1115,7 +1126,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             text="➕ Σύνδεση με άλλη εργασία",
             command=self.add_relationship_dialog,
             height=40,
-            fg_color="#2fa572"
+            **theme_config.get_button_style("success")
         )
         add_btn.pack(pady=10)
         
@@ -1178,7 +1189,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         info_label = ctk.CTkLabel(
             card_frame,
             text=info_text,
-            font=ctk.CTkFont(size=11),
+            font=theme_config.get_font("small"),
             justify="left"
         )
         info_label.pack(anchor="w", padx=15, pady=10)
@@ -1189,7 +1200,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             text="✖",
             command=lambda:  self.remove_relationship(task, relation_type),
             width=40,
-            fg_color="#c94242"
+            **theme_config.get_button_style("danger")
         )
         remove_btn.pack(side="right")
     
@@ -1204,7 +1215,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         ctk.CTkLabel(
             dialog,
             text="Επιλέξτε εργασία για σύνδεση:",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=theme_config.get_font("body", "bold")
         ).pack(pady=20)
         
         # List of tasks
@@ -1223,7 +1234,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 text=f"{task['task_type_name']}: {task['description'][:50]}...  | {task['unit_name']}",
                 command=lambda t=task: self.select_task_for_relation(t, selected_task, dialog),
                 anchor="w",
-                fg_color="#1f6aa5"
+                **theme_config.get_button_style("primary")
             )
             task_btn.pack(fill="x", pady=3, padx=5)
     
