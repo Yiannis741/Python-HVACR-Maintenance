@@ -621,33 +621,34 @@ class HVACRApp(ctk.CTk):
     def _get_full_chain_for_preview(self, task_id):
         """Helper για να πάρει ολόκληρη την αλυσίδα"""
         chain = []
-        visited = set()
+        visited_parents = set()
+        visited_children = set()
 
         # Get task data
         tasks = database.get_all_tasks()
         task_dict = {t['id']: t for t in tasks}
 
         def get_parents(tid):
-            if tid in visited:
+            if tid in visited_parents:
                 return
-            visited.add(tid)
+            visited_parents.add(tid)
             rels = database.get_related_tasks(tid)
             for parent in rels['parents']:
                 parent_id = parent['id']
                 if parent_id not in [c['id'] for c in chain]:
                     chain.insert(0, parent)
-                    get_parents(parent_id)  # ← FIX:  Recursive με parent_id
+                    get_parents(parent_id)
 
         def get_children(tid):
-            if tid in visited:
+            if tid in visited_children:
                 return
-            visited.add(tid)
+            visited_children.add(tid)
             rels = database.get_related_tasks(tid)
             for child in rels['children']:
-                child_id = child['id']  # ← FIX: Παίρνουμε το child_id
+                child_id = child['id']
                 if child_id not in [c['id'] for c in chain]:
                     chain.append(child)
-                    get_children(child_id)  # ← FIX:  Recursive με child_id (ΟΧΙ parent['id']!)
+                    get_children(child_id)
 
         # Build chain
         get_parents(task_id)
