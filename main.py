@@ -41,7 +41,7 @@ class HVACRApp(ctk.CTk):
         # ----- ΠΑΝΩ ROW (Ομάδες Μονάδων) -----
         self.top_frame = ctk.CTkFrame(self, height=80, corner_radius=0)
         self.top_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
-        self.top_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        # Dynamic grid configuration will be set in create_top_bar()
         
         self.create_top_bar()
         
@@ -68,17 +68,22 @@ class HVACRApp(ctk.CTk):
         label = ctk.CTkLabel(
             self.top_frame, 
             text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:", 
-            font=ctk. CTkFont(size=14, weight="bold")
+            font=ctk.CTkFont(size=14, weight="bold")
         )
         label.grid(row=0, column=0, padx=20, pady=25, sticky="w")
         
         # Παίρνουμε τις ομάδες από τη database
         groups = database.get_all_groups()
         
+        # Dynamic grid column configuration
+        num_groups = len(groups)
+        for i in range(num_groups):
+            self.top_frame.grid_columnconfigure(i + 1, weight=1)
+        
         # Dropdown για κάθε ομάδα
         self.group_dropdowns = {}
         
-        for idx, group in enumerate(groups[: 4]):  # Δείχνουμε τις πρώτες 4 ομάδες
+        for idx, group in enumerate(groups):  # Εμφάνιση ΟΛΩΝ των ομάδων
             frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
             frame.grid(row=0, column=idx+1, padx=10, pady=15)
             
