@@ -2128,6 +2128,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             self.create_arrow("προκάλεσε", dashed=True)
 
         # Display all tasks in chain
+        child_counter = 1  # Global counter for all children (increments for each child task)
         for idx, task in enumerate(full_chain, 1):
             # Determine type
             if idx < current_position:
@@ -2138,7 +2139,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 sequence_num = None
             else:
                 item_type = "child"
-                sequence_num = idx - current_position
+                sequence_num = child_counter  # Use global counter
+                child_counter += 1  # Increment for next child
 
             # ═══════════════════════════════════════════
             # ΝΕΑ ΛΟΓΙΚΗ:   Removability Rules
@@ -2297,33 +2299,24 @@ class TaskRelationshipsView(ctk.CTkFrame):
             ).pack(side="left")
 
         # ═══════════════════════════════════════════════════
-        # REMOVE BUTTON - INLINE (inside card, on the right)
+        # RIGHT SIDE - Remove button (outside card, clearly visible)
         # ═══════════════════════════════════════════════════
 
-        print(f"DEBUG:  Checking remove button - is_removable={is_removable}, item_type={item_type}")
-
         if is_removable and item_type != "current":
-            print(f"DEBUG:   Creating INLINE remove button for task {task['id']}")
-
-            # Button στο meta_frame (δεξιά)
-            remove_btn = ctk.CTkButton(
-                meta_frame,
-                text="✖ Αφαίρεση από Αλυσίδα",
+            remove_frame = ctk.CTkFrame(card_container, fg_color="transparent")
+            remove_frame.pack(side="right")
+            
+            ctk.CTkButton(
+                remove_frame,
+                text="✖\nΑφαίρεση",
                 command=lambda t=task, it=item_type: self.remove_relationship(t, it),
-                width=180,
-                height=28,
+                width=85,
+                height=60,
                 fg_color=self.theme["accent_red"],
                 hover_color="#8B0000",
                 text_color="white",
-                font=theme_config.get_font("tiny", "bold"),
-                corner_radius=6
-            )
-            remove_btn.pack(side="right")
-            print(f"DEBUG:  Inline remove button created!")
-        else:
-            print(f"DEBUG: NO remove button - is_removable={is_removable}, item_type={item_type}")
-
-        print("---")
+                font=theme_config.get_font("small", "bold")
+            ).pack()
 
     def create_arrow(self, label_text, dashed=False):
         """Δημιουργία βέλους σύνδεσης"""
@@ -2665,30 +2658,19 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 # Η τελευταία εργασία είναι η last στο chain
                 last_task_in_chain = full_chain[-1]
 
-                print(f"\nDEBUG select_task (CHILD):")
-                print(f"  Current task ID: {self.task_data['id']}")
-                print(f"  Full chain length: {len(full_chain)}")
-                print(f"  Full chain IDs: {[t['id'] for t in full_chain]}")
-                print(f"  Last task in chain: ID={last_task_in_chain['id']}")
-                print(f"  Selected task to add: ID={task['id']}")
-
                 # Θα συνδεθεί ΜΕ την τελευταία
                 link_to_task = last_task_in_chain
                 new_position = len(full_chain) + 1
 
+                # Enhanced preview showing the new chain
                 confirm_text = (
-                    f"Προσθήκη ως ΣΥΝΕΧΕΙΑ στην αλυσίδα:\n\n"
-                    f"📊 Αλυσίδα τώρα:  {len(full_chain)} εργασίες\n"
-                    f"➕ Νέα θέση: {new_position}\n\n"
-                    f"Τελευταία εργασία της αλυσίδας:\n"
-                    f"🟢 [{len(full_chain)}] {link_to_task['task_type_name']}"
-                    f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''}\n"
-                    f"📅 {link_to_task['created_date']}\n\n"
-                    f"       ↓ ακολούθησε\n\n"
-                    f"Νέα συνέχεια:\n"
-                    f"🟢 [{new_position}] {task['task_type_name']}"
-                    f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
-                    f"📅 {task['created_date']}"
+                    f"🔗 ΝΕΑ ΑΛΥΣΙΔΑ μετά την προσθήκη:\n\n"
+                    f"[1] ... → [{len(full_chain)}] {link_to_task['task_type_name']}"
+                    f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''} → "
+                    f"[{new_position}] {task['task_type_name']}"
+                    f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''} ✨ ΝΕΟ\n\n"
+                    f"Η νέα εργασία θα μπει στη θέση [{new_position}] (τελευταία).\n\n"
+                    f"Συνέχιση;"
                 )
 
                 result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
@@ -2696,11 +2678,15 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 if result:
                     try:
                         # Σύνδεσε την ΤΕΛΕΥΤΑΙΑ εργασία της αλυσίδας με την νέα
-                        print(f"DEBUG: Linking {link_to_task['id']} → {task['id']}")
                         database.add_task_relationship(link_to_task['id'], task['id'], "related")
 
+                        # Calculate correct sequence number for success message
+                        # Formula: sequence_num = new_position - current_task_position
+                        current_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
+                        sequence_num = new_position - current_pos
+                        
                         messagebox.showinfo("Επιτυχία",
-                                            f"Η εργασία προστέθηκε ως Συνέχεια {new_position - len(full_chain) + len([t for t in full_chain if t['id'] == self.task_data['id']]) - 1}!")
+                                            f"Η εργασία προστέθηκε ως Συνέχεια {sequence_num}!")
                         dialog.destroy()
                         self.load_relationships()
                         self.refresh_callback()
