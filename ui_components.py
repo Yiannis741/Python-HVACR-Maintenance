@@ -450,15 +450,6 @@ class TaskForm(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
-                    notes if notes else None
-                )
-                messagebox.showinfo("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
-            else:
-                # Insert
-                database.add_task(
-                    unit_id, task_type_id, description, status, priority,
-                    created_date, completed_date, technician if technician else None,
-            messagebox.showerror("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
     
     def delete_task(self):
         """Διαγραφή εργασίας"""
