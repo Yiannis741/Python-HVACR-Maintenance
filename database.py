@@ -1,5 +1,5 @@
 """
-Database module - Διαχείριση SQLite database
+Database module - Διαχείριση SQLite database - Phase 2
 """
 
 import sqlite3
@@ -149,11 +149,14 @@ def load_sample_data():
     # Προσθήκη μερικών εργασιών δοκιμής
     today = datetime.now().strftime("%Y-%m-%d")
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     
     tasks_sample = [
         (1, 1, "Ετήσιο Service VRV A101", "completed", "medium", yesterday, yesterday, "Γιάννης Π.", "Όλα εντάξει"),
         (4, 2, "Ψυγείο φαρμακείου δεν ψύχει", "pending", "high", today, None, "Μαρία Κ.", None),
         (2, 4, "Έλεγχος λειτουργίας VRV A201", "completed", "low", today, today, "Γιάννης Π.", "Κανονική λειτουργία"),
+        (3, 2, "Split B105 κάνει θόρυβο", "pending", "medium", week_ago, None, "Νίκος Α.", "Χρειάζεται επισκευή"),
+        (5, 1, "Service καταψύκτη εργαστηρίου", "completed", "medium", week_ago, week_ago, "Μαρία Κ.", "Αλλαγή φίλτρων"),
     ]
     
     for unit_id, task_type_id, desc, status, priority, created, completed, tech, notes in tasks_sample:
@@ -311,3 +314,240 @@ def add_group(name, description):
     except sqlite3.IntegrityError:
         conn.close()
         return None
+
+
+# ----- PHASE 2: NEW FUNCTIONS -----
+
+def get_all_tasks(include_deleted=False):
+    """Επιστρέφει όλες τις εργασίες με πλήρεις πληροφορίες"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    deleted_filter = "" if include_deleted else "WHERE t.is_deleted = 0"
+    
+    cursor.execute(f'''
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        FROM tasks t
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        JOIN groups g ON u.group_id = g.id
+        {deleted_filter}
+        ORDER BY t.created_date DESC, t.created_at DESC
+    ''')
+    
+    tasks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return tasks
+
+
+def get_task_by_id(task_id):
+    """Επιστρέφει μία εργασία με βάση το ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        FROM tasks t
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        JOIN groups g ON u.group_id = g.id
+        WHERE t.id = ?
+    ''', (task_id,))
+    
+    task = cursor.fetchone()
+    conn.close()
+    return dict(task) if task else None
+
+
+def update_task(task_id, unit_id, task_type_id, description, status, priority, 
+                created_date, completed_date, technician_name, notes):
+    """Ενημέρωση υπάρχουσας εργασίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE tasks 
+        SET unit_id = ?, task_type_id = ?, description = ?, status = ?, priority = ?,
+            created_date = ?, completed_date = ?, technician_name = ?, notes = ?
+        WHERE id = ?
+    ''', (unit_id, task_type_id, description, status, priority, created_date,
+          completed_date, technician_name, notes, task_id))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def delete_task(task_id):
+    """Soft delete εργασίας (δεν διαγράφεται πραγματικά)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('UPDATE tasks SET is_deleted = 1 WHERE id = ?', (task_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def restore_task(task_id):
+    """Επαναφορά διαγραμμένης εργασίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('UPDATE tasks SET is_deleted = 0 WHERE id = ?', (task_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def permanent_delete_task(task_id):
+    """Οριστική διαγραφή εργασίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Διαγραφή σχέσεων πρώτα
+    cursor.execute('DELETE FROM task_relationships WHERE parent_task_id = ? OR child_task_id = ?', 
+                  (task_id, task_id))
+    
+    # Διαγραφή εργασίας
+    cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_deleted_tasks():
+    """Επιστρέφει διαγραμμένες εργασίες"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        FROM tasks t
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        JOIN groups g ON u.group_id = g.id
+        WHERE t.is_deleted = 1
+        ORDER BY t.created_at DESC
+    ''')
+    
+    tasks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return tasks
+
+
+def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, date_to=None, search_text=None):
+    """Φιλτράρισμα εργασιών με πολλαπλά κριτήρια"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        FROM tasks t
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        JOIN groups g ON u.group_id = g.id
+        WHERE t.is_deleted = 0
+    '''
+    
+    params = []
+    
+    if status:
+        query += " AND t.status = ?"
+        params.append(status)
+    
+    if unit_id:
+        query += " AND t.unit_id = ?"
+        params.append(unit_id)
+    
+    if task_type_id:
+        query += " AND t.task_type_id = ?"
+        params.append(task_type_id)
+    
+    if date_from:
+        query += " AND t.created_date >= ?"
+        params.append(date_from)
+    
+    if date_to:
+        query += " AND t.created_date <= ?"
+        params.append(date_to)
+    
+    if search_text:
+        query += " AND (t.description LIKE ? OR t.notes LIKE ? OR u.name LIKE ?)"
+        search_param = f"%{search_text}%"
+        params.extend([search_param, search_param, search_param])
+    
+    query += " ORDER BY t.created_date DESC, t.created_at DESC"
+    
+    cursor.execute(query, params)
+    tasks = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return tasks
+
+
+def add_task_relationship(parent_task_id, child_task_id, relationship_type="related"):
+    """Δημιουργία σχέσης μεταξύ δύο εργασιών"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO task_relationships (parent_task_id, child_task_id, relationship_type)
+        VALUES (?, ?, ?)
+    ''', (parent_task_id, child_task_id, relationship_type))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_related_tasks(task_id):
+    """Επιστρέφει συνδεδεμένες εργασίες"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Παιδικές εργασίες (π.χ. Επισκευές μιας Βλάβης)
+    cursor.execute('''
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, 
+               tr.relationship_type, 'child' as relation
+        FROM task_relationships tr
+        JOIN tasks t ON tr.child_task_id = t.id
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        WHERE tr.parent_task_id = ? AND t.is_deleted = 0
+    ''', (task_id,))
+    
+    children = [dict(row) for row in cursor.fetchall()]
+    
+    # Γονικές εργασίες (π.χ. Βλάβη μιας Επισκευής)
+    cursor.execute('''
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, 
+               tr.relationship_type, 'parent' as relation
+        FROM task_relationships tr
+        JOIN tasks t ON tr.parent_task_id = t.id
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        WHERE tr.child_task_id = ? AND t.is_deleted = 0
+    ''', (task_id,))
+    
+    parents = [dict(row) for row in cursor.fetchall()]
+    
+    conn.close()
+    return {'parents': parents, 'children': children}
+
+
+def remove_task_relationship(parent_task_id, child_task_id):
+    """Αφαίρεση σχέσης μεταξύ εργασιών"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        DELETE FROM task_relationships 
+        WHERE parent_task_id = ? AND child_task_id = ?
+    ''', (parent_task_id, child_task_id))
+    
+    conn.commit()
+    conn.close()
+    return True
