@@ -254,137 +254,168 @@ class TaskForm(ctk.CTkFrame):
         
         if self.is_edit_mode:
             self.populate_form()
-        
+
     def create_form(self):
-        """Δημιουργία της φόρμας - Phase 2.3"""
-        
+        """Δημιουργία της φόρμας - Phase 2. 3 - Compact 2-Column Layout"""
+
         # Scrollable frame
         scrollable = ctk.CTkScrollableFrame(self)
         scrollable.pack(fill="both", expand=True)
-        
-        # 1. Ομάδα Μονάδων
-        ctk.CTkLabel(scrollable, text="Ομάδα Μονάδων:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
+
+        # Configure grid για 2 στήλες
+        scrollable.grid_columnconfigure(0, weight=1)
+        scrollable.grid_columnconfigure(1, weight=1)
+
+        theme = theme_config.get_current_theme()
+
+        # ===== ROW 0:  Ομάδα Μονάδων | Τύπος Εργασίας =====
+
+        # LEFT:  Ομάδα Μονάδων
+        ctk.CTkLabel(
+            scrollable,
+            text="Ομάδα Μονάδων:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=0, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+
         groups = database.get_all_groups()
         self.groups_dict = {g['name']: g['id'] for g in groups}
-        
+
         self.group_combo = ctk.CTkComboBox(
             scrollable,
             values=list(self.groups_dict.keys()),
-            width=400,
+            width=300,
             state="readonly",
             command=self.on_group_change
         )
-        self.group_combo.pack(anchor="w", pady=(0, 15))
+        self.group_combo.grid(row=1, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
         if self.groups_dict:
             self.group_combo.set(list(self.groups_dict.keys())[0])
-        
-        # 2. Μονάδα (φιλτραρισμένη από ομάδα)
-        ctk.CTkLabel(scrollable, text="Μονάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
-        self.units_dict = {}  # Will be populated by on_group_change
-        self.unit_combo = ctk.CTkComboBox(
+
+        # RIGHT: Τύπος Εργασίας
+        ctk.CTkLabel(
             scrollable,
-            values=[],
-            width=400,
-            state="readonly"
-        )
-        self.unit_combo.pack(anchor="w", pady=(0, 15))
-        
-        # 3. Τύπος Εργασίας
-        ctk.CTkLabel(scrollable, text="Τύπος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
+            text="Τύπος Εργασίας:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=0, column=1, sticky="w", padx=(5, 10), pady=(10, 5))
+
         task_types = database.get_all_task_types()
         self.task_types_dict = {tt['name']: tt['id'] for tt in task_types}
-        
+
         self.task_type_combo = ctk.CTkComboBox(
             scrollable,
             values=list(self.task_types_dict.keys()),
-            width=400,
+            width=300,
             state="readonly",
             command=self.on_task_type_change
         )
-        self.task_type_combo.pack(anchor="w", pady=(0, 15))
+        self.task_type_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
         if self.task_types_dict:
             self.task_type_combo.set(list(self.task_types_dict.keys())[0])
-        
-        # 4. Είδος Εργασίας (φιλτραρισμένο από τύπο)
-        ctk.CTkLabel(scrollable, text="Είδος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
-        self.task_items_dict = {}  # Will be populated by on_task_type_change
+
+        # ===== ROW 2: Μονάδα | Είδος Εργασίας =====
+
+        # LEFT: Μονάδα
+        ctk.CTkLabel(
+            scrollable,
+            text="Μονάδα:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=2, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+
+        self.units_dict = {}
+        self.unit_combo = ctk.CTkComboBox(
+            scrollable,
+            values=[],
+            width=300,
+            state="readonly"
+        )
+        self.unit_combo.grid(row=3, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
+
+        # RIGHT: Είδος Εργασίας
+        ctk.CTkLabel(
+            scrollable,
+            text="Είδος Εργασίας:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=2, column=1, sticky="w", padx=(5, 10), pady=(10, 5))
+
+        self.task_items_dict = {}
         self.task_item_combo = ctk.CTkComboBox(
             scrollable,
             values=[],
-            width=400,
+            width=300,
             state="readonly"
         )
-        self.task_item_combo.pack(anchor="w", pady=(0, 15))
-        
-        # Περιγραφή
-        ctk.CTkLabel(scrollable, text="Περιγραφή Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
-        self.description_text = ctk.CTkTextbox(scrollable, width=400, height=100)
-        self.description_text.pack(anchor="w", pady=(0, 15))
-        
-        # Κατάσταση
-        ctk.CTkLabel(scrollable, text="Κατάσταση:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
+        self.task_item_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
+
+        # ===== ROW 4: Κατάσταση | Προτεραιότητα =====
+
+        # LEFT: Κατάσταση
+        ctk.CTkLabel(
+            scrollable,
+            text="Κατάσταση:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=4, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+
         self.status_var = ctk.StringVar(value="pending")
-        
+
         status_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        status_frame.pack(anchor="w", pady=(0, 15))
-        
+        status_frame.grid(row=5, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
+
         ctk.CTkRadioButton(
             status_frame,
             text="Εκκρεμής",
             variable=self.status_var,
             value="pending"
-        ).pack(side="left", padx=(0, 20))
-        
-        ctk. CTkRadioButton(
+        ).pack(side="left", padx=(0, 15))
+
+        ctk.CTkRadioButton(
             status_frame,
             text="Ολοκληρωμένη",
             variable=self.status_var,
             value="completed"
         ).pack(side="left")
-        
-        # Προτεραιότητα
-        ctk.CTkLabel(scrollable, text="Προτεραιότητα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
+
+        # RIGHT:  Προτεραιότητα
+        ctk.CTkLabel(
+            scrollable,
+            text="Προτεραιότητα:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=4, column=1, sticky="w", padx=(5, 10), pady=(10, 5))
+
         self.priority_combo = ctk.CTkComboBox(
             scrollable,
             values=["Χαμηλή (low)", "Μεσαία (medium)", "Υψηλή (high)"],
-            width=400,
+            width=300,
             state="readonly"
         )
-        self.priority_combo. pack(anchor="w", pady=(0, 15))
+        self.priority_combo.grid(row=5, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
         self.priority_combo.set("Μεσαία (medium)")
 
-        # Ημερομηνία Δημιουργίας με Calendar Picker
+        # ===== ROW 6: Ημερομηνία | Τεχνικός =====
+
+        # LEFT:  Ημερομηνία με Calendar
         date_label_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        date_label_frame.pack(fill="x", pady=(10, 5))
+        date_label_frame.grid(row=6, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
 
         ctk.CTkLabel(
             date_label_frame,
-            text="Ημερομηνία Δημιουργίας:",
+            text="Ημερομηνία:",
             font=theme_config.get_font("body", "bold")
         ).pack(side="left")
 
         ctk.CTkLabel(
             date_label_frame,
-            text="(Κλικ στο 📅 για calendar)",
+            text="(📅 για calendar)",
             font=theme_config.get_font("tiny"),
-            text_color=theme_config.get_current_theme()["text_disabled"]
-        ).pack(side="left", padx=10)
+            text_color=theme["text_disabled"]
+        ).pack(side="left", padx=5)
 
         date_entry_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        date_entry_frame.pack(fill="x", pady=(0, 15))
+        date_entry_frame.grid(row=7, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
 
-        self.created_date_entry = ctk.CTkEntry(date_entry_frame, width=320)
+        self.created_date_entry = ctk.CTkEntry(date_entry_frame, width=220)
         self.created_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
-        self.created_date_entry.pack(side="left", padx=(0, 10))
+        self.created_date_entry.pack(side="left", padx=(0, 5))
 
-        # Calendar button
         calendar_btn = ctk.CTkButton(
             date_entry_frame,
             text="📅",
@@ -394,23 +425,44 @@ class TaskForm(ctk.CTkFrame):
             **theme_config.get_button_style("primary")
         )
         calendar_btn.pack(side="left")
-        
-        # Τεχνικός
-        ctk.CTkLabel(scrollable, text="Όνομα Τεχνικού:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
-        self.technician_entry = ctk.CTkEntry(scrollable, width=400)
-        self.technician_entry. pack(anchor="w", pady=(0, 15))
-        
-        # Σημειώσεις
-        ctk.CTkLabel(scrollable, text="Σημειώσεις:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
-        self.notes_text = ctk.CTkTextbox(scrollable, width=400, height=80)
-        self.notes_text.pack(anchor="w", pady=(0, 20))
-        
-        # Κουμπιά
+
+        # RIGHT:  Τεχνικός
+        ctk.CTkLabel(
+            scrollable,
+            text="Όνομα Τεχνικού:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=6, column=1, sticky="w", padx=(5, 10), pady=(10, 5))
+
+        self.technician_entry = ctk.CTkEntry(scrollable, width=300)
+        self.technician_entry.grid(row=7, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
+
+        # ===== ROW 8: Περιγραφή (FULL WIDTH) =====
+
+        ctk.CTkLabel(
+            scrollable,
+            text="Περιγραφή Εργασίας:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=8, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 5))
+
+        self.description_text = ctk.CTkTextbox(scrollable, height=80)
+        self.description_text.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 15))
+
+        # ===== ROW 10: Σημειώσεις (FULL WIDTH) =====
+
+        ctk.CTkLabel(
+            scrollable,
+            text="Σημειώσεις:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=10, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 5))
+
+        self.notes_text = ctk.CTkTextbox(scrollable, height=60)
+        self.notes_text.grid(row=11, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 20))
+
+        # ===== ROW 12: Κουμπιά (FULL WIDTH) =====
+
         buttons_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        buttons_frame.pack(anchor="w", pady=10)
-        
+        buttons_frame.grid(row=12, column=0, columnspan=2, pady=(10, 20))
+
         save_text = "💾 Ενημέρωση" if self.is_edit_mode else "💾 Αποθήκευση"
         save_btn = ctk.CTkButton(
             buttons_frame,
@@ -423,7 +475,7 @@ class TaskForm(ctk.CTkFrame):
             **theme_config.get_button_style("success")
         )
         save_btn.pack(side="left", padx=(0, 10))
-        
+
         cancel_btn = ctk.CTkButton(
             buttons_frame,
             text="✖ Ακύρωση",
@@ -435,7 +487,7 @@ class TaskForm(ctk.CTkFrame):
             **theme_config.get_button_style("secondary")
         )
         cancel_btn.pack(side="left")
-        
+
         # Κουμπί διαγραφής (μόνο σε edit mode)
         if self.is_edit_mode:
             delete_btn = ctk.CTkButton(
@@ -449,7 +501,7 @@ class TaskForm(ctk.CTkFrame):
                 **theme_config.get_button_style("danger")
             )
             delete_btn.pack(side="left", padx=(10, 0))
-        
+
         # Initialize cascade selects
         self.on_group_change(self.group_combo.get() if self.groups_dict else None)
         self.on_task_type_change(self.task_type_combo.get() if self.task_types_dict else None)
