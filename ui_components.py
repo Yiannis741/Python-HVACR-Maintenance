@@ -131,8 +131,8 @@ class TaskForm(ctk.CTkFrame):
         scrollable = ctk.CTkScrollableFrame(self)
         scrollable.pack(fill="both", expand=True)
         
-        # Μονάδα
-        ctk.CTkLabel(scrollable, text="Μονάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
+        # 1. Ομάδα Μονάδων
+        ctk.CTkLabel(scrollable, text="Ομάδα Μονάδων:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         groups = database.get_all_groups()
         self.groups_dict = {g['name']: g['id'] for g in groups}
@@ -149,7 +149,7 @@ class TaskForm(ctk.CTkFrame):
             self.group_combo.set(list(self.groups_dict.keys())[0])
         
         # 2. Μονάδα (φιλτραρισμένη από ομάδα)
-        ctk.CTkLabel(scrollable, text="Μονάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        ctk.CTkLabel(scrollable, text="Μονάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         self.units_dict = {}  # Will be populated by on_group_change
         self.unit_combo = ctk.CTkComboBox(
@@ -160,8 +160,8 @@ class TaskForm(ctk.CTkFrame):
         )
         self.unit_combo.pack(anchor="w", pady=(0, 15))
         
-        # Είδος Εργασίας
-        ctk.CTkLabel(scrollable, text="Είδος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
+        # 3. Τύπος Εργασίας
+        ctk.CTkLabel(scrollable, text="Τύπος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
         task_types = database.get_all_task_types()
         self.task_types_dict = {tt['name']: tt['id'] for tt in task_types}
@@ -176,6 +176,18 @@ class TaskForm(ctk.CTkFrame):
         self.task_type_combo.pack(anchor="w", pady=(0, 15))
         if self.task_types_dict:
             self.task_type_combo.set(list(self.task_types_dict.keys())[0])
+        
+        # 4. Είδος Εργασίας (φιλτραρισμένο από τύπο)
+        ctk.CTkLabel(scrollable, text="Είδος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
+        
+        self.task_items_dict = {}  # Will be populated by on_task_type_change
+        self.task_item_combo = ctk.CTkComboBox(
+            scrollable,
+            values=[],
+            width=400,
+            state="readonly"
+        )
+        self.task_item_combo.pack(anchor="w", pady=(0, 15))
         
         # Περιγραφή
         ctk.CTkLabel(scrollable, text="Περιγραφή Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
