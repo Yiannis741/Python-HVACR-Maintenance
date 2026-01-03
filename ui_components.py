@@ -143,7 +143,6 @@ class TaskCard(ctk.CTkFrame):
         unit_label.pack(side="right", padx=5)
 
         # ===== ROW 2: Chain Indicator (if exists) =====
-        chain_indicator = None
         chain_label = None
         chain_frame = None
         if self.show_relations:
@@ -153,8 +152,6 @@ class TaskCard(ctk.CTkFrame):
                 # Βρες τη θέση της τρέχουσας εργασίας στην αλυσίδα
                 position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
                 chain_length = len(full_chain)
-
-                chain_indicator = f"🔗 {position}/{chain_length}"
                 
                 # Chain frame
                 chain_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -162,7 +159,7 @@ class TaskCard(ctk.CTkFrame):
                 
                 chain_label = ctk.CTkLabel(
                     chain_frame,
-                    text=chain_indicator,
+                    text=f"🔗 {position}/{chain_length}",
                     font=theme_config.get_font("small"),
                     text_color=self.theme["accent_blue"],
                     anchor="w"
@@ -201,8 +198,11 @@ class TaskCard(ctk.CTkFrame):
 
         # Bind click to all widgets
         if self.on_click:
-            widgets = [self, header_frame, left_section, type_label, status_label, priority_label, unit_label, info_frame,
-                       info_label]
+            widgets = [
+                self, header_frame, left_section, type_label, 
+                status_label, priority_label, unit_label, 
+                info_frame, info_label
+            ]
             if chain_frame:
                 widgets.append(chain_frame)
             if chain_label:
