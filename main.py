@@ -347,13 +347,21 @@ class HVACRApp(ctk.CTk):
                 unit_names = [u['name'] for u in units]
                 unit_ids = {u['name']: u['id'] for u in units}
                 
+                # Helper to safely get unit ID
+                def make_unit_filter(uid_map):
+                    def handler(selected):
+                        unit_id = uid_map.get(selected)
+                        if unit_id is not None:
+                            self.filter_by_unit(unit_id)
+                    return handler
+                
                 dropdown = ctk.CTkComboBox(
                     units_content,
                     values=unit_names,
                     width=180,
                     height=35,
                     state="readonly",
-                    command=lambda selected, uid_map=unit_ids.copy(): self.filter_by_unit(uid_map[selected])
+                    command=make_unit_filter(unit_ids)
                 )
                 dropdown.set(group['name'])
                 dropdown.pack(side="left", padx=5)
@@ -464,7 +472,7 @@ class HVACRApp(ctk.CTk):
             widget.destroy()
         
         # Get filter values (hasattr checks ensure we don't crash if called before UI init)
-        search_text = self.history_search_entry.get().strip() if hasattr(self, 'history_search_entry') else None
+        search_text = self.history_search_entry.get().strip() or None if hasattr(self, 'history_search_entry') else None
         
         status_map = {"Όλες": None, "Εκκρεμείς": "pending", "Ολοκληρωμένες": "completed"}
         status = status_map.get(self.history_status_combo.get()) if hasattr(self, 'history_status_combo') else None
