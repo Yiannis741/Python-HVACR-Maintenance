@@ -2029,42 +2029,76 @@ class TaskRelationshipsView(ctk.CTkFrame):
         self.timeline_frame = ctk.CTkScrollableFrame(self)
         self.timeline_frame.pack(fill="both", expand=True)
 
+
+
     def show_help(self):
         """Εμφάνιση βοήθειας"""
         help_text = """
-🔗 Αλυσίδα Εργασιών - Πώς λειτουργεί: 
-
-📖 Ορισμοί:
-• 🔵 Αρχική Εργασία = Η εργασία που προκάλεσε/προηγήθηκε
-• 🟡 Τρέχουσα Εργασία = Αυτή που επεξεργάζεστε τώρα
-• 🟢 Συνέχεια = Οι εργασίες που ακολούθησαν
-
-📝 Παράδειγμα:
-[1] Βλάβη:  Διαρροή ψυκτικού (01/01)
-     ↓ προκάλεσε
-[2] Επισκευή: Συγκόλληση (05/01) ← Τρέχουσα
-     ↓ ακολούθησε
-[3] Service: Έλεγχος λειτουργίας (10/01)
-
-✨ Οφέλη:
-• Πλήρης ιχνηλασιμότητα
-• Καλύτερη οργάνωση
-• Ιστορικό ανά μονάδα
+    🔗 Αλυσίδα Εργασιών - Πώς λειτουργεί: 
+    ... 
         """
         messagebox.showinfo("Βοήθεια - Αλυσίδα Εργασιών", help_text)
 
+    # ← ΕΔΩ προσθέτετε την get_full_chain()
+    def get_full_chain(self, task_id):
+        """Παίρνει ολόκληρη την αλυσίδα (parents + current + children recursively)"""
+
+        chain = []
+        visited = set()  # Αποφυγή infinite loops
+
+        # 1. Βρες όλους τους parents recursively
+        def get_all_parents(tid):
+            if tid in visited:
+                return
+            visited.add(tid)
+
+            rels = database.get_related_tasks(tid)
+            for parent in rels['parents']:
+                if parent['id'] not in [c['id'] for c in chain]:
+                    chain.insert(0, parent)  # Προσθήκη στην αρχή
+                    get_all_parents(parent['id'])  # Recursive
+
+        # 2. Βρες όλα τα children recursively
+        def get_all_children(tid):
+            if tid in visited:
+                return
+            visited.add(tid)
+
+            rels = database.get_related_tasks(tid)
+            for child in rels['children']:
+                if child['id'] not in [c['id'] for c in chain]:
+                    chain.append(child)  # Προσθήκη στο τέλος
+                    get_all_children(child['id'])  # Recursive
+
+        # Build chain
+        get_all_parents(task_id)
+        chain.append(self.task_data)  # Current task
+        get_all_children(task_id)
+
+        return chain
+
     def load_relationships(self):
-        """Φόρτωση και εμφάνιση αλυσίδας"""
+        """Φόρτωση και εμφάνιση αλυσίδας - Updated to show full chain"""
 
         # Clear
         for widget in self.timeline_frame.winfo_children():
             widget.destroy()
 
-        relations = database.get_related_tasks(self.task_data['id'])
+        # Get FULL chain
+        full_chain = self.get_full_chain(self.task_data['id'])
 
-        # Calculate chain position
-        chain_position = len(relations['parents']) + 1
-        total_in_chain = chain_position + len(relations['children'])
+        # Find current position
+        current_position = None
+        for idx, task in enumerate(full_chain, 1):
+            if task['id'] == self.task_data['id']:
+                current_position = idx
+                break
+
+        if current_position is None:
+            current_position = 1
+            full_chain = [self.task_data]
+
+        total_in_chain = len(full_chain)
 
         # Info banner
         info_frame = ctk.CTkFrame(
@@ -2074,10 +2108,10 @@ class TaskRelationshipsView(ctk.CTkFrame):
         )
         info_frame.pack(fill="x", padx=10, pady=(0, 20))
 
-        info_text = f"📊 Αλυσίδα {total_in_chain} εργασιών  •  Θέση {chain_position}/{total_in_chain}"
-        if not relations['parents']:
+        info_text = f"📊 Αλυσίδα {total_in_chain} εργασιών  •  Θέση {current_position}/{total_in_chain}"
+        if current_position == 1:
             info_text += "  •  🔵 Αυτή είναι η ΠΡΩΤΗ εργασία"
-        if not relations['children']:
+        if current_position == total_in_chain:
             info_text += "  •  🔚 Αυτή είναι η ΤΕΛΕΥΤΑΙΑ εργασία"
 
         ctk.CTkLabel(
@@ -2087,52 +2121,61 @@ class TaskRelationshipsView(ctk.CTkFrame):
             text_color=self.theme["text_primary"]
         ).pack(padx=20, pady=12)
 
-        # ===== TIMELINE VIEW =====
-
-        # 1. Parent tasks (Αρχικές)
-        if relations['parents']:
-            for idx, parent in enumerate(relations['parents'], 1):
-                self.create_timeline_item(
-                    parent,
-                    position=idx,
-                    item_type="parent",
-                    is_removable=True
-                )
-                self.create_arrow("προκάλεσε")
-        else:
-            # Add parent button at top
+        # Add parent button at top (if first in chain)
+        if current_position == 1 and total_in_chain == 1:
+            # Μόνος σου στην αλυσίδα
             self.create_add_button("parent", position=0)
             self.create_arrow("προκάλεσε", dashed=True)
 
-        # 2. Current task (Τρέχουσα)
-        self.create_timeline_item(
-            self.task_data,
-            position=chain_position,
-            item_type="current",
-            is_removable=False
-        )
+        # Display all tasks in chain
+        for idx, task in enumerate(full_chain, 1):
+            # Determine type
+            if idx < current_position:
+                item_type = "parent"
+                sequence_num = None
+            elif idx == current_position:
+                item_type = "current"
+                sequence_num = None
+            else:
+                item_type = "child"
+                sequence_num = idx - current_position
 
-        # 3. Child tasks (Συνέχειες)
-        if relations['children'] or True:  # Always show arrow
-            self.create_arrow("ακολούθησε" if relations['children'] else "θα ακολουθήσει",
-                              dashed=not relations['children'])
+            # ═══════════════════════════════════════════
+            # ΝΕΑ ΛΟΓΙΚΗ:   Removability Rules
+            # ═══════════════════════════════════════════
 
-        if relations['children']:
-            for idx, child in enumerate(relations['children'], 1):
-                self.create_timeline_item(
-                    child,
-                    position=chain_position + idx,
-                    item_type="child",
-                    sequence_num=idx,
-                    is_removable=True
-                )
+            if item_type == "current":
+                # Η τρέχουσα δεν μπορεί να αφαιρεθεί
+                is_removable = False
 
-                # Arrow between children
-                if idx < len(relations['children']):
-                    self.create_arrow("ακολούθησε")
+            elif item_type == "parent":
+                # Μπορείς να αφαιρέσεις ΜΟΝΟ την άμεση προηγούμενη (idx == current_position - 1)
+                # Γιατί:   Αν αφαιρέσεις την [1] ενώ είσαι [3], θα χαθεί η σύνδεση με την [2]
+                is_removable = (idx == current_position - 1)
+
+            elif item_type == "child":
+                # Μπορείς να αφαιρέσεις ΟΠΟΙΑΔΗΠΟΤΕ child
+                # Γιατί:   Αφαιρείς τη σύνδεση current → child, όχι όλη την αλυσίδα
+                is_removable = True
+
+            else:
+                is_removable = False
+
+            self.create_timeline_item(
+                task,
+                position=idx,
+                item_type=item_type,
+                sequence_num=sequence_num,
+                is_removable=is_removable
+            )
+
+            # Arrow between tasks
+            if idx < total_in_chain:
+                self.create_arrow("ακολούθησε")
 
         # Add child button at bottom
-        self.create_add_button("child", position=total_in_chain + 1)
+        if current_position == total_in_chain:
+            self.create_add_button("child", position=total_in_chain + 1)
 
     def create_timeline_item(self, task, position, item_type, sequence_num=None, is_removable=True):
         """Δημιουργία στοιχείου timeline"""
@@ -2572,9 +2615,10 @@ class TaskRelationshipsView(ctk.CTkFrame):
             """Επιλογή εργασίας"""
 
             if relation_type == "parent":
+                # PARENT:  Σύνδεση με την τρέχουσα (όπως πριν)
                 confirm_text = (
                     f"Ορισμός ως ΑΡΧΙΚΗ εργασία:\n\n"
-                    f"🔵 Αρχική:   {task['task_type_name']}"
+                    f"🔵 Αρχική:  {task['task_type_name']}"
                     f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
                     f"📍 {task['unit_name']}\n"
                     f"📅 {task['created_date']}\n\n"
@@ -2584,37 +2628,76 @@ class TaskRelationshipsView(ctk.CTkFrame):
                     f"📍 {self.task_data['unit_name']}\n"
                     f"📅 {self.task_data['created_date']}"
                 )
+
+                result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
+
+                if result:
+                    try:
+                        # task is parent, current is child
+                        database.add_task_relationship(task['id'], self.task_data['id'], "related")
+                        messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
+                        dialog.destroy()
+                        self.load_relationships()
+                        self.refresh_callback()
+                    except Exception as e:
+                        messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
+
             else:
+                # CHILD: ΝΕΑ ΛΟΓΙΚΗ - Σύνδεση με την τελευταία εργασία της αλυσίδας!
+
+                # Βρες την τελευταία εργασία της τρέχουσας αλυσίδας
+                current_relations = database.get_related_tasks(self.task_data['id'])
+
+                # Αν υπάρχουν ήδη children, βρες την τελευταία
+                if current_relations['children']:
+                    # Η τελευταία child είναι αυτή που δεν έχει δικά της children
+                    last_child = None
+                    for child in current_relations['children']:
+                        child_relations = database.get_related_tasks(child['id'])
+                        if not child_relations['children']:
+                            # Αυτή δεν έχει children, είναι η τελευταία
+                            last_child = child
+                            break
+
+                    # Αν δεν βρήκαμε (όλες έχουν children), πάρε την πρώτη
+                    if not last_child:
+                        last_child = current_relations['children'][0]
+
+                    # Θα συνδεθεί με την last_child
+                    link_to_task = last_child
+                    link_position = len(current_relations['parents']) + 1 + len(current_relations['children'])
+                else:
+                    # Αν δεν υπάρχουν children, σύνδεσε με την τρέχουσα
+                    link_to_task = self.task_data
+                    link_position = len(current_relations['parents']) + 1
+
                 confirm_text = (
-                    f"Ορισμός ως ΣΥΝΕΧΕΙΑ εργασίας:\n\n"
-                    f"🟡 Τρέχουσα:  {self.task_data['task_type_name']}"
-                    f"{' → ' + self.task_data['task_item_name'] if self.task_data.get('task_item_name') else ''}\n"
-                    f"📍 {self.task_data['unit_name']}\n"
-                    f"📅 {self.task_data['created_date']}\n\n"
+                    f"Προσθήκη ως ΣΥΝΕΧΕΙΑ στην αλυσίδα:\n\n"
+                    f"🔗 Αλυσίδα τώρα: {link_position} εργασίες\n"
+                    f"➕ Νέα θέση: {link_position + 1}\n\n"
+                    f"Τελευταία εργασία:\n"
+                    f"🟢 {link_to_task['task_type_name']}"
+                    f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''}\n"
+                    f"📅 {link_to_task['created_date']}\n\n"
                     f"       ↓ ακολούθησε\n\n"
-                    f"🟢 Συνέχεια:  {task['task_type_name']}"
+                    f"Νέα συνέχεια:\n"
+                    f"🟢 {task['task_type_name']}"
                     f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
-                    f"📍 {task['unit_name']}\n"
                     f"📅 {task['created_date']}"
                 )
 
-            result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
+                result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
 
-            if result:
-                try:
-                    if relation_type == "parent":
-                        # task is parent, current is child
-                        database.add_task_relationship(task['id'], self.task_data['id'], "related")
-                    else:
-                        # current is parent, task is child
-                        database.add_task_relationship(self.task_data['id'], task['id'], "related")
-
-                    messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
-                    dialog.destroy()
-                    self.load_relationships()
-                    self.refresh_callback()
-                except Exception as e:
-                    messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
+                if result:
+                    try:
+                        # Σύνδεσε με την τελευταία εργασία (link_to_task), όχι με την τρέχουσα!
+                        database.add_task_relationship(link_to_task['id'], task['id'], "related")
+                        messagebox.showinfo("Επιτυχία", f"Η εργασία προστέθηκε ως Συνέχεια {link_position + 1}!")
+                        dialog.destroy()
+                        self.load_relationships()
+                        self.refresh_callback()
+                    except Exception as e:
+                        messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
 
         # Bind filters
         search_var.trace('w', lambda *args: filter_and_display())
@@ -2635,27 +2718,57 @@ class TaskRelationshipsView(ctk.CTkFrame):
         close_btn.pack(pady=15)
 
     def remove_relationship(self, task, relation_type):
-        """Αφαίρεση σύνδεσης"""
+        """Αφαίρεση σύνδεσης με enhanced warnings"""
 
-        result = messagebox.askyesno(
-            "Επιβεβαίωση Αφαίρεσης",
+        # Get full chain info
+        full_chain = self.get_full_chain(self.task_data['id'])
+        current_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
+        task_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == task['id']), None)
+
+        warning_text = ""
+
+        if relation_type == "parent":
+            # Αφαιρείς την άμεση προηγούμενη
+            warning_text = (
+                f"⚠️ Θα διακοπεί η αλυσίδα!\n\n"
+                f"Η αλυσίδα θα χωριστεί σε 2 κομμάτια:\n"
+                f"  • Κομμάτι 1:  Εργασίες 1-{task_pos}\n"
+                f"  • Κομμάτι 2:  Εργασίες {current_pos}-{len(full_chain)}\n\n"
+            )
+        elif relation_type == "child":
+            # Αφαιρείς child - πιο ασφαλές
+            warning_text = f"Αφαίρεση της Συνέχειας {task_pos - current_pos}.\n\n"
+
+        confirm_text = (
             f"Αφαίρεση από την αλυσίδα:\n\n"
-            f"📅 {task['created_date']}\n"
+            f"[{task_pos}] 📅 {task['created_date']}\n"
             f"🔧 {task['task_type_name']}"
             f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
-            f"📝 {task['description'][: 80]}...\n\n"
-            f"⚠️ Η αλυσίδα θα διακοπεί στο σημείο αυτό."
+            f"📝 {task['description'][: 60]}.. .\n\n"
+            f"{warning_text}"
+            f"Είστε σίγουροι;"
         )
+
+        result = messagebox.askyesno("Επιβεβαίωση Αφαίρεσης", confirm_text)
 
         if result:
             try:
                 if relation_type == "parent":
+                    # Αφαίρεση σύνδεσης parent → current
                     database.remove_task_relationship(task['id'], self.task_data['id'])
                 else:
-                    database.remove_task_relationship(self.task_data['id'], task['id'])
+                    # Αφαίρεση σύνδεσης current → child
+                    # Πρέπει να βρούμε ποια είναι η ΑΜΕΣΗ parent του child
+                    child_relations = database.get_related_tasks(task['id'])
+
+                    # Βρες ποια από τις parents του child είναι στην αλυσίδα
+                    for parent in child_relations['parents']:
+                        if parent['id'] in [t['id'] for t in full_chain]:
+                            database.remove_task_relationship(parent['id'], task['id'])
+                            break
 
                 messagebox.showinfo("Επιτυχία", "Η σύνδεση αφαιρέθηκε!")
                 self.load_relationships()
                 self.refresh_callback()
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
+                messagebox.showerror("Σφάλμα", f"Αποτυχία:   {str(e)}")
