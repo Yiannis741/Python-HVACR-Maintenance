@@ -20,6 +20,7 @@ FALLBACK_FONT = "Arial"
 
 # Font sizes with enhanced readability
 FONT_SIZES = {
+    "stat_value": 48,   # Large stat values on dashboard
     "title_large": 28,  # Large titles (from 24px)
     "title": 24,        # Section titles (from 20px)
     "subtitle": 18,     # Subtitles (from 16px)

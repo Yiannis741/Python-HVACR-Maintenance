@@ -163,7 +163,7 @@ class HVACRApp(ctk.CTk):
         
     def clear_main_frame(self):
         """Καθαρισμός της κεντρικής περιοχής"""
-        for widget in self.main_frame. winfo_children():
+        for widget in self.main_frame.winfo_children():
             widget.destroy()
             
     # ----- VIEWS -----
@@ -226,7 +226,7 @@ class HVACRApp(ctk.CTk):
         value_label = ctk.CTkLabel(
             card,
             text=str(value),
-            font=theme_config.get_font("title_large", "bold"),
+            font=theme_config.get_font("stat_value", "bold"),
             text_color=self.theme["accent_blue"]
         )
         value_label.pack(pady=(20, 5))
@@ -254,7 +254,7 @@ class HVACRApp(ctk.CTk):
             
         # Scrollable frame
         scrollable = ctk.CTkScrollableFrame(self.main_frame, height=250)
-        scrollable. pack(fill="both", expand=True, padx=40, pady=10)
+        scrollable.pack(fill="both", expand=True, padx=40, pady=10)
         
         for task in tasks:
             task_card = ui_components.TaskCard(scrollable, task, on_click=self.on_task_click_from_dashboard)
@@ -319,7 +319,7 @@ class HVACRApp(ctk.CTk):
     
     def show_task_edit(self, task):
         """Εμφάνιση φόρμας επεξεργασίας εργασίας"""
-        self. clear_main_frame()
+        self.clear_main_frame()
         
         title = ctk.CTkLabel(
             self.main_frame,
@@ -395,11 +395,11 @@ class HVACRApp(ctk.CTk):
             ("📍 Μονάδα:", f"{task['unit_name']} ({task['group_name']})"),
             ("📝 Περιγραφή:", task['description']),
             ("📊 Κατάσταση:", "✅ Ολοκληρωμένη" if task['status'] == 'completed' else "⏳ Εκκρεμής"),
-            ("⚠️ Προτεραιότητα:", task. get('priority', 'medium').upper()),
+            ("⚠️ Προτεραιότητα:", task.get('priority', 'medium').upper()),
             ("📅 Ημερομηνία Δημιουργίας:", task['created_date']),
-            ("✔️ Ημερομηνία Ολοκλήρωσης:", task. get('completed_date', 'N/A')),
-            ("👤 Τεχνικός:", task. get('technician_name', 'N/A')),
-            ("📝 Σημειώσεις:", task. get('notes', 'Καμία')),
+            ("✔️ Ημερομηνία Ολοκλήρωσης:", task.get('completed_date', 'N/A')),
+            ("👤 Τεχνικός:", task.get('technician_name', 'N/A')),
+            ("📝 Σημειώσεις:", task.get('notes', 'Καμία')),
         ]
         
         for label, value in details:
@@ -521,7 +521,7 @@ class HVACRApp(ctk.CTk):
         for widget in self.top_frame.winfo_children():
             widget.destroy()
         # Επαναδημιουργία
-        self. create_top_bar()
+        self.create_top_bar()
         
     def load_initial_data(self):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""
