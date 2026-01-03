@@ -377,17 +377,21 @@ class UnitsManagement(ctk.CTkFrame):
         """Δημιουργία UI"""
         
         # Tabs
-        tabview = ctk.CTkTabview(self)
-        tabview.pack(fill="both", expand=True)
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(fill="both", expand=True)
         
-        tab1 = tabview.add("Μονάδες")
-        tab2 = tabview.add("Ομάδες")
+        self.tab1 = self.tabview.add("Μονάδες")
+        self.tab2 = self.tabview.add("Ομάδες")
+        self.tab3 = self.tabview.add("Τύποι Εργασιών")
         
         # Tab Μονάδες
-        self.create_units_tab(tab1)
+        self.create_units_tab(self.tab1)
         
         # Tab Ομάδες
-        self.create_groups_tab(tab2)
+        self.create_groups_tab(self.tab2)
+        
+        # Tab Τύποι Εργασιών
+        self.create_task_types_tab(self.tab3)
         
     def create_units_tab(self, parent):
         """Tab για διαχείριση μονάδων"""
@@ -420,7 +424,18 @@ class UnitsManagement(ctk.CTkFrame):
                 text=info_text,
                 font=ctk.CTkFont(size=12)
             )
-            label.pack(side="left", padx=15, pady=10)
+            label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+            
+            # Edit button
+            edit_btn = ctk.CTkButton(
+                unit_frame,
+                text="✏️",
+                command=lambda u=unit: self.edit_unit_dialog(u),
+                width=40,
+                height=30,
+                fg_color="#1f6aa5"
+            )
+            edit_btn.pack(side="right", padx=10, pady=10)
             
     def create_groups_tab(self, parent):
         """Tab για διαχείριση ομάδων"""
@@ -454,16 +469,29 @@ class UnitsManagement(ctk.CTkFrame):
             label = ctk.CTkLabel(
                 group_frame,
                 text=info_text,
-                font=ctk. CTkFont(size=12)
+                font=ctk.CTkFont(size=12)
             )
-            label.pack(side="left", padx=15, pady=10)
+            label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+            
+            # Edit button
+            edit_btn = ctk.CTkButton(
+                group_frame,
+                text="✏️",
+                command=lambda g=group: self.edit_group_dialog(g),
+                width=40,
+                height=30,
+                fg_color="#1f6aa5"
+            )
+            edit_btn.pack(side="right", padx=10, pady=10)
 
                     
-    def add_unit_dialog(self):
-        """Dialog για προσθήκη μονάδας"""
+    def add_unit_dialog(self, unit_data=None):
+        """Dialog για προσθήκη/επεξεργασία μονάδας"""
+        
+        is_edit_mode = unit_data is not None
         
         dialog = ctk.CTkToplevel(self)
-        dialog.title("Προσθήκη Νέας Μονάδας")
+        dialog.title("Επεξεργασία Μονάδας" if is_edit_mode else "Προσθήκη Νέας Μονάδας")
         dialog.geometry("500x600")
         dialog.grab_set()
         
@@ -473,7 +501,7 @@ class UnitsManagement(ctk.CTkFrame):
         name_entry.pack(padx=20, pady=(0, 15))
         
         # Ομάδα
-        ctk. CTkLabel(dialog, text="Ομάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ομάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
         groups = database.get_all_groups()
         groups_dict = {g['name']: g['id'] for g in groups}
         group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly")
@@ -487,7 +515,7 @@ class UnitsManagement(ctk.CTkFrame):
         location_entry.pack(padx=20, pady=(0, 15))
         
         # Μοντέλο
-        ctk.CTkLabel(dialog, text="Μοντέλο:", font=ctk. CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Μοντέλο:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
         model_entry = ctk.CTkEntry(dialog, width=450)
         model_entry.pack(padx=20, pady=(0, 15))
         
@@ -502,10 +530,25 @@ class UnitsManagement(ctk.CTkFrame):
         install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         install_entry.pack(padx=20, pady=(0, 20))
         
+        # Populate fields if editing
+        if is_edit_mode:
+            name_entry.insert(0, unit_data['name'])
+            location_entry.insert(0, unit_data.get('location', ''))
+            model_entry.insert(0, unit_data.get('model', ''))
+            serial_entry.insert(0, unit_data.get('serial_number', ''))
+            install_entry.delete(0, "end")
+            install_entry.insert(0, unit_data.get('installation_date', ''))
+            
+            # Set group
+            for group_name, group_id in groups_dict.items():
+                if group_id == unit_data['group_id']:
+                    group_combo.set(group_name)
+                    break
+        
         def save():
             name = name_entry.get().strip()
             if not name:
-                messagebox. showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
             
             group_id = groups_dict.get(group_combo.get())
@@ -515,27 +558,212 @@ class UnitsManagement(ctk.CTkFrame):
             install_date = install_entry.get().strip()
             
             try:
-                database.add_unit(name, group_id, location, model, serial, install_date)
-                messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
+                if is_edit_mode:
+                    database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
+                    messagebox.showinfo("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
+                else:
+                    database.add_unit(name, group_id, location, model, serial, install_date)
+                    messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
                 dialog.destroy()
                 self.refresh_callback()
+                self.refresh_ui()
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
+                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
         
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+    
+    def edit_unit_dialog(self, unit):
+        """Wrapper για επεξεργασία μονάδας"""
+        self.add_unit_dialog(unit_data=unit)
         
-    def add_group_dialog(self):
-        """Dialog για προσθήκη ομάδας"""
+    def add_group_dialog(self, group_data=None):
+        """Dialog για προσθήκη/επεξεργασία ομάδας"""
+        
+        is_edit_mode = group_data is not None
         
         dialog = ctk.CTkToplevel(self)
-        dialog.title("Προσθήκη Νέας Ομάδας")
+        dialog.title("Επεξεργασία Ομάδας" if is_edit_mode else "Προσθήκη Νέας Ομάδας")
         dialog.geometry("500x350")
         dialog.grab_set()
         
         # Όνομα
-        ctk. CTkLabel(dialog, text="Όνομα Ομάδας:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        name_entry = ctk. CTkEntry(dialog, width=450)
-        name_entry. pack(padx=20, pady=(0, 15))
+        ctk.CTkLabel(dialog, text="Όνομα Ομάδας:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry.pack(padx=20, pady=(0, 15))
+        
+        # Περιγραφή
+        ctk.CTkLabel(dialog, text="Περιγραφή:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
+        desc_text.pack(padx=20, pady=(0, 20))
+        
+        # Populate fields if editing
+        if is_edit_mode:
+            name_entry.insert(0, group_data['name'])
+            desc_text.insert("1.0", group_data.get('description', ''))
+        
+        def save():
+            name = name_entry.get().strip()
+            if not name:
+                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                return
+            
+            desc = desc_text.get("1.0", "end-1c").strip()
+            
+            try:
+                if is_edit_mode:
+                    result = database.update_group(group_data['id'], name, desc)
+                    if result:
+                        messagebox.showinfo("Επιτυχία", "Η ομάδα ενημερώθηκε με επιτυχία!")
+                        dialog.destroy()
+                        self.refresh_callback()
+                        self.refresh_ui()
+                    else:
+                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+                else:
+                    result = database.add_group(name, desc)
+                    if result:
+                        messagebox.showinfo("Επιτυχία", "Η ομάδα προστέθηκε με επιτυχία!")
+                        dialog.destroy()
+                        self.refresh_callback()
+                        self.refresh_ui()
+                    else:
+                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+            except Exception as e:
+                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+        
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+    
+    def edit_group_dialog(self, group):
+        """Wrapper για επεξεργασία ομάδας"""
+        self.add_group_dialog(group_data=group)
+    
+    def refresh_ui(self):
+        """Ανανέωση του UI"""
+        # Clear and recreate tabs
+        self.create_units_tab(self.tab1)
+        self.create_groups_tab(self.tab2)
+        self.create_task_types_tab(self.tab3)
+    
+    def create_task_types_tab(self, parent):
+        """Tab για διαχείριση τύπων εργασιών"""
+        
+        # Clear existing widgets
+        for widget in parent.winfo_children():
+            widget.destroy()
+        
+        # Info label
+        info_frame = ctk.CTkFrame(parent, fg_color="#e3f2fd", corner_radius=10)
+        info_frame.pack(fill="x", pady=10, padx=10)
+        
+        info_label = ctk.CTkLabel(
+            info_frame,
+            text="ℹ️ Οι προκαθορισμένοι τύποι (Service, Βλάβη, Επισκευή, Απλός Έλεγχος) προστατεύονται και δεν μπορούν να διαγραφούν.",
+            font=ctk.CTkFont(size=11),
+            wraplength=800,
+            text_color="#1976d2"
+        )
+        info_label.pack(padx=15, pady=10)
+        
+        # Κουμπί προσθήκης
+        add_btn = ctk.CTkButton(
+            parent,
+            text="➕ Προσθήκη Custom Τύπου Εργασίας",
+            command=self.add_task_type_dialog,
+            height=40,
+            fg_color="#2fa572",
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        add_btn.pack(pady=15)
+        
+        # Λίστα τύπων εργασιών
+        scrollable = ctk.CTkScrollableFrame(parent)
+        scrollable.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        task_types = database.get_all_task_types()
+        
+        # Separate predefined and custom
+        predefined_types = [tt for tt in task_types if tt['is_predefined']]
+        custom_types = [tt for tt in task_types if not tt['is_predefined']]
+        
+        # Predefined types section
+        if predefined_types:
+            ctk.CTkLabel(
+                scrollable,
+                text="📌 Προκαθορισμένοι Τύποι",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#1976d2"
+            ).pack(anchor="w", padx=10, pady=(10, 5))
+            
+            for task_type in predefined_types:
+                type_frame = ctk.CTkFrame(scrollable, corner_radius=10, fg_color="#e3f2fd")
+                type_frame.pack(fill="x", pady=5, padx=10)
+                
+                info_text = f"🔧 {task_type['name']}"
+                if task_type.get('description'):
+                    info_text += f" - {task_type['description']}"
+                
+                label = ctk.CTkLabel(
+                    type_frame,
+                    text=info_text,
+                    font=ctk.CTkFont(size=12)
+                )
+                label.pack(side="left", padx=15, pady=10)
+        
+        # Custom types section
+        if custom_types:
+            ctk.CTkLabel(
+                scrollable,
+                text="⚙️ Custom Τύποι",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#2fa572"
+            ).pack(anchor="w", padx=10, pady=(20, 5))
+            
+            for task_type in custom_types:
+                type_frame = ctk.CTkFrame(scrollable, corner_radius=10, fg_color="#f0f0f0")
+                type_frame.pack(fill="x", pady=5, padx=10)
+                
+                info_text = f"🔧 {task_type['name']}"
+                if task_type.get('description'):
+                    info_text += f" - {task_type['description']}"
+                
+                label = ctk.CTkLabel(
+                    type_frame,
+                    text=info_text,
+                    font=ctk.CTkFont(size=12)
+                )
+                label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+                
+                # Delete button
+                delete_btn = ctk.CTkButton(
+                    type_frame,
+                    text="🗑️",
+                    command=lambda tt=task_type: self.delete_task_type(tt),
+                    width=40,
+                    height=30,
+                    fg_color="#c94242"
+                )
+                delete_btn.pack(side="right", padx=10, pady=10)
+        
+        if not custom_types:
+            ctk.CTkLabel(
+                scrollable,
+                text="Δεν υπάρχουν custom τύποι. Προσθέστε έναν!",
+                font=ctk.CTkFont(size=11),
+                text_color="gray"
+            ).pack(pady=20)
+    
+    def add_task_type_dialog(self):
+        """Dialog για προσθήκη custom τύπου εργασίας"""
+        
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Προσθήκη Custom Τύπου Εργασίας")
+        dialog.geometry("500x350")
+        dialog.grab_set()
+        
+        # Όνομα
+        ctk.CTkLabel(dialog, text="Όνομα Τύπου:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry.pack(padx=20, pady=(0, 15))
         
         # Περιγραφή
         ctk.CTkLabel(dialog, text="Περιγραφή:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
@@ -550,15 +778,32 @@ class UnitsManagement(ctk.CTkFrame):
             
             desc = desc_text.get("1.0", "end-1c").strip()
             
-            result = database.add_group(name, desc)
+            result = database.add_task_type(name, desc)
             if result:
-                messagebox.showinfo("Επιτυχία", "Η ομάδα προστέθηκε με επιτυχία!")
+                messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας προστέθηκε με επιτυχία!")
                 dialog.destroy()
-                self.refresh_callback()
+                self.refresh_ui()
             else:
                 messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
         
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+    
+    def delete_task_type(self, task_type):
+        """Διαγραφή custom τύπου εργασίας"""
+        
+        result = messagebox.askyesno(
+            "Επιβεβαίωση Διαγραφής",
+            f"Είστε σίγουροι ότι θέλετε να διαγράψετε τον τύπο '{task_type['name']}';"
+        )
+        
+        if result:
+            delete_result = database.delete_task_type(task_type['id'])
+            
+            if delete_result['success']:
+                messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
+                self.refresh_ui()
+            else:
+                messagebox.showerror("Σφάλμα", delete_result['error'])
 
 
 # ----- PHASE 2: NEW COMPONENTS -----

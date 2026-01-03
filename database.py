@@ -551,3 +551,137 @@ def remove_task_relationship(parent_task_id, child_task_id):
     conn.commit()
     conn.close()
     return True
+
+
+# ----- PHASE 2.1: NEW FUNCTIONS FOR UNITS, GROUPS, AND TASK TYPES -----
+
+def get_unit_by_id(unit_id):
+    """Επιστρέφει μία μονάδα με βάση το ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT u.*, g.name as group_name
+        FROM units u
+        JOIN groups g ON u.group_id = g.id
+        WHERE u.id = ?
+    ''', (unit_id,))
+    
+    unit = cursor.fetchone()
+    conn.close()
+    return dict(unit) if unit else None
+
+
+def get_group_by_id(group_id):
+    """Επιστρέφει μία ομάδα με βάση το ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM groups WHERE id = ?', (group_id,))
+    
+    group = cursor.fetchone()
+    conn.close()
+    return dict(group) if group else None
+
+
+def update_unit(unit_id, name, group_id, location, model, serial_number, installation_date):
+    """Ενημέρωση υπάρχουσας μονάδας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE units 
+        SET name = ?, group_id = ?, location = ?, model = ?, 
+            serial_number = ?, installation_date = ?
+        WHERE id = ?
+    ''', (name, group_id, location, model, serial_number, installation_date, unit_id))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def update_group(group_id, name, description):
+    """Ενημέρωση υπάρχουσας ομάδας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            UPDATE groups 
+            SET name = ?, description = ?
+            WHERE id = ?
+        ''', (name, description, group_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False
+
+
+def add_task_type(name, description):
+    """Προσθήκη custom τύπου εργασίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO task_types (name, description, is_predefined)
+            VALUES (?, ?, 0)
+        ''', (name, description))
+        
+        type_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return type_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        return None
+
+
+def is_task_type_in_use(type_id):
+    """Έλεγχος αν ένας τύπος εργασίας χρησιμοποιείται σε εργασίες"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT COUNT(*) as count 
+        FROM tasks 
+        WHERE task_type_id = ? AND is_deleted = 0
+    ''', (type_id,))
+    
+    count = cursor.fetchone()['count']
+    conn.close()
+    return count > 0
+
+
+def delete_task_type(type_id):
+    """Διαγραφή τύπου εργασίας (με validations)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Έλεγχος αν είναι προκαθορισμένος
+    cursor.execute('SELECT is_predefined FROM task_types WHERE id = ?', (type_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        return {'success': False, 'error': 'Ο τύπος δεν βρέθηκε'}
+    
+    if result['is_predefined']:
+        conn.close()
+        return {'success': False, 'error': 'Οι προκαθορισμένοι τύποι δεν μπορούν να διαγραφούν'}
+    
+    # Έλεγχος χρήσης
+    if is_task_type_in_use(type_id):
+        conn.close()
+        return {'success': False, 'error': 'Ο τύπος χρησιμοποιείται σε εργασίες'}
+    
+    # Διαγραφή
+    cursor.execute('DELETE FROM task_types WHERE id = ?', (type_id,))
+    conn.commit()
+    conn.close()
+    
+    return {'success': True}
