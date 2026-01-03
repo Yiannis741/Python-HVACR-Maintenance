@@ -41,12 +41,13 @@ class TaskCard(ctk.CTkFrame):
     def _get_full_chain_simple(self, task_id):
         """Lightweight chain calculation για το badge"""
         chain = []
-        visited = set()
+        visited_parents = set()
+        visited_children = set()
 
         def get_parents(tid):
-            if tid in visited:
+            if tid in visited_parents:
                 return
-            visited.add(tid)
+            visited_parents.add(tid)
             rels = database.get_related_tasks(tid)
             for parent in rels['parents']:
                 parent_id = parent['id']
@@ -55,9 +56,9 @@ class TaskCard(ctk.CTkFrame):
                     get_parents(parent_id)
 
         def get_children(tid):
-            if tid in visited:
+            if tid in visited_children:
                 return
-            visited.add(tid)
+            visited_children.add(tid)
             rels = database.get_related_tasks(tid)
             for child in rels['children']:
                 child_id = child['id']
@@ -2079,13 +2080,14 @@ class TaskRelationshipsView(ctk.CTkFrame):
         """Παίρνει ολόκληρη την αλυσίδα (parents + current + children recursively)"""
 
         chain = []
-        visited = set()  # Αποφυγή infinite loops
+        visited_parents = set()  # Αποφυγή infinite loops στους parents
+        visited_children = set()  # Αποφυγή infinite loops στα children
 
         # 1. Βρες όλους τους parents recursively
         def get_all_parents(tid):
-            if tid in visited:
+            if tid in visited_parents:
                 return
-            visited.add(tid)
+            visited_parents.add(tid)
 
             rels = database.get_related_tasks(tid)
             for parent in rels['parents']:
@@ -2096,16 +2098,16 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
         # 2. Βρες όλα τα children recursively
         def get_all_children(tid):
-            if tid in visited:
+            if tid in visited_children:
                 return
-            visited.add(tid)
+            visited_children.add(tid)
 
             rels = database.get_related_tasks(tid)
             for child in rels['children']:
                 child_id = child['id']
                 if child_id not in [c['id'] for c in chain]:
                     chain.append(child)  # Προσθήκη στο τέλος
-                    get_all_children(child_id)  # Recursive ← FIX: Σωστή κλήση
+                    get_all_children(child_id)  # Recursive
 
         # Build chain:  parents + current + children
         get_all_parents(task_id)
