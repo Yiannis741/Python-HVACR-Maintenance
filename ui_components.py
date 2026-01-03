@@ -2217,7 +2217,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         )
         badge.pack(side="left", padx=10)
 
-        # Card container
+        # Card container - Horizontal layout (card + remove button)
         card_container = ctk.CTkFrame(item_container, fg_color="transparent")
         card_container.pack(fill="x")
 
@@ -2263,7 +2263,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         info_label.pack(anchor="w", padx=12, pady=(0, 5))
 
         # Description (truncated)
-        desc_text = task['description'][: 80] + "..." if len(task['description']) > 80 else task['description']
+        desc_text = task['description'][:80] + "..." if len(task['description']) > 80 else task['description']
         desc_label = ctk.CTkLabel(
             card,
             text=desc_text,
@@ -2296,18 +2296,22 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 text_color=self.theme["text_disabled"]
             ).pack(side="left")
 
-        # Right side - Actions
+        # ═══════════════════════════════════════════════════
+        # RIGHT SIDE - REMOVE BUTTON (if removable)
+        # ═══════════════════════════════════════════════════
+
         if is_removable and item_type != "current":
             actions_frame = ctk.CTkFrame(card_container, fg_color="transparent")
-            actions_frame.pack(side="right")
+            actions_frame.pack(side="right", padx=(0, 40))  # Align with card
 
             remove_btn = ctk.CTkButton(
                 actions_frame,
-                text="✖ Αφαίρεση",
+                text="✖\nΑφαίρεση",
                 command=lambda: self.remove_relationship(task, item_type),
-                width=100,
-                height=35,
-                **theme_config.get_button_style("danger")
+                width=90,
+                height=70,
+                **theme_config.get_button_style("danger"),
+                font=theme_config.get_font("small", "bold")
             )
             remove_btn.pack()
 
