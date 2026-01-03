@@ -396,6 +396,10 @@ class UnitsManagement(ctk.CTkFrame):
     def create_units_tab(self, parent):
         """Tab για διαχείριση μονάδων"""
         
+        # Clear existing widgets
+        for widget in parent.winfo_children():
+            widget.destroy()
+        
         # Κουμπί προσθήκης
         add_btn = ctk.CTkButton(
             parent,
@@ -439,6 +443,10 @@ class UnitsManagement(ctk.CTkFrame):
             
     def create_groups_tab(self, parent):
         """Tab για διαχείριση ομάδων"""
+        
+        # Clear existing widgets
+        for widget in parent.winfo_children():
+            widget.destroy()
         
         # Κουμπί προσθήκης
         add_btn = ctk.CTkButton(
