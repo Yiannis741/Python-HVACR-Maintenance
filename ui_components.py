@@ -799,27 +799,30 @@ class TaskManagement(ctk.CTkFrame):
         # Clear and recreate tabs
         self.create_task_types_tab(self.tab1)
         self.create_task_items_tab(self.tab2)
-    
+
     def create_task_types_tab(self, parent):
         """Tab για διαχείριση τύπων εργασιών"""
-        
+
         # Clear existing widgets
         for widget in parent.winfo_children():
             widget.destroy()
-        
+
+        theme = theme_config.get_current_theme()
+
         # Info label
-        info_frame = ctk.CTkFrame(parent, fg_color="#e3f2fd", corner_radius=10)
+        info_frame = ctk.CTkFrame(parent, fg_color=theme["card_bg"], corner_radius=10,
+                                  border_color=theme["accent_blue"], border_width=1)
         info_frame.pack(fill="x", pady=10, padx=10)
-        
+
         info_label = ctk.CTkLabel(
             info_frame,
-            text="ℹ️ Οι προκαθορισμένοι τύποι (Service, Βλάβη, Επισκευή, Απλός Έλεγχος) προστατεύονται και δεν μπορούν να διαγραφούν.",
+            text="ℹ️ Οι προκαθορισμένοι τύποι (Service, Βλάβη, Επισκευή, Απλός Έλεγχος) προστατεύονται και δεν μπορούν να διαγραφούν. Μπορείτε να προσθέσετε δικούς σας custom τύπους.",
             font=theme_config.get_font("small"),
             wraplength=800,
-            text_color="#1976d2"
+            text_color=theme["accent_blue"]
         )
         info_label.pack(padx=15, pady=10)
-        
+
         # Κουμπί προσθήκης
         add_btn = ctk.CTkButton(
             parent,
@@ -830,65 +833,79 @@ class TaskManagement(ctk.CTkFrame):
             font=theme_config.get_font("body", "bold")
         )
         add_btn.pack(pady=15)
-        
+
         # Λίστα τύπων εργασιών
         scrollable = ctk.CTkScrollableFrame(parent)
         scrollable.pack(fill="both", expand=True, padx=10, pady=10)
-        
+
         task_types = database.get_all_task_types()
-        
+
         # Separate predefined and custom
         predefined_types = [tt for tt in task_types if tt['is_predefined']]
         custom_types = [tt for tt in task_types if not tt['is_predefined']]
-        
+
         # Predefined types section
         if predefined_types:
             ctk.CTkLabel(
                 scrollable,
                 text="📌 Προκαθορισμένοι Τύποι",
                 font=theme_config.get_font("body", "bold"),
-                text_color="#1976d2"
+                text_color=theme["accent_blue"]
             ).pack(anchor="w", padx=10, pady=(10, 5))
-            
+
             for task_type in predefined_types:
-                type_frame = ctk.CTkFrame(scrollable, corner_radius=10, fg_color="#e3f2fd")
+                type_frame = ctk.CTkFrame(
+                    scrollable,
+                    corner_radius=10,
+                    fg_color=theme["card_bg"],
+                    border_color=theme["accent_blue"],
+                    border_width=2
+                )
                 type_frame.pack(fill="x", pady=5, padx=10)
-                
+
                 info_text = f"🔧 {task_type['name']}"
                 if task_type.get('description'):
                     info_text += f" - {task_type['description']}"
-                
+
                 label = ctk.CTkLabel(
                     type_frame,
                     text=info_text,
-                    font=theme_config.get_font("small")
+                    font=theme_config.get_font("small"),
+                    text_color=theme["text_primary"]
                 )
                 label.pack(side="left", padx=15, pady=10)
-        
+
         # Custom types section
         if custom_types:
             ctk.CTkLabel(
                 scrollable,
                 text="⚙️ Custom Τύποι",
                 font=theme_config.get_font("body", "bold"),
-                text_color="#2fa572"
+                text_color=theme["accent_green"]
             ).pack(anchor="w", padx=10, pady=(20, 5))
-            
+
             for task_type in custom_types:
-                type_frame = ctk.CTkFrame(scrollable, corner_radius=10, fg_color="#f0f0f0")
+                type_frame = ctk.CTkFrame(
+                    scrollable,
+                    corner_radius=10,
+                    fg_color=theme["card_bg"],
+                    border_color=theme["card_border"],
+                    border_width=1
+                )
                 type_frame.pack(fill="x", pady=5, padx=10)
-                
+
                 info_text = f"🔧 {task_type['name']}"
                 if task_type.get('description'):
                     info_text += f" - {task_type['description']}"
-                
+
                 label = ctk.CTkLabel(
                     type_frame,
                     text=info_text,
-                    font=theme_config.get_font("small")
+                    font=theme_config.get_font("small"),
+                    text_color=theme["text_primary"]
                 )
                 label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
-                
+
                 # Delete button
                 delete_btn = ctk.CTkButton(
                     type_frame,
@@ -899,13 +916,13 @@ class TaskManagement(ctk.CTkFrame):
                     **theme_config.get_button_style("danger")
                 )
                 delete_btn.pack(side="right", padx=10, pady=10)
-        
+
         if not custom_types:
             ctk.CTkLabel(
                 scrollable,
-                text="Δεν υπάρχουν custom τύποι. Προσθέστε έναν!",
+                text="Δεν υπάρχουν custom τύποι.  Προσθέστε έναν! ",
                 font=theme_config.get_font("small"),
-                text_color="gray"
+                text_color=theme["text_secondary"]
             ).pack(pady=20)
     
     def add_task_type_dialog(self):
