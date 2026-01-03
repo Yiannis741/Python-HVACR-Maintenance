@@ -2128,7 +2128,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             self.create_arrow("προκάλεσε", dashed=True)
 
         # Display all tasks in chain
-        child_sequence = 1  # Global counter for all children
+        child_counter = 1  # Global counter for all children (increments for each child task)
         for idx, task in enumerate(full_chain, 1):
             # Determine type
             if idx < current_position:
@@ -2139,8 +2139,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 sequence_num = None
             else:
                 item_type = "child"
-                sequence_num = child_sequence  # Use global counter
-                child_sequence += 1  # Increment for next child
+                sequence_num = child_counter  # Use global counter
+                child_counter += 1  # Increment for next child
 
             # ═══════════════════════════════════════════
             # ΝΕΑ ΛΟΓΙΚΗ:   Removability Rules
@@ -2681,6 +2681,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
                         database.add_task_relationship(link_to_task['id'], task['id'], "related")
 
                         # Calculate correct sequence number for success message
+                        # Formula: sequence_num = new_position - current_task_position
                         current_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
                         sequence_num = new_position - current_pos
                         
