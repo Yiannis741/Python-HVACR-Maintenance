@@ -726,105 +726,280 @@ class UnitsManagement(ctk.CTkFrame):
         
         # Tab Ομάδες
         self.create_groups_tab(self.tab2)
-        
+
     def create_units_tab(self, parent):
-        """Tab για διαχείριση μονάδων"""
-        
+        """Tab για διαχείριση μονάδων - Grouped by Category"""
+
         # Clear existing widgets
         for widget in parent.winfo_children():
             widget.destroy()
-        
-        # Κουμπί προσθήκης
+
+        theme = theme_config.get_current_theme()
+
+        # Header με κουμπί προσθήκης
+        header_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        header_frame.pack(fill="x", pady=15, padx=10)
+
         add_btn = ctk.CTkButton(
-            parent,
+            header_frame,
             text="➕ Προσθήκη Νέας Μονάδας",
             command=self.add_unit_dialog,
             height=40,
             font=theme_config.get_font("body", "bold"),
             **theme_config.get_button_style("success")
         )
-        add_btn.pack(pady=15)
-        
-        # Λίστα μονάδων
+        add_btn.pack(side="left")
+
+        # Info label
+        info_label = ctk.CTkLabel(
+            header_frame,
+            text="💡 Οι μονάδες είναι οργανωμένες ανά ομάδα.  Κλικ στο βέλος για άνοιγμα/κλείσιμο.",
+            font=theme_config.get_font("small"),
+            text_color=theme["text_secondary"]
+        )
+        info_label.pack(side="right", padx=20)
+
+        # Scrollable frame για τις ομάδες
         scrollable = ctk.CTkScrollableFrame(parent)
         scrollable.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        units = database.get_all_units()
-        
-        for unit in units:
-            unit_frame = ctk.CTkFrame(scrollable, corner_radius=10)
-            unit_frame.pack(fill="x", pady=5, padx=10)
-            
-            info_text = f"🔧 {unit['name']} | 📂 {unit['group_name']} | 📍 {unit['location']} | 🏷️ {unit['model']}"
-            
-            label = ctk.CTkLabel(
-                unit_frame,
-                text=info_text,
-                font=theme_config.get_font("small")
+
+        # Παίρνουμε όλες τις ομάδες
+        groups = database.get_all_groups()
+
+        if not groups:
+            ctk.CTkLabel(
+                scrollable,
+                text="Δεν υπάρχουν ομάδες.  Προσθέστε μία στην καρτέλα 'Ομάδες'.",
+                font=theme_config.get_font("body"),
+                text_color=theme["text_secondary"]
+            ).pack(pady=50)
+            return
+
+        # Dictionary για να κρατάμε τα expanded states
+        if not hasattr(self, 'expanded_groups'):
+            self.expanded_groups = {group['id']: True for group in groups}  # Όλα expanded by default
+
+        # Δημιουργία collapsible section για κάθε ομάδα
+        for group in groups:
+            self.create_group_section(scrollable, group, theme)
+
+    def create_group_section(self, parent, group, theme):
+        """Δημιουργία collapsible section για μία ομάδα"""
+
+        # Container για την ομάδα
+        group_container = ctk.CTkFrame(parent, fg_color="transparent")
+        group_container.pack(fill="x", pady=5, padx=5)
+
+        # Παίρνουμε τις μονάδες της ομάδας
+        units = database.get_units_by_group(group['id'])
+        units_count = len(units)
+
+        # Header της ομάδας (clickable)
+        header_frame = ctk.CTkFrame(
+            group_container,
+            corner_radius=10,
+            fg_color=theme["card_bg"],
+            border_color=theme["accent_blue"],
+            border_width=2,
+            cursor="hand2"
+        )
+        header_frame.pack(fill="x", pady=(0, 5))
+
+        # Expand/Collapse state
+        is_expanded = self.expanded_groups.get(group['id'], True)
+        arrow = "▼" if is_expanded else "▶"
+
+        # Header label με arrow, όνομα ομάδας και count
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text=f"{arrow} {group['name']} ({units_count} μονάδες)",
+            font=theme_config.get_font("body", "bold"),
+            text_color=theme["accent_blue"],
+            cursor="hand2"
+        )
+        header_label.pack(side="left", padx=15, pady=12)
+
+        # Description αν υπάρχει
+        if group.get('description'):
+            desc_label = ctk.CTkLabel(
+                header_frame,
+                text=f"• {group['description']}",
+                font=theme_config.get_font("small"),
+                text_color=theme["text_secondary"]
             )
-            label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
-            
-            # Edit button
-            edit_btn = ctk.CTkButton(
-                unit_frame,
-                text="✏️",
-                command=lambda u=unit: self.edit_unit_dialog(u),
-                width=40,
-                height=30,
-                **theme_config.get_button_style("primary")
+            desc_label.pack(side="left", padx=10)
+
+        # Units container (collapsible)
+        units_container = ctk.CTkFrame(group_container, fg_color="transparent")
+
+        if is_expanded:
+            units_container.pack(fill="x", padx=20)
+
+        # Bind click event για toggle
+        def toggle_group(event=None):
+            self.expanded_groups[group['id']] = not self.expanded_groups[group['id']]
+            self.refresh_ui()
+
+        header_frame.bind("<Button-1>", toggle_group)
+        header_label.bind("<Button-1>", toggle_group)
+
+        # Εμφάνιση μονάδων αν είναι expanded
+        if is_expanded and units:
+            for unit in units:
+                unit_frame = ctk.CTkFrame(
+                    units_container,
+                    corner_radius=8,
+                    fg_color=theme["card_bg"],
+                    border_color=theme["card_border"],
+                    border_width=1
+                )
+                unit_frame.pack(fill="x", pady=3, padx=5)
+
+                # Unit info
+                info_parts = [
+                    f"🔧 {unit['name']}",
+                    f"📍 {unit['location']}",
+                    f"🏷️ {unit['model']}"
+                ]
+
+                if unit.get('serial_number'):
+                    info_parts.append(f"S/N: {unit['serial_number']}")
+
+                info_text = " | ".join(info_parts)
+
+                label = ctk.CTkLabel(
+                    unit_frame,
+                    text=info_text,
+                    font=theme_config.get_font("small"),
+                    text_color=theme["text_primary"],
+                    anchor="w"
+                )
+                label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+
+                # Edit button
+                edit_btn = ctk.CTkButton(
+                    unit_frame,
+                    text="✏️",
+                    command=lambda u=unit: self.edit_unit_dialog(u),
+                    width=40,
+                    height=30,
+                    **theme_config.get_button_style("primary")
+                )
+                edit_btn.pack(side="right", padx=10, pady=10)
+
+        elif is_expanded and not units:
+            # Άδεια ομάδα
+            empty_label = ctk.CTkLabel(
+                units_container,
+                text="Δεν υπάρχουν μονάδες σε αυτή την ομάδα.",
+                font=theme_config.get_font("small"),
+                text_color=theme["text_disabled"]
             )
-            edit_btn.pack(side="right", padx=10, pady=10)
-            
+            empty_label.pack(pady=10, padx=20)
+
     def create_groups_tab(self, parent):
-        """Tab για διαχείριση ομάδων"""
-        
+        """Tab για διαχείριση ομάδων - Compact View"""
+
         # Clear existing widgets
         for widget in parent.winfo_children():
             widget.destroy()
-        
-        # Κουμπί προσθήκης
+
+        theme = theme_config.get_current_theme()
+
+        # Header
+        header_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        header_frame.pack(fill="x", pady=15, padx=10)
+
         add_btn = ctk.CTkButton(
-            parent,
+            header_frame,
             text="➕ Προσθήκη Νέας Ομάδας",
             command=self.add_group_dialog,
             height=40,
             **theme_config.get_button_style("success"),
             font=theme_config.get_font("body", "bold")
         )
-        add_btn.pack(pady=15)
-        
-        # Λίστα ομάδων
+        add_btn.pack(side="left")
+
+        # Scrollable frame
         scrollable = ctk.CTkScrollableFrame(parent)
         scrollable.pack(fill="both", expand=True, padx=10, pady=10)
-        
+
         groups = database.get_all_groups()
-        
-        for group in groups:
-            group_frame = ctk.CTkFrame(scrollable, corner_radius=10)
-            group_frame.pack(fill="x", pady=5, padx=10)
-            
-            units = database.get_units_by_group(group['id'])
-            units_count = len(units)
-            
-            info_text = f"📂 {group['name']} | {group['description']} | Μονάδες: {units_count}"
-            
-            label = ctk.CTkLabel(
-                group_frame,
-                text=info_text,
-                font=theme_config.get_font("small")
+
+        if not groups:
+            ctk.CTkLabel(
+                scrollable,
+                text="Δεν υπάρχουν ομάδες.",
+                font=theme_config.get_font("body"),
+                text_color=theme["text_secondary"]
+            ).pack(pady=50)
+            return
+
+        # Grid configuration για 2 στήλες
+        scrollable.grid_columnconfigure(0, weight=1)
+        scrollable.grid_columnconfigure(1, weight=1)
+
+        for idx, group in enumerate(groups):
+            row = idx // 2
+            col = idx % 2
+
+            # Group card
+            group_frame = ctk.CTkFrame(
+                scrollable,
+                corner_radius=10,
+                fg_color=theme["card_bg"],
+                border_color=theme["accent_blue"],
+                border_width=2
             )
-            label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
-            
+            group_frame.grid(row=row, column=col, sticky="ew", padx=5, pady=5)
+
+            # Content frame
+            content_frame = ctk.CTkFrame(group_frame, fg_color="transparent")
+            content_frame.pack(fill="both", expand=True, padx=15, pady=12)
+
+            # Group name
+            name_label = ctk.CTkLabel(
+                content_frame,
+                text=f"📂 {group['name']}",
+                font=theme_config.get_font("body", "bold"),
+                text_color=theme["accent_blue"],
+                anchor="w"
+            )
+            name_label.pack(anchor="w")
+
+            # Description
+            if group.get('description'):
+                desc_label = ctk.CTkLabel(
+                    content_frame,
+                    text=group['description'],
+                    font=theme_config.get_font("small"),
+                    text_color=theme["text_secondary"],
+                    anchor="w",
+                    wraplength=250
+                )
+                desc_label.pack(anchor="w", pady=(5, 0))
+
+            # Units count
+            units = database.get_units_by_group(group['id'])
+            count_label = ctk.CTkLabel(
+                content_frame,
+                text=f"🔧 {len(units)} μονάδες",
+                font=theme_config.get_font("small"),
+                text_color=theme["text_disabled"],
+                anchor="w"
+            )
+            count_label.pack(anchor="w", pady=(5, 0))
+
             # Edit button
             edit_btn = ctk.CTkButton(
                 group_frame,
-                text="✏️",
+                text="✏️ Επεξεργασία",
                 command=lambda g=group: self.edit_group_dialog(g),
-                width=40,
+                width=120,
                 height=30,
                 **theme_config.get_button_style("primary")
             )
-            edit_btn.pack(side="right", padx=10, pady=10)
+            edit_btn.pack(pady=(0, 10))
 
                     
     def add_unit_dialog(self, unit_data=None):
