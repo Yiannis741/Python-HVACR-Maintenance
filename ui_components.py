@@ -7,7 +7,7 @@ from datetime import datetime
 import database
 import theme_config
 from tkinter import messagebox
-
+from tkcalendar import Calendar
 
 class TaskCard(ctk.CTkFrame):
     """Καρτέλα εργασίας για προβολή"""
@@ -108,6 +108,136 @@ class TaskCard(ctk.CTkFrame):
                 widget.bind("<Button-1>", lambda e: self.on_click(self.task))
                 widget.configure(cursor="hand2")
 
+
+class DatePickerDialog(ctk.CTkToplevel):
+    """Calendar picker dialog για επιλογή ημερομηνίας"""
+
+    def __init__(self, parent, current_date=None, callback=None):
+        super().__init__(parent)
+
+        self.callback = callback
+        self.selected_date = None
+
+        self.title("📅 Επιλογή Ημερομηνίας")
+        self.geometry("400x450")
+        self.resizable(False, False)
+        self.grab_set()
+
+        # Parse current date
+        if current_date:
+            try:
+                self.current_date = datetime.strptime(current_date, "%Y-%m-%d")
+            except:
+                self.current_date = datetime.now()
+        else:
+            self.current_date = datetime.now()
+
+        self.create_ui()
+
+        # Center the dialog
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f"+{x}+{y}")
+
+    def create_ui(self):
+        """Δημιουργία UI"""
+
+        theme = theme_config.get_current_theme()
+
+        # Header
+        header = ctk.CTkLabel(
+            self,
+            text="📅 Επιλέξτε Ημερομηνία",
+            font=theme_config.get_font("heading", "bold")
+        )
+        header.pack(pady=(20, 10))
+
+        # Quick selection buttons
+        quick_frame = ctk.CTkFrame(self, fg_color="transparent")
+        quick_frame.pack(pady=10)
+
+        quick_buttons = [
+            ("Σήμερα", 0),
+            ("Χθες", -1),
+            ("Προχθές", -2),
+            ("Πριν 3 μέρες", -3),
+            ("Πριν 1 εβδομάδα", -7),
+        ]
+
+        for text, days_offset in quick_buttons:
+            btn = ctk.CTkButton(
+                quick_frame,
+                text=text,
+                command=lambda d=days_offset: self.select_quick_date(d),
+                width=120,
+                height=32,
+                **theme_config.get_button_style("primary")
+            )
+            btn.pack(side="left", padx=3)
+
+        # Calendar widget
+        cal_frame = ctk.CTkFrame(self)
+        cal_frame.pack(pady=15, padx=20, fill="both", expand=True)
+
+        self.calendar = Calendar(
+            cal_frame,
+            selectmode='day',
+            year=self.current_date.year,
+            month=self.current_date.month,
+            day=self.current_date.day,
+            date_pattern='yyyy-mm-dd',
+            background=theme["card_bg"],
+            foreground=theme["text_primary"],
+            selectbackground=theme["accent_blue"],
+            selectforeground="white",
+            normalbackground=theme["bg_secondary"],
+            normalforeground=theme["text_primary"],
+            weekendbackground=theme["bg_tertiary"],
+            weekendforeground=theme["text_secondary"],
+            headersbackground=theme["accent_blue"],
+            headersforeground="white",
+            bordercolor=theme["card_border"],
+            font=("Segoe UI", 10),
+            headersfontt=("Segoe UI", 10, "bold")
+        )
+        self.calendar.pack(padx=10, pady=10, fill="both", expand=True)
+
+        # Buttons frame
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(pady=15)
+
+        ok_btn = ctk.CTkButton(
+            btn_frame,
+            text="✔️ Επιλογή",
+            command=self.confirm_selection,
+            width=140,
+            height=40,
+            **theme_config.get_button_style("success")
+        )
+        ok_btn.pack(side="left", padx=5)
+
+        cancel_btn = ctk.CTkButton(
+            btn_frame,
+            text="✖ Ακύρωση",
+            command=self.destroy,
+            width=140,
+            height=40,
+            **theme_config.get_button_style("secondary")
+        )
+        cancel_btn.pack(side="left", padx=5)
+
+    def select_quick_date(self, days_offset):
+        """Επιλογή γρήγορης ημερομηνίας"""
+        target_date = datetime.now() + timedelta(days=days_offset)
+        self.calendar.selection_set(target_date)
+
+    def confirm_selection(self):
+        """Επιβεβαίωση επιλογής"""
+        self.selected_date = self.calendar.get_date()
+        if self.callback:
+            self.callback(self.selected_date)
+        self.destroy()
 
 class TaskForm(ctk.CTkFrame):
     """Φόρμα για προσθήκη/επεξεργασία εργασίας - Phase 2.3 Updated"""
@@ -229,13 +359,41 @@ class TaskForm(ctk.CTkFrame):
         )
         self.priority_combo. pack(anchor="w", pady=(0, 15))
         self.priority_combo.set("Μεσαία (medium)")
-        
-        # Ημερομηνία Δημιουργίας
-        ctk.CTkLabel(scrollable, text="Ημερομηνία Δημιουργίας (YYYY-MM-DD):", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
-        
-        self.created_date_entry = ctk.CTkEntry(scrollable, width=400)
+
+        # Ημερομηνία Δημιουργίας με Calendar Picker
+        date_label_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
+        date_label_frame.pack(fill="x", pady=(10, 5))
+
+        ctk.CTkLabel(
+            date_label_frame,
+            text="Ημερομηνία Δημιουργίας:",
+            font=theme_config.get_font("body", "bold")
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            date_label_frame,
+            text="(Κλικ στο 📅 για calendar)",
+            font=theme_config.get_font("tiny"),
+            text_color=theme_config.get_current_theme()["text_disabled"]
+        ).pack(side="left", padx=10)
+
+        date_entry_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
+        date_entry_frame.pack(fill="x", pady=(0, 15))
+
+        self.created_date_entry = ctk.CTkEntry(date_entry_frame, width=320)
         self.created_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
-        self.created_date_entry. pack(anchor="w", pady=(0, 15))
+        self.created_date_entry.pack(side="left", padx=(0, 10))
+
+        # Calendar button
+        calendar_btn = ctk.CTkButton(
+            date_entry_frame,
+            text="📅",
+            command=self.open_date_picker,
+            width=60,
+            height=32,
+            **theme_config.get_button_style("primary")
+        )
+        calendar_btn.pack(side="left")
         
         # Τεχνικός
         ctk.CTkLabel(scrollable, text="Όνομα Τεχνικού:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
@@ -295,7 +453,16 @@ class TaskForm(ctk.CTkFrame):
         # Initialize cascade selects
         self.on_group_change(self.group_combo.get() if self.groups_dict else None)
         self.on_task_type_change(self.task_type_combo.get() if self.task_types_dict else None)
-    
+
+    def open_date_picker(self):
+        """Άνοιγμα calendar picker"""
+        current_date = self.created_date_entry.get()
+
+        def on_date_selected(selected_date):
+            self.created_date_entry.delete(0, "end")
+            self.created_date_entry.insert(0, selected_date)
+
+        DatePickerDialog(self, current_date, on_date_selected)
     def on_group_change(self, selected_group):
         """Callback όταν αλλάζει η ομάδα - φιλτράρει τις μονάδες - Phase 2.3"""
         if not selected_group:
