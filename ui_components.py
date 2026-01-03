@@ -123,7 +123,8 @@ class TaskCard(ctk.CTkFrame):
         )
         status_label.pack(side="left", padx=15)
 
-        # Unit label (far right of header)
+        # RIGHT SECTION: Pack from right to left (unit first = farthest right)
+        # Unit label (farthest right in header)
         unit_label = ctk.CTkLabel(
             header_frame,
             text=f"📍 {self.task['unit_name']}",
@@ -133,7 +134,7 @@ class TaskCard(ctk.CTkFrame):
         )
         unit_label.pack(side="right", padx=5)
 
-        # RIGHT:  Priority (before unit)
+        # Priority (to the left of unit)
         priority_label = ctk.CTkLabel(
             header_frame,
             text=f"{priority_icon} {self.task.get('priority', 'medium').upper()}",
