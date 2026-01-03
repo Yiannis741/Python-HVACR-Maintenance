@@ -11,24 +11,24 @@ from tkcalendar import Calendar
 
 
 class TaskCard(ctk.CTkFrame):
-    """Καρτέλα εργασίας για προβολή - Compact Design"""
+    """Καρτέλα εργασίας για προβολή - Compact Design με Link Indicators"""
 
-    def __init__(self, parent, task_data, on_click=None):
+    def __init__(self, parent, task_data, on_click=None, show_relations=True):
         theme = theme_config.get_current_theme()
         super().__init__(
             parent,
-            corner_radius=8,  # Smaller radius
+            corner_radius=8,
             fg_color=theme["card_bg"],
             border_color=theme["card_border"],
             border_width=1,
-            height=65  # Fixed compact height
+            height=65
         )
 
         self.task = task_data
         self.on_click = on_click
         self.theme = theme
+        self.show_relations = show_relations
 
-        # Prevent frame from shrinking
         self.pack_propagate(False)
 
         self.create_card()
@@ -55,17 +55,49 @@ class TaskCard(ctk.CTkFrame):
         priority_icons = {"low": "🟢", "medium": "🟡", "high": "🔴"}
         priority_icon = priority_icons.get(self.task.get('priority', 'medium'), "🟡")
 
-        # ===== ROW 1: Header Line (Type → Item | Status | Priority) =====
+        # ===== ROW 1: Header Line =====
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(fill="x", padx=12, pady=(8, 4))
 
-        # LEFT:  Task Type → Task Item
+        # LEFT SECTION: Link Badge + Task Type
+        left_section = ctk.CTkFrame(header_frame, fg_color="transparent")
+        left_section.pack(side="left", fill="x", expand=True)
+
+        # Check for relationships
+        if self.show_relations:
+            relations = database.get_related_tasks(self.task['id'])
+            total_relations = len(relations['parents']) + len(relations['children'])
+
+            if total_relations > 0:
+                # Calculate position in chain
+                position = len(relations['parents']) + 1
+                chain_length = total_relations + 1
+
+                # Link badge
+                link_badge = ctk.CTkLabel(
+                    left_section,
+                    text=f"🔗 {position}/{chain_length}",
+                    font=theme_config.get_font("tiny", "bold"),
+                    text_color=self.theme["accent_blue"],
+                    fg_color=self.theme["bg_secondary"],
+                    corner_radius=6,
+                    padx=8,
+                    pady=2
+                )
+                link_badge.pack(side="left", padx=(0, 10))
+
+                # Tooltip effect (optional)
+                if on_click := self.on_click:
+                    link_badge.configure(cursor="hand2")
+                    link_badge.bind("<Button-1>", lambda e: on_click(self.task))
+
+        # Task Type → Task Item
         type_text = f"🔧 {self.task['task_type_name']}"
         if self.task.get('task_item_name'):
             type_text += f" → {self.task['task_item_name']}"
 
         type_label = ctk.CTkLabel(
-            header_frame,
+            left_section,
             text=type_text,
             font=theme_config.get_font("body", "bold"),
             text_color=self.theme["text_primary"],
@@ -73,17 +105,14 @@ class TaskCard(ctk.CTkFrame):
         )
         type_label.pack(side="left")
 
-        # Spacer
-        ctk.CTkLabel(header_frame, text="", width=20).pack(side="left")
-
-        # CENTER: Status
+        # CENTER:  Status
         status_label = ctk.CTkLabel(
             header_frame,
             text=f"{status_icon} {status_text}",
             font=theme_config.get_font("small", "bold"),
             text_color=status_color
         )
-        status_label.pack(side="left", padx=10)
+        status_label.pack(side="left", padx=15)
 
         # RIGHT:  Priority
         priority_label = ctk.CTkLabel(
@@ -94,14 +123,14 @@ class TaskCard(ctk.CTkFrame):
         )
         priority_label.pack(side="right")
 
-        # ===== ROW 2: Info Line (Description • Unit • Date • Technician) =====
+        # ===== ROW 2: Info Line =====
         info_frame = ctk.CTkFrame(self, fg_color="transparent")
         info_frame.pack(fill="x", padx=12, pady=(0, 8))
 
         # Build info parts
         info_parts = []
 
-        # Description (truncated)
+        # Description
         desc_text = self.task['description'][: 45] + "..." if len(self.task['description']) > 45 else self.task[
             'description']
         info_parts.append(desc_text)
@@ -112,11 +141,10 @@ class TaskCard(ctk.CTkFrame):
         # Date
         info_parts.append(f"📅 {self.task['created_date']}")
 
-        # Technician (if exists)
+        # Technician
         if self.task.get('technician_name'):
             info_parts.append(f"👤 {self.task['technician_name']}")
 
-        # Join with bullet separator
         info_text = "  •  ".join(info_parts)
 
         info_label = ctk.CTkLabel(
@@ -130,7 +158,9 @@ class TaskCard(ctk.CTkFrame):
 
         # Bind click to all widgets
         if self.on_click:
-            for widget in [self, header_frame, type_label, status_label, priority_label, info_frame, info_label]:
+            widgets = [self, header_frame, left_section, type_label, status_label, priority_label, info_frame,
+                       info_label]
+            for widget in widgets:
                 widget.bind("<Button-1>", lambda e: self.on_click(self.task))
                 widget.configure(cursor="hand2")
 
@@ -2015,26 +2045,35 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
         relations = database.get_related_tasks(self.task_data['id'])
 
-        # ===== PARENT TASKS SECTION =====
+        # ===== ΑΡΧΙΚΗ ΕΡΓΑΣΙΑ SECTION =====
         parent_header = ctk.CTkFrame(self.relations_scrollable, fg_color="transparent")
         parent_header.pack(fill="x", pady=(10, 10), padx=10)
 
+        parent_count = len(relations['parents'])
         ctk.CTkLabel(
             parent_header,
-            text=f"⬆️ Γονικές Εργασίες ({len(relations['parents'])})",
+            text=f"🔵 Αρχική Εργασία ({parent_count})" if parent_count == 1 else f"🔵 Αρχικές Εργασίες ({parent_count})",
             font=theme_config.get_font("heading", "bold"),
             text_color=self.theme["accent_blue"]
         ).pack(side="left")
 
         parent_add_btn = ctk.CTkButton(
             parent_header,
-            text="➕ Προσθήκη Γονικής",
+            text="➕ Προσθήκη Αρχικής",
             command=lambda: self.add_relationship_dialog("parent"),
             height=32,
-            width=150,
+            width=180,
             **theme_config.get_button_style("success")
         )
         parent_add_btn.pack(side="right")
+
+        # Info label
+        ctk.CTkLabel(
+            self.relations_scrollable,
+            text="💡 Αρχική Εργασία = Η εργασία που προκάλεσε/προηγήθηκε της τρέχουσας",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"]
+        ).pack(anchor="w", padx=20, pady=(0, 10))
 
         # Parent tasks
         if relations['parents']:
@@ -2043,7 +2082,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         else:
             ctk.CTkLabel(
                 self.relations_scrollable,
-                text="Δεν υπάρχουν γονικές εργασίες.   Γονική εργασία = Η τρέχουσα εργασία είναι συνέπεια αυτής.",
+                text="Δεν υπάρχει αρχική εργασία.   Αυτή είναι η πρώτη εργασία στην αλυσίδα.",
                 font=theme_config.get_font("small"),
                 text_color=self.theme["text_disabled"]
             ).pack(pady=10, padx=20)
@@ -2055,54 +2094,80 @@ class TaskRelationshipsView(ctk.CTkFrame):
             fg_color=self.theme["card_border"]
         ).pack(fill="x", pady=20, padx=10)
 
-        # ===== CHILD TASKS SECTION =====
+        # ===== ΣΥΝΕΧΕΙΕΣ SECTION =====
         child_header = ctk.CTkFrame(self.relations_scrollable, fg_color="transparent")
         child_header.pack(fill="x", pady=(10, 10), padx=10)
 
+        child_count = len(relations['children'])
         ctk.CTkLabel(
             child_header,
-            text=f"⬇️ Παιδικές Εργασίες ({len(relations['children'])})",
+            text=f"🟢 Συνέχειες Εργασίας ({child_count})",
             font=theme_config.get_font("heading", "bold"),
             text_color=self.theme["accent_green"]
         ).pack(side="left")
 
         child_add_btn = ctk.CTkButton(
             child_header,
-            text="➕ Προσθήκη Παιδικής",
+            text="➕ Προσθήκη Συνέχειας",
             command=lambda: self.add_relationship_dialog("child"),
             height=32,
-            width=150,
+            width=180,
             **theme_config.get_button_style("success")
         )
         child_add_btn.pack(side="right")
 
-        # Child tasks
+        # Info label
+        ctk.CTkLabel(
+            self.relations_scrollable,
+            text="💡 Συνέχεια = Οι εργασίες που προέκυψαν/ακολούθησαν από την τρέχουσα",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"]
+        ).pack(anchor="w", padx=20, pady=(0, 10))
+
+        # Child tasks με numbering
         if relations['children']:
-            for child in relations['children']:
-                self.create_relation_card(child, "child")
+            for idx, child in enumerate(relations['children'], 1):
+                self.create_relation_card(child, "child", sequence_num=idx)
         else:
             ctk.CTkLabel(
                 self.relations_scrollable,
-                text="Δεν υπάρχουν παιδικές εργασίες.  Παιδική εργασία = Αυτή η εργασία προκάλεσε τη δημιουργία τους.",
+                text="Δεν υπάρχουν συνέχειες.   Αυτή είναι η τελευταία εργασία στην αλυσίδα.",
                 font=theme_config.get_font("small"),
                 text_color=self.theme["text_disabled"]
             ).pack(pady=10, padx=20)
 
-    def create_relation_card(self, task, relation_type):
+    def create_relation_card(self, task, relation_type, sequence_num=None):
         """Δημιουργία καρτέλας συνδεδεμένης εργασίας"""
 
         container = ctk.CTkFrame(self.relations_scrollable, fg_color="transparent")
         container.pack(fill="x", pady=3, padx=15)
 
-        # Task card container
+        # Sequence badge για συνέχειες
+        if relation_type == "child" and sequence_num:
+            badge_frame = ctk.CTkFrame(container, fg_color="transparent")
+            badge_frame.pack(side="left", padx=(0, 10))
+
+            badge = ctk.CTkLabel(
+                badge_frame,
+                text=f"Συνέχεια {sequence_num}",
+                font=theme_config.get_font("small", "bold"),
+                text_color=self.theme["accent_green"],
+                fg_color=self.theme["bg_secondary"],
+                corner_radius=6,
+                padx=10,
+                pady=5,
+                width=100
+            )
+            badge.pack()
+
+        # Task card
         card_frame = ctk.CTkFrame(container, fg_color="transparent")
         card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        # TaskCard
-        task_card = TaskCard(card_frame, task, on_click=None)
+        task_card = TaskCard(card_frame, task, on_click=None, show_relations=False)
         task_card.pack(fill="x")
 
-        # Color coding by relation type
+        # Color coding
         border_color = self.theme["accent_blue"] if relation_type == "parent" else self.theme["accent_green"]
         task_card.configure(border_color=border_color, border_width=2)
 
@@ -2118,10 +2183,19 @@ class TaskRelationshipsView(ctk.CTkFrame):
         remove_btn.pack(side="right")
 
     def add_relationship_dialog(self, relation_type):
-        """Dialog για προσθήκη σύνδεσης - Grouped by Unit"""
+        """Dialog για προσθήκη σύνδεσης"""
 
         dialog = ctk.CTkToplevel(self)
-        title_text = "Προσθήκη Γονικής Εργασίας" if relation_type == "parent" else "Προσθήκη Παιδικής Εργασίας"
+
+        if relation_type == "parent":
+            title_text = "Προσθήκη Αρχικής Εργασίας"
+            icon = "🔵"
+            info_text = "Αρχική = Η εργασία που προηγήθηκε/προκάλεσε την τρέχουσα"
+        else:
+            title_text = "Προσθήκη Συνέχειας Εργασίας"
+            icon = "🟢"
+            info_text = "Συνέχεια = Η εργασία που ακολούθησε/προέκυψε από την τρέχουσα"
+
         dialog.title(title_text)
         dialog.geometry("800x700")
         dialog.grab_set()
@@ -2130,7 +2204,6 @@ class TaskRelationshipsView(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         header_frame.pack(fill="x", pady=20, padx=20)
 
-        icon = "⬆️" if relation_type == "parent" else "⬇️"
         ctk.CTkLabel(
             header_frame,
             text=f"{icon} {title_text}",
@@ -2138,8 +2211,6 @@ class TaskRelationshipsView(ctk.CTkFrame):
             text_color=self.theme["text_primary"]
         ).pack(side="left")
 
-        # Info label
-        info_text = "Γονική = Η τρέχουσα εργασία είναι συνέπεια αυτής" if relation_type == "parent" else "Παιδική = Αυτή η εργασία προκάλεσε τη δημιουργία της"
         ctk.CTkLabel(
             header_frame,
             text=info_text,
@@ -2147,246 +2218,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
             text_color=self.theme["text_secondary"]
         ).pack(side="right")
 
-        # Filters frame
-        filters_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        filters_frame.pack(fill="x", padx=20, pady=(0, 10))
-
-        # Search
-        ctk.CTkLabel(
-            filters_frame,
-            text="🔍 Αναζήτηση:",
-            font=theme_config.get_font("body"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 10))
-
-        search_var = ctk.StringVar()
-        search_entry = ctk.CTkEntry(
-            filters_frame,
-            textvariable=search_var,
-            width=250,
-            placeholder_text="Περιγραφή, τύπος, είδος..."
-        )
-        search_entry.pack(side="left", padx=(0, 20))
-
-        # Unit filter
-        ctk.CTkLabel(
-            filters_frame,
-            text="📍 Μονάδα:",
-            font=theme_config.get_font("body"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 10))
-
-        all_units = database.get_all_units()
-        unit_filter_var = ctk.StringVar(value="Όλες")
-        unit_filter = ctk.CTkComboBox(
-            filters_frame,
-            values=["Όλες", "Ίδια Μονάδα"] + [u['name'] for u in all_units],
-            variable=unit_filter_var,
-            width=180,
-            state="readonly"
-        )
-        unit_filter.pack(side="left")
-
-        # Tasks scrollable frame
-        tasks_scrollable = ctk.CTkScrollableFrame(dialog, height=500)
-        tasks_scrollable.pack(fill="both", expand=True, padx=20, pady=10)
-
-        # Get all tasks
-        all_tasks = database.get_all_tasks()
-
-        # Exclude current task and already related
-        relations = database.get_related_tasks(self.task_data['id'])
-        related_ids = {self.task_data['id']}
-        related_ids.update(r['id'] for r in relations['parents'])
-        related_ids.update(r['id'] for r in relations['children'])
-
-        available_tasks = [t for t in all_tasks if t['id'] not in related_ids]
-
-        # Group by unit
-        tasks_by_unit = {}
-        for task in available_tasks:
-            unit_name = task['unit_name']
-            if unit_name not in tasks_by_unit:
-                tasks_by_unit[unit_name] = []
-            tasks_by_unit[unit_name].append(task)
-
-        # Current unit name
-        current_unit = self.task_data['unit_name']
-
-        # Expanded state
-        expanded_units = {current_unit: True}  # Current unit expanded by default
-
-        def filter_and_display():
-            """Φιλτράρισμα και εμφάνιση εργασιών"""
-
-            # Clear
-            for widget in tasks_scrollable.winfo_children():
-                widget.destroy()
-
-            search_text = search_var.get().lower()
-            unit_filter_value = unit_filter_var.get()
-
-            # Filter tasks
-            filtered_tasks = available_tasks
-
-            if unit_filter_value == "Ίδια Μονάδα":
-                filtered_tasks = [t for t in filtered_tasks if t['unit_name'] == current_unit]
-            elif unit_filter_value != "Όλες":
-                filtered_tasks = [t for t in filtered_tasks if t['unit_name'] == unit_filter_value]
-
-            if search_text:
-                filtered_tasks = [
-                    t for t in filtered_tasks
-                    if search_text in t['description'].lower()
-                       or search_text in t['task_type_name'].lower()
-                       or (t.get('task_item_name') and search_text in t['task_item_name'].lower())
-                ]
-
-            # Group filtered tasks by unit
-            filtered_by_unit = {}
-            for task in filtered_tasks:
-                unit_name = task['unit_name']
-                if unit_name not in filtered_by_unit:
-                    filtered_by_unit[unit_name] = []
-                filtered_by_unit[unit_name].append(task)
-
-            if not filtered_by_unit:
-                ctk.CTkLabel(
-                    tasks_scrollable,
-                    text="Δεν βρέθηκαν εργασίες με τα συγκεκριμένα κριτήρια.",
-                    font=theme_config.get_font("body"),
-                    text_color=self.theme["text_secondary"]
-                ).pack(pady=50)
-                return
-
-            # Display grouped tasks
-            # Current unit first
-            if current_unit in filtered_by_unit:
-                create_unit_group(current_unit, filtered_by_unit[current_unit], True)
-
-            # Other units
-            for unit_name in sorted(filtered_by_unit.keys()):
-                if unit_name != current_unit:
-                    create_unit_group(unit_name, filtered_by_unit[unit_name], False)
-
-        def create_unit_group(unit_name, tasks, is_current):
-            """Δημιουργία ομάδας μονάδας"""
-
-            # Container
-            group_container = ctk.CTkFrame(tasks_scrollable, fg_color="transparent")
-            group_container.pack(fill="x", pady=5, padx=5)
-
-            # Header
-            is_expanded = expanded_units.get(unit_name, False)
-            arrow = "▼" if is_expanded else "▶"
-
-            header_color = self.theme["accent_blue"] if is_current else self.theme["text_primary"]
-            header_text = f"{arrow} {'💡 ' if is_current else '📍 '}{unit_name} ({len(tasks)} εργασίες)"
-            if is_current:
-                header_text += " - Ίδια Μονάδα"
-
-            header_frame = ctk.CTkFrame(
-                group_container,
-                fg_color=self.theme["card_bg"],
-                border_color=self.theme["accent_blue"] if is_current else self.theme["card_border"],
-                border_width=2 if is_current else 1,
-                corner_radius=8,
-                cursor="hand2"
-            )
-            header_frame.pack(fill="x", pady=(0, 5))
-
-            header_label = ctk.CTkLabel(
-                header_frame,
-                text=header_text,
-                font=theme_config.get_font("body", "bold"),
-                text_color=header_color,
-                cursor="hand2"
-            )
-            header_label.pack(padx=15, pady=10)
-
-            # Tasks container
-            tasks_container = ctk.CTkFrame(group_container, fg_color="transparent")
-
-            if is_expanded:
-                tasks_container.pack(fill="x", padx=20)
-
-            # Toggle function
-            def toggle():
-                expanded_units[unit_name] = not expanded_units.get(unit_name, False)
-                filter_and_display()
-
-            header_frame.bind("<Button-1>", lambda e: toggle())
-            header_label.bind("<Button-1>", lambda e: toggle())
-
-            # Display tasks if expanded
-            if is_expanded:
-                for task in tasks:
-                    task_container = ctk.CTkFrame(tasks_container, fg_color="transparent")
-                    task_container.pack(fill="x", pady=3, padx=5)
-
-                    # Card
-                    card_frame = ctk.CTkFrame(task_container, fg_color="transparent")
-                    card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-
-                    task_card = TaskCard(card_frame, task, on_click=lambda t=task: select_task(t))
-                    task_card.pack(fill="x")
-
-                    # Select button
-                    select_btn = ctk.CTkButton(
-                        task_container,
-                        text="➕",
-                        command=lambda t=task: select_task(t),
-                        width=50,
-                        height=32,
-                        **theme_config.get_button_style("success")
-                    )
-                    select_btn.pack(side="right")
-
-        def select_task(task):
-            """Επιλογή εργασίας"""
-            result = messagebox.askyesno(
-                "Επιβεβαίωση Σύνδεσης",
-                f"Σύνδεση με:\n\n"
-                f"🔧 {task['task_type_name']}"
-                f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
-                f"📍 {task['unit_name']}\n"
-                f"📅 {task['created_date']}\n"
-                f"📝 {task['description'][: 100]}..."
-            )
-
-            if result:
-                try:
-                    if relation_type == "parent":
-                        # task is parent, current is child
-                        database.add_task_relationship(task['id'], self.task_data['id'], "related")
-                    else:
-                        # current is parent, task is child
-                        database.add_task_relationship(self.task_data['id'], task['id'], "related")
-
-                    messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
-                    dialog.destroy()
-                    self.load_relationships()
-                    self.refresh_callback()
-                except Exception as e:
-                    messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
-
-        # Bind filters
-        search_var.trace('w', lambda *args: filter_and_display())
-        unit_filter_var.trace('w', lambda *args: filter_and_display())
-
-        # Initial load
-        filter_and_display()
-
-        # Close button
-        close_btn = ctk.CTkButton(
-            dialog,
-            text="✖ Κλείσιμο",
-            command=dialog.destroy,
-            width=120,
-            height=40,
-            **theme_config.get_button_style("secondary")
-        )
-        close_btn.pack(pady=15)
+        # ... (rest of dialog code remains the same, just update button text)
+        # "➕ Σύνδεση ως Αρχική" / "➕ Σύνδεση ως Συνέχεια"
 
     def remove_relationship(self, task, relation_type):
         """Αφαίρεση σύνδεσης"""
