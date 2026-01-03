@@ -390,8 +390,16 @@ class HVACRApp(ctk.CTk):
         scrollable = ctk.CTkScrollableFrame(details_frame)
         scrollable.pack(fill="both", expand=True, padx=20, pady=20)
         
+        # Build details list - Phase 2.3 Updated
         details = [
-            ("🔧 Είδος Εργασίας:", task['task_type_name']),
+            ("🔧 Τύπος Εργασίας:", task['task_type_name']),
+        ]
+        
+        # Add task item if exists
+        if task.get('task_item_name'):
+            details.append(("📌 Είδος Εργασίας:", task['task_item_name']))
+        
+        details.extend([
             ("📍 Μονάδα:", f"{task['unit_name']} ({task['group_name']})"),
             ("📝 Περιγραφή:", task['description']),
             ("📊 Κατάσταση:", "✅ Ολοκληρωμένη" if task['status'] == 'completed' else "⏳ Εκκρεμής"),
@@ -456,7 +464,7 @@ class HVACRApp(ctk.CTk):
         ui_components.TaskRelationshipsView(self.main_frame, task, self.on_task_saved)
         
     def show_units_management(self):
-        """Διαχείριση μονάδων"""
+        """Διαχείριση μονάδων - Phase 2.3 Updated"""
         self.clear_main_frame()
         
         title = ctk.CTkLabel(
@@ -468,6 +476,19 @@ class HVACRApp(ctk.CTk):
         title.pack(pady=20)
         
         ui_components.UnitsManagement(self.main_frame, self.refresh_top_bar)
+    
+    def show_task_management(self):
+        """Διαχείριση Εργασιών - Τύποι & Είδη - Phase 2.3"""
+        self.clear_main_frame()
+        
+        title = ctk.CTkLabel(
+            self.main_frame,
+            text="📋 Διαχείριση Τύπων & Ειδών Εργασιών",
+            font=ctk.CTkFont(size=24, weight="bold")
+        )
+        title.pack(pady=20)
+        
+        ui_components.TaskManagement(self.main_frame)
         
     def show_shifts(self):
         """Πρόγραμμα βαρδιών"""

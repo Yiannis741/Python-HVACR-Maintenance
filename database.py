@@ -59,6 +59,20 @@ def init_database():
         )
     ''')
     
+    # Πίνακας Ειδών Εργασιών (Task Items) - Phase 2.3
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS task_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            task_type_id INTEGER NOT NULL,
+            description TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_type_id) REFERENCES task_types(id),
+            UNIQUE(name, task_type_id)
+        )
+    ''')
+    
     # Πίνακας Εργασιών
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
@@ -79,6 +93,12 @@ def init_database():
         )
     ''')
     
+    # Migration: Add task_item_id column if it doesn't exist
+    cursor.execute("PRAGMA table_info(tasks)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'task_item_id' not in columns:
+        cursor.execute('ALTER TABLE tasks ADD COLUMN task_item_id INTEGER REFERENCES task_items(id)')
+    
     # Πίνακας Συνδέσεων Εργασιών (π.χ. Βλάβη -> Επισκευή)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS task_relationships (
@@ -91,6 +111,86 @@ def init_database():
             FOREIGN KEY (child_task_id) REFERENCES tasks(id)
         )
     ''')
+    
+    conn.commit()
+    conn.close()
+
+
+def load_default_task_items():
+    """Φόρτωση προκαθορισμένων ειδών εργασιών - Phase 2.3"""
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Έλεγχος αν υπάρχουν ήδη δεδομένα
+    cursor.execute("SELECT COUNT(*) as count FROM task_items")
+    if cursor.fetchone()['count'] > 0:
+        conn.close()
+        return
+    
+    # Παίρνουμε τα IDs των τύπων εργασιών
+    cursor.execute("SELECT id, name FROM task_types WHERE is_predefined = 1")
+    task_types = {row['name']: row['id'] for row in cursor.fetchall()}
+    
+    # Προκαθορισμένα είδη ανά τύπο
+    task_items = {
+        'Service': [
+            ('Ετήσιο Service', 'Πλήρης ετήσια συντήρηση'),
+            ('Εξαμηνιαίο Service', 'Συντήρηση κάθε 6 μήνες'),
+            ('Τριμηνιαίο Service', 'Συντήρηση κάθε 3 μήνες'),
+            ('Μηνιαίο Service', 'Μηνιαία συντήρηση'),
+            ('Καθαρισμός Φίλτρων', 'Αφαίρεση και καθαρισμός φίλτρων'),
+            ('Έλεγχος Ψυκτικού Υγρού', 'Έλεγχος στάθμης και πιέσεων'),
+            ('Καθαρισμός Εσωτερικών Στοιχείων', 'Καθαρισμός εσωτερικών μονάδων'),
+            ('Καθαρισμός Εξωτερικών Στοιχείων', 'Καθαρισμός εξωτερικών μονάδων'),
+            ('Έλεγχος Πιέσεων', 'Μέτρηση και έλεγχος πιέσεων συστήματος'),
+        ],
+        'Βλάβη': [
+            ('Διαρροή Ψυκτικού', 'Διαρροή ψυκτικού υγρού'),
+            ('Πρόβλημα Compressor', 'Βλάβη συμπιεστή'),
+            ('Πρόβλημα Ανεμιστήρα Εσωτερικού', 'Βλάβη ανεμιστήρα εσωτερικής μονάδας'),
+            ('Πρόβλημα Ανεμιστήρα Εξωτερικού', 'Βλάβη ανεμιστήρα εξωτερικής μονάδας'),
+            ('Μη Λειτουργία', 'Η μονάδα δεν λειτουργεί'),
+            ('Θόρυβος Λειτουργίας', 'Ασυνήθιστοι θόρυβοι'),
+            ('Πρόβλημα Πλακέτας', 'Βλάβη ηλεκτρονικής πλακέτας'),
+            ('Πρόβλημα Αισθητήρα', 'Βλάβη αισθητήρα θερμοκρασίας'),
+            ('Διαρροή Νερού', 'Διαρροή συμπυκνώματος'),
+            ('Πρόβλημα Αποστράγγισης', 'Πρόβλημα αποστράγγισης νερού'),
+        ],
+        'Επισκευή': [
+            ('Αντικατάσταση Compressor', 'Αντικατάσταση συμπιεστή'),
+            ('Αντικατάσταση Πλακέτας', 'Αντικατάσταση ηλεκτρονικής πλακέτας'),
+            ('Συγκόλληση Διαρροής', 'Επισκευή διαρροής με συγκόλληση'),
+            ('Αντικατάσταση Ανεμιστήρα', 'Αντικατάσταση ανεμιστήρα'),
+            ('Φόρτιση Ψυκτικού', 'Προσθήκη ψυκτικού υγρού'),
+            ('Αντικατάσταση Αισθητήρα', 'Αντικατάσταση αισθητήρα θερμοκρασίας'),
+            ('Επισκευή Αποστράγγισης', 'Επισκευή συστήματος αποστράγγισης'),
+            ('Αντικατάσταση Φίλτρου', 'Αντικατάσταση φίλτρου'),
+            ('Καθαρισμός Αποφράξεων', 'Καθαρισμός αποφραγμένων σωλήνων'),
+        ],
+        'Απλός Έλεγχος': [
+            ('Οπτικός Έλεγχος', 'Γενικός οπτικός έλεγχος'),
+            ('Έλεγχος Λειτουργίας', 'Έλεγχος κανονικής λειτουργίας'),
+            ('Μετρήσεις Πίεσης', 'Μέτρηση πιέσεων συστήματος'),
+            ('Έλεγχος Θερμοκρασίας', 'Έλεγχος θερμοκρασιών'),
+            ('Έλεγχος Ηλεκτρικών', 'Έλεγχος ηλεκτρικών συνδέσεων'),
+            ('Έλεγχος Στάθμης Ψυκτικού', 'Έλεγχος επάρκειας ψυκτικού'),
+        ]
+    }
+    
+    # Εισαγωγή ειδών στη βάση
+    for task_type_name, items in task_items.items():
+        if task_type_name in task_types:
+            task_type_id = task_types[task_type_name]
+            for item_name, item_desc in items:
+                try:
+                    cursor.execute('''
+                        INSERT INTO task_items (name, task_type_id, description)
+                        VALUES (?, ?, ?)
+                    ''', (item_name, task_type_id, item_desc))
+                except sqlite3.IntegrityError:
+                    # Skip duplicates
+                    pass
     
     conn.commit()
     conn.close()
@@ -167,6 +267,9 @@ def load_sample_data():
     
     conn.commit()
     conn.close()
+    
+    # Load default task items after sample data
+    load_default_task_items()
 
 
 # ----- FUNCTIONS ΓΙΑ QUERIES -----
@@ -229,16 +332,18 @@ def get_dashboard_stats():
 
 
 def get_recent_tasks(limit=5):
-    """Επιστρέφει τις πιο πρόσφατες εργασίες"""
+    """Επιστρέφει τις πιο πρόσφατες εργασίες - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name,
+               ti.name as task_item_name
         FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
         JOIN groups g ON u.group_id = g.id
+        LEFT JOIN task_items ti ON t.task_item_id = ti.id
         WHERE t.is_deleted = 0
         ORDER BY t.created_at DESC
         LIMIT ?
@@ -250,16 +355,16 @@ def get_recent_tasks(limit=5):
 
 
 def add_task(unit_id, task_type_id, description, status, priority, created_date, 
-             completed_date, technician_name, notes):
-    """Προσθήκη νέας εργασίας"""
+             completed_date, technician_name, notes, task_item_id=None):
+    """Προσθήκη νέας εργασίας - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO tasks (unit_id, task_type_id, description, status, priority,
+        INSERT INTO tasks (unit_id, task_type_id, task_item_id, description, status, priority,
                           created_date, completed_date, technician_name, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (unit_id, task_type_id, description, status, priority, created_date,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
           completed_date, technician_name, notes))
     
     task_id = cursor.lastrowid
@@ -319,18 +424,20 @@ def add_group(name, description):
 # ----- PHASE 2: NEW FUNCTIONS -----
 
 def get_all_tasks(include_deleted=False):
-    """Επιστρέφει όλες τις εργασίες με πλήρεις πληροφορίες"""
+    """Επιστρέφει όλες τις εργασίες με πλήρεις πληροφορίες - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     deleted_filter = "" if include_deleted else "WHERE t.is_deleted = 0"
     
     cursor.execute(f'''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name,
+               ti.name as task_item_name
         FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
         JOIN groups g ON u.group_id = g.id
+        LEFT JOIN task_items ti ON t.task_item_id = ti.id
         {deleted_filter}
         ORDER BY t.created_date DESC, t.created_at DESC
     ''')
@@ -341,16 +448,18 @@ def get_all_tasks(include_deleted=False):
 
 
 def get_task_by_id(task_id):
-    """Επιστρέφει μία εργασία με βάση το ID"""
+    """Επιστρέφει μία εργασία με βάση το ID - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name,
+               ti.name as task_item_name
         FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
         JOIN groups g ON u.group_id = g.id
+        LEFT JOIN task_items ti ON t.task_item_id = ti.id
         WHERE t.id = ?
     ''', (task_id,))
     
@@ -360,17 +469,17 @@ def get_task_by_id(task_id):
 
 
 def update_task(task_id, unit_id, task_type_id, description, status, priority, 
-                created_date, completed_date, technician_name, notes):
-    """Ενημέρωση υπάρχουσας εργασίας"""
+                created_date, completed_date, technician_name, notes, task_item_id=None):
+    """Ενημέρωση υπάρχουσας εργασίας - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
         UPDATE tasks 
-        SET unit_id = ?, task_type_id = ?, description = ?, status = ?, priority = ?,
+        SET unit_id = ?, task_type_id = ?, task_item_id = ?, description = ?, status = ?, priority = ?,
             created_date = ?, completed_date = ?, technician_name = ?, notes = ?
         WHERE id = ?
-    ''', (unit_id, task_type_id, description, status, priority, created_date,
+    ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
           completed_date, technician_name, notes, task_id))
     
     conn.commit()
@@ -420,16 +529,18 @@ def permanent_delete_task(task_id):
 
 
 def get_deleted_tasks():
-    """Επιστρέφει διαγραμμένες εργασίες"""
+    """Επιστρέφει διαγραμμένες εργασίες - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name,
+               ti.name as task_item_name
         FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
         JOIN groups g ON u.group_id = g.id
+        LEFT JOIN task_items ti ON t.task_item_id = ti.id
         WHERE t.is_deleted = 1
         ORDER BY t.created_at DESC
     ''')
@@ -440,16 +551,18 @@ def get_deleted_tasks():
 
 
 def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, date_to=None, search_text=None):
-    """Φιλτράρισμα εργασιών με πολλαπλά κριτήρια"""
+    """Φιλτράρισμα εργασιών με πολλαπλά κριτήρια - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
     
     query = '''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name
+        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name,
+               ti.name as task_item_name
         FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
         JOIN groups g ON u.group_id = g.id
+        LEFT JOIN task_items ti ON t.task_item_id = ti.id
         WHERE t.is_deleted = 0
     '''
     
@@ -685,3 +798,123 @@ def delete_task_type(type_id):
     conn.close()
     
     return {'success': True}
+
+
+# ----- PHASE 2.3: TASK ITEMS FUNCTIONS -----
+
+def get_task_items_by_type(task_type_id):
+    """Επιστρέφει τα είδη εργασιών ενός συγκεκριμένου τύπου"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM task_items 
+        WHERE task_type_id = ? AND is_active = 1
+        ORDER BY name
+    ''', (task_type_id,))
+    
+    items = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return items
+
+
+def get_all_task_items():
+    """Επιστρέφει όλα τα είδη εργασιών"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT ti.*, tt.name as task_type_name
+        FROM task_items ti
+        JOIN task_types tt ON ti.task_type_id = tt.id
+        WHERE ti.is_active = 1
+        ORDER BY tt.name, ti.name
+    ''')
+    
+    items = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return items
+
+
+def add_task_item(name, task_type_id, description=None):
+    """Προσθήκη νέου είδους εργασίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO task_items (name, task_type_id, description)
+            VALUES (?, ?, ?)
+        ''', (name, task_type_id, description))
+        
+        item_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return item_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        return None
+
+
+def update_task_item(item_id, name, description=None):
+    """Ενημέρωση υπάρχοντος είδους εργασίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            UPDATE task_items 
+            SET name = ?, description = ?
+            WHERE id = ?
+        ''', (name, description, item_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False
+
+
+def delete_task_item(item_id):
+    """Διαγραφή είδους εργασίας (με validation)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Έλεγχος χρήσης σε εργασίες
+    cursor.execute('''
+        SELECT COUNT(*) as count 
+        FROM tasks 
+        WHERE task_item_id = ? AND is_deleted = 0
+    ''', (item_id,))
+    
+    count = cursor.fetchone()['count']
+    
+    if count > 0:
+        conn.close()
+        return {'success': False, 'error': f'Το είδος χρησιμοποιείται σε {count} εργασίες'}
+    
+    # Soft delete
+    cursor.execute('UPDATE task_items SET is_active = 0 WHERE id = ?', (item_id,))
+    conn.commit()
+    conn.close()
+    
+    return {'success': True}
+
+
+def get_task_item_by_id(item_id):
+    """Επιστρέφει ένα είδος εργασίας με βάση το ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT ti.*, tt.name as task_type_name
+        FROM task_items ti
+        JOIN task_types tt ON ti.task_type_id = tt.id
+        WHERE ti.id = ?
+    ''', (item_id,))
+    
+    item = cursor.fetchone()
+    conn.close()
+    return dict(item) if item else None
+

@@ -63,7 +63,11 @@ class TaskCard(ctk.CTkFrame):
         )
         priority_label.pack(side="left")
         
-        # Task type
+        # Task type and item - Phase 2.3
+        type_text = f"🔧 {self.task['task_type_name']}"
+        if self.task.get('task_item_name'):
+            type_text += f" → {self.task['task_item_name']}"
+        
         type_label = ctk.CTkLabel(
             self,
             text=f"🔧 {self.task['task_type_name']}",
@@ -105,7 +109,7 @@ class TaskCard(ctk.CTkFrame):
 
 
 class TaskForm(ctk.CTkFrame):
-    """Φόρμα για προσθήκη/επεξεργασία εργασίας"""
+    """Φόρμα για προσθήκη/επεξεργασία εργασίας - Phase 2.3 Updated"""
     
     def __init__(self, parent, on_save_callback, task_data=None):
         super().__init__(parent, fg_color="transparent")
@@ -121,7 +125,7 @@ class TaskForm(ctk.CTkFrame):
             self.populate_form()
         
     def create_form(self):
-        """Δημιουργία της φόρμας"""
+        """Δημιουργία της φόρμας - Phase 2.3"""
         
         # Scrollable frame
         scrollable = ctk.CTkScrollableFrame(self)
@@ -130,18 +134,31 @@ class TaskForm(ctk.CTkFrame):
         # Μονάδα
         ctk.CTkLabel(scrollable, text="Μονάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
         
-        units = database.get_all_units()
-        self.units_dict = {f"{u['name']} - {u['group_name']}": u['id'] for u in units}
+        groups = database.get_all_groups()
+        self.groups_dict = {g['name']: g['id'] for g in groups}
         
+        self.group_combo = ctk.CTkComboBox(
+            scrollable,
+            values=list(self.groups_dict.keys()),
+            width=400,
+            state="readonly",
+            command=self.on_group_change
+        )
+        self.group_combo.pack(anchor="w", pady=(0, 15))
+        if self.groups_dict:
+            self.group_combo.set(list(self.groups_dict.keys())[0])
+        
+        # 2. Μονάδα (φιλτραρισμένη από ομάδα)
+        ctk.CTkLabel(scrollable, text="Μονάδα:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(10, 5))
+        
+        self.units_dict = {}  # Will be populated by on_group_change
         self.unit_combo = ctk.CTkComboBox(
             scrollable,
-            values=list(self.units_dict. keys()),
+            values=[],
             width=400,
             state="readonly"
         )
         self.unit_combo.pack(anchor="w", pady=(0, 15))
-        if self.units_dict:
-            self.unit_combo.set(list(self.units_dict.keys())[0])
         
         # Είδος Εργασίας
         ctk.CTkLabel(scrollable, text="Είδος Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
@@ -153,11 +170,12 @@ class TaskForm(ctk.CTkFrame):
             scrollable,
             values=list(self.task_types_dict.keys()),
             width=400,
-            state="readonly"
+            state="readonly",
+            command=self.on_task_type_change
         )
         self.task_type_combo.pack(anchor="w", pady=(0, 15))
         if self.task_types_dict:
-            self.task_type_combo.set(list(self.task_types_dict. keys())[0])
+            self.task_type_combo.set(list(self.task_types_dict.keys())[0])
         
         # Περιγραφή
         ctk.CTkLabel(scrollable, text="Περιγραφή Εργασίας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", pady=(10, 5))
@@ -260,23 +278,88 @@ class TaskForm(ctk.CTkFrame):
                 **theme_config.get_button_style("danger")
             )
             delete_btn.pack(side="left", padx=(10, 0))
+        
+        # Initialize cascade selects
+        self.on_group_change(self.group_combo.get() if self.groups_dict else None)
+        self.on_task_type_change(self.task_type_combo.get() if self.task_types_dict else None)
+    
+    def on_group_change(self, selected_group):
+        """Callback όταν αλλάζει η ομάδα - φιλτράρει τις μονάδες - Phase 2.3"""
+        if not selected_group:
+            return
+        
+        group_id = self.groups_dict.get(selected_group)
+        if not group_id:
+            return
+        
+        # Παίρνουμε τις μονάδες της επιλεγμένης ομάδας
+        units = database.get_units_by_group(group_id)
+        self.units_dict = {u['name']: u['id'] for u in units}
+        
+        # Ενημέρωση dropdown
+        if self.units_dict:
+            unit_names = list(self.units_dict.keys())
+            self.unit_combo.configure(values=unit_names)
+            self.unit_combo.set(unit_names[0])
+        else:
+            self.unit_combo.configure(values=["Καμία μονάδα"])
+            self.unit_combo.set("Καμία μονάδα")
+    
+    def on_task_type_change(self, selected_type):
+        """Callback όταν αλλάζει ο τύπος - φιλτράρει τα είδη - Phase 2.3"""
+        if not selected_type:
+            return
+        
+        type_id = self.task_types_dict.get(selected_type)
+        if not type_id:
+            return
+        
+        # Παίρνουμε τα είδη του επιλεγμένου τύπου
+        items = database.get_task_items_by_type(type_id)
+        self.task_items_dict = {item['name']: item['id'] for item in items}
+        
+        # Ενημέρωση dropdown
+        if self.task_items_dict:
+            item_names = list(self.task_items_dict.keys())
+            self.task_item_combo.configure(values=item_names)
+            self.task_item_combo.set(item_names[0])
+        else:
+            self.task_item_combo.configure(values=["Κανένα είδος"])
+            self.task_item_combo.set("Κανένα είδος")
     
     def populate_form(self):
-        """Γέμισμα της φόρμας με υπάρχοντα δεδομένα"""
+        """Γέμισμα της φόρμας με υπάρχοντα δεδομένα - Updated Phase 2.3"""
         if not self.task_data:
             return
         
-        # Βρίσκουμε το κλειδί της μονάδας
-        for key, unit_id in self.units_dict.items():
-            if unit_id == self.task_data['unit_id']:
-                self. unit_combo.set(key)
+        # Βρίσκουμε και ορίζουμε την ομάδα (θα trigger-άρει το cascade)
+        unit = database.get_unit_by_id(self.task_data['unit_id'])
+        if unit:
+            for group_name, group_id in self.groups_dict.items():
+                if group_id == unit['group_id']:
+                    self.group_combo.set(group_name)
+                    self.on_group_change(group_name)
+                    break
+            
+            # Βρίσκουμε και ορίζουμε τη μονάδα
+            for unit_name, unit_id in self.units_dict.items():
+                if unit_id == self.task_data['unit_id']:
+                    self.unit_combo.set(unit_name)
+                    break
+        
+        # Βρίσκουμε και ορίζουμε τον τύπο εργασίας (θα trigger-άρει το cascade)
+        for type_name, type_id in self.task_types_dict.items():
+            if type_id == self.task_data['task_type_id']:
+                self.task_type_combo.set(type_name)
+                self.on_task_type_change(type_name)
                 break
         
-        # Βρίσκουμε το είδος εργασίας
-        for key, type_id in self.task_types_dict.items():
-            if type_id == self.task_data['task_type_id']: 
-                self.task_type_combo.set(key)
-                break
+        # Βρίσκουμε και ορίζουμε το είδος εργασίας
+        if self.task_data.get('task_item_id'):
+            for item_name, item_id in self.task_items_dict.items():
+                if item_id == self.task_data['task_item_id']:
+                    self.task_item_combo.set(item_name)
+                    break
         
         # Περιγραφή
         self.description_text.delete("1.0", "end")
@@ -304,19 +387,31 @@ class TaskForm(ctk.CTkFrame):
             self.notes_text.insert("1.0", self.task_data['notes'])
     
     def save_task(self):
-        """Αποθήκευση της εργασίας"""
+        """Αποθήκευση της εργασίας - Updated Phase 2.3"""
         
         # Validation
         if not self.description_text.get("1.0", "end-1c").strip():
             messagebox.showerror("Σφάλμα", "Η περιγραφή είναι υποχρεωτική!")
             return
         
+        # Validation: Είδος Εργασίας (REQUIRED)
+        task_item_key = self.task_item_combo.get()
+        if not task_item_key or task_item_key == "Κανένα είδος":
+            messagebox.showerror("Σφάλμα", "Το Είδος Εργασίας είναι υποχρεωτικό!")
+            return
+        
         # Παίρνουμε τα δεδομένα
         unit_key = self.unit_combo.get()
-        unit_id = self.units_dict. get(unit_key)
+        unit_id = self.units_dict.get(unit_key)
+        
+        if not unit_id or unit_key == "Καμία μονάδα":
+            messagebox.showerror("Σφάλμα", "Η Μονάδα είναι υποχρεωτική!")
+            return
         
         task_type_key = self.task_type_combo.get()
         task_type_id = self.task_types_dict.get(task_type_key)
+        
+        task_item_id = self.task_items_dict.get(task_item_key)
         
         description = self.description_text.get("1.0", "end-1c").strip()
         status = self.status_var.get()
@@ -325,7 +420,7 @@ class TaskForm(ctk.CTkFrame):
         priority = priority_map.get(self.priority_combo.get(), "medium")
         
         technician = self.technician_entry.get().strip()
-        notes = self. notes_text.get("1.0", "end-1c").strip()
+        notes = self.notes_text.get("1.0", "end-1c").strip()
         
         created_date = self.created_date_entry.get().strip()
         completed_date = created_date if status == "completed" else None
@@ -338,7 +433,7 @@ class TaskForm(ctk.CTkFrame):
                     self.task_data['id'],
                     unit_id, task_type_id, description, status, priority,
                     created_date, completed_date, technician if technician else None,
-                    notes if notes else None
+                    notes if notes else None, task_item_id
                 )
                 messagebox.showinfo("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
             else:
@@ -346,14 +441,14 @@ class TaskForm(ctk.CTkFrame):
                 database.add_task(
                     unit_id, task_type_id, description, status, priority,
                     created_date, completed_date, technician if technician else None,
-                    notes if notes else None
+                    notes if notes else None, task_item_id
                 )
                 messagebox.showinfo("Επιτυχία", "Η εργασία αποθηκεύτηκε με επιτυχία!")
             
             self.on_save_callback()
             
         except Exception as e:
-            messagebox.showerror("Σφάλμα", f"Αποτυχία αποθήκευσης:  {str(e)}")
+            messagebox.showerror("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
     
     def delete_task(self):
         """Διαγραφή εργασίας"""
@@ -374,18 +469,18 @@ class TaskForm(ctk.CTkFrame):
 
 
 class UnitsManagement(ctk.CTkFrame):
-    """Διαχείριση Μονάδων και Ομάδων"""
+    """Διαχείριση Μονάδων και Ομάδων - Phase 2.3 Updated"""
     
     def __init__(self, parent, refresh_callback):
         super().__init__(parent, fg_color="transparent")
         
-        self. refresh_callback = refresh_callback
+        self.refresh_callback = refresh_callback
         self.pack(fill="both", expand=True, padx=20, pady=20)
         
-        self. create_ui()
+        self.create_ui()
         
     def create_ui(self):
-        """Δημιουργία UI"""
+        """Δημιουργία UI - Phase 2.3: Only Units and Groups"""
         
         # Tabs
         self.tabview = ctk.CTkTabview(self)
@@ -393,16 +488,12 @@ class UnitsManagement(ctk.CTkFrame):
         
         self.tab1 = self.tabview.add("Μονάδες")
         self.tab2 = self.tabview.add("Ομάδες")
-        self.tab3 = self.tabview.add("Τύποι Εργασιών")
         
         # Tab Μονάδες
         self.create_units_tab(self.tab1)
         
         # Tab Ομάδες
         self.create_groups_tab(self.tab2)
-        
-        # Tab Τύποι Εργασιών
-        self.create_task_types_tab(self.tab3)
         
     def create_units_tab(self, parent):
         """Tab για διαχείριση μονάδων"""
@@ -657,11 +748,45 @@ class UnitsManagement(ctk.CTkFrame):
         self.add_group_dialog(group_data=group)
     
     def refresh_ui(self):
-        """Ανανέωση του UI"""
+        """Ανανέωση του UI - Phase 2.3"""
         # Clear and recreate tabs
         self.create_units_tab(self.tab1)
         self.create_groups_tab(self.tab2)
-        self.create_task_types_tab(self.tab3)
+
+
+# ----- PHASE 2.3: NEW TASK MANAGEMENT COMPONENT -----
+
+class TaskManagement(ctk.CTkFrame):
+    """Διαχείριση Τύπων και Ειδών Εργασιών - Phase 2.3"""
+    
+    def __init__(self, parent):
+        super().__init__(parent, fg_color="transparent")
+        
+        self.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        self.create_ui()
+        
+    def create_ui(self):
+        """Δημιουργία UI"""
+        
+        # Tabs
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(fill="both", expand=True)
+        
+        self.tab1 = self.tabview.add("Τύποι Εργασιών")
+        self.tab2 = self.tabview.add("Είδη Εργασιών")
+        
+        # Tab Τύποι Εργασιών
+        self.create_task_types_tab(self.tab1)
+        
+        # Tab Είδη Εργασιών
+        self.create_task_items_tab(self.tab2)
+    
+    def refresh_ui(self):
+        """Ανανέωση του UI"""
+        # Clear and recreate tabs
+        self.create_task_types_tab(self.tab1)
+        self.create_task_items_tab(self.tab2)
     
     def create_task_types_tab(self, parent):
         """Tab για διαχείριση τύπων εργασιών"""
@@ -821,6 +946,237 @@ class UnitsManagement(ctk.CTkFrame):
             if delete_result['success']:
                 messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
                 self.refresh_ui()
+            else:
+                messagebox.showerror("Σφάλμα", delete_result['error'])
+    
+    def create_task_items_tab(self, parent):
+        """Tab για διαχείριση ειδών εργασιών - Phase 2.3"""
+        
+        # Clear existing widgets
+        for widget in parent.winfo_children():
+            widget.destroy()
+        
+        # Info label
+        info_frame = ctk.CTkFrame(parent, fg_color="#e8f5e9", corner_radius=10)
+        info_frame.pack(fill="x", pady=10, padx=10)
+        
+        info_label = ctk.CTkLabel(
+            info_frame,
+            text="ℹ️ Τα είδη εργασιών είναι υποκατηγορίες των τύπων. Επιλέξτε έναν τύπο για να δείτε τα είδη του.",
+            font=ctk.CTkFont(size=11),
+            wraplength=800,
+            text_color="#2e7d32"
+        )
+        info_label.pack(padx=15, pady=10)
+        
+        # Επιλογή Τύπου Εργασίας
+        selector_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        selector_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(
+            selector_frame,
+            text="Τύπος Εργασίας:",
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(side="left", padx=10)
+        
+        task_types = database.get_all_task_types()
+        self.task_types_dict = {tt['name']: tt['id'] for tt in task_types}
+        
+        self.selected_type_var = ctk.StringVar()
+        self.type_selector = ctk.CTkComboBox(
+            selector_frame,
+            values=list(self.task_types_dict.keys()),
+            width=250,
+            state="readonly",
+            command=self.on_type_selected,
+            variable=self.selected_type_var
+        )
+        self.type_selector.pack(side="left", padx=10)
+        if self.task_types_dict:
+            self.type_selector.set(list(self.task_types_dict.keys())[0])
+        
+        # Κουμπί προσθήκης
+        self.add_item_btn = ctk.CTkButton(
+            selector_frame,
+            text="➕ Προσθήκη Είδους",
+            command=self.add_task_item_dialog,
+            height=35,
+            fg_color="#2fa572",
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        self.add_item_btn.pack(side="right", padx=10)
+        
+        # Λίστα ειδών
+        self.items_scrollable = ctk.CTkScrollableFrame(parent)
+        self.items_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Initial load
+        self.load_items_for_selected_type()
+    
+    def on_type_selected(self, selected_type):
+        """Callback όταν επιλέγεται τύπος - Phase 2.3"""
+        self.load_items_for_selected_type()
+    
+    def load_items_for_selected_type(self):
+        """Φόρτωση ειδών για τον επιλεγμένο τύπο - Phase 2.3"""
+        
+        # Clear existing items
+        for widget in self.items_scrollable.winfo_children():
+            widget.destroy()
+        
+        selected_type = self.type_selector.get()
+        type_id = self.task_types_dict.get(selected_type)
+        
+        if not type_id:
+            return
+        
+        items = database.get_task_items_by_type(type_id)
+        
+        if not items:
+            ctk.CTkLabel(
+                self.items_scrollable,
+                text="Δεν υπάρχουν είδη για αυτόν τον τύπο. Προσθέστε ένα!",
+                font=ctk.CTkFont(size=12),
+                text_color="gray"
+            ).pack(pady=30)
+            return
+        
+        # Count label
+        ctk.CTkLabel(
+            self.items_scrollable,
+            text=f"📊 {len(items)} είδη για τον τύπο '{selected_type}'",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#1976d2"
+        ).pack(anchor="w", padx=10, pady=(10, 5))
+        
+        # Display items
+        for item in items:
+            item_frame = ctk.CTkFrame(self.items_scrollable, corner_radius=10, fg_color="#f5f5f5")
+            item_frame.pack(fill="x", pady=5, padx=10)
+            
+            info_text = f"📌 {item['name']}"
+            if item.get('description'):
+                info_text += f"\n   {item['description']}"
+            
+            label = ctk.CTkLabel(
+                item_frame,
+                text=info_text,
+                font=ctk.CTkFont(size=12),
+                justify="left"
+            )
+            label.pack(side="left", padx=15, pady=10, fill="x", expand=True)
+            
+            # Action buttons
+            btn_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+            btn_frame.pack(side="right", padx=10, pady=10)
+            
+            # Edit button
+            edit_btn = ctk.CTkButton(
+                btn_frame,
+                text="✏️",
+                command=lambda i=item: self.edit_task_item_dialog(i),
+                width=35,
+                height=30,
+                fg_color="#1f6aa5"
+            )
+            edit_btn.pack(side="left", padx=2)
+            
+            # Delete button
+            delete_btn = ctk.CTkButton(
+                btn_frame,
+                text="🗑️",
+                command=lambda i=item: self.delete_task_item(i),
+                width=35,
+                height=30,
+                fg_color="#c94242"
+            )
+            delete_btn.pack(side="left", padx=2)
+    
+    def add_task_item_dialog(self, item_data=None):
+        """Dialog για προσθήκη/επεξεργασία είδους - Phase 2.3"""
+        
+        is_edit_mode = item_data is not None
+        
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Επεξεργασία Είδους" if is_edit_mode else "Προσθήκη Νέου Είδους Εργασίας")
+        dialog.geometry("500x400")
+        dialog.grab_set()
+        
+        # Current type
+        selected_type = self.type_selector.get()
+        type_id = self.task_types_dict.get(selected_type)
+        
+        ctk.CTkLabel(
+            dialog,
+            text=f"Τύπος: {selected_type}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#1976d2"
+        ).pack(pady=(20, 10))
+        
+        # Όνομα
+        ctk.CTkLabel(dialog, text="Όνομα Είδους:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry.pack(padx=20, pady=(0, 15))
+        
+        # Περιγραφή
+        ctk.CTkLabel(dialog, text="Περιγραφή:", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
+        desc_text.pack(padx=20, pady=(0, 20))
+        
+        # Populate if editing
+        if is_edit_mode:
+            name_entry.insert(0, item_data['name'])
+            if item_data.get('description'):
+                desc_text.insert("1.0", item_data['description'])
+        
+        def save():
+            name = name_entry.get().strip()
+            if not name:
+                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                return
+            
+            desc = desc_text.get("1.0", "end-1c").strip()
+            
+            try:
+                if is_edit_mode:
+                    result = database.update_task_item(item_data['id'], name, desc)
+                    if result:
+                        messagebox.showinfo("Επιτυχία", "Το είδος ενημερώθηκε με επιτυχία!")
+                        dialog.destroy()
+                        self.load_items_for_selected_type()
+                    else:
+                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
+                else:
+                    result = database.add_task_item(name, type_id, desc)
+                    if result:
+                        messagebox.showinfo("Επιτυχία", "Το είδος προστέθηκε με επιτυχία!")
+                        dialog.destroy()
+                        self.load_items_for_selected_type()
+                    else:
+                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
+            except Exception as e:
+                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+        
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, fg_color="#2fa572", height=40).pack(pady=10)
+    
+    def edit_task_item_dialog(self, item):
+        """Wrapper για επεξεργασία είδους - Phase 2.3"""
+        self.add_task_item_dialog(item_data=item)
+    
+    def delete_task_item(self, item):
+        """Διαγραφή είδους εργασίας - Phase 2.3"""
+        
+        result = messagebox.askyesno(
+            "Επιβεβαίωση Διαγραφής",
+            f"Είστε σίγουροι ότι θέλετε να διαγράψετε το είδος '{item['name']}'?"
+        )
+        
+        if result:
+            delete_result = database.delete_task_item(item['id'])
+            
+            if delete_result['success']:
+                messagebox.showinfo("Επιτυχία", "Το είδος διαγράφηκε!")
+                self.load_items_for_selected_type()
             else:
                 messagebox.showerror("Σφάλμα", delete_result['error'])
 
