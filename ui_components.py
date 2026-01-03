@@ -123,16 +123,7 @@ class TaskCard(ctk.CTkFrame):
         )
         status_label.pack(side="left", padx=15)
 
-        # RIGHT:  Priority
-        priority_label = ctk.CTkLabel(
-            header_frame,
-            text=f"{priority_icon} {self.task.get('priority', 'medium').upper()}",
-            font=theme_config.get_font("small", "bold"),
-            text_color=priority_color
-        )
-        priority_label.pack(side="right")
-
-        # Unit label (right side of header, before priority)
+        # Unit label (far right of header)
         unit_label = ctk.CTkLabel(
             header_frame,
             text=f"📍 {self.task['unit_name']}",
@@ -141,6 +132,15 @@ class TaskCard(ctk.CTkFrame):
             anchor="e"
         )
         unit_label.pack(side="right", padx=5)
+
+        # RIGHT:  Priority (before unit)
+        priority_label = ctk.CTkLabel(
+            header_frame,
+            text=f"{priority_icon} {self.task.get('priority', 'medium').upper()}",
+            font=theme_config.get_font("small", "bold"),
+            text_color=priority_color
+        )
+        priority_label.pack(side="right")
 
         # ===== ROW 2: Chain Indicator (if exists) =====
         chain_label = None
