@@ -353,7 +353,7 @@ class HVACRApp(ctk.CTk):
                     width=180,
                     height=35,
                     state="readonly",
-                    command=lambda selected, uid_map=unit_ids: self.filter_by_unit(uid_map[selected])
+                    command=lambda selected, uid_map=unit_ids.copy(): self.filter_by_unit(uid_map[selected])
                 )
                 dropdown.set(group['name'])
                 dropdown.pack(side="left", padx=5)
@@ -463,7 +463,7 @@ class HVACRApp(ctk.CTk):
         for widget in self.history_tasks_frame.winfo_children():
             widget.destroy()
         
-        # Get filter values
+        # Get filter values (hasattr checks ensure we don't crash if called before UI init)
         search_text = self.history_search_entry.get().strip() if hasattr(self, 'history_search_entry') else None
         
         status_map = {"Όλες": None, "Εκκρεμείς": "pending", "Ολοκληρωμένες": "completed"}
@@ -477,7 +477,7 @@ class HVACRApp(ctk.CTk):
             status=status,
             unit_id=self.current_unit_filter,
             task_type_id=task_type_id,
-            search_text=search_text if search_text else None
+            search_text=search_text
         )
         
         if not filtered_tasks:
