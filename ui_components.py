@@ -9,102 +9,128 @@ import theme_config
 from tkinter import messagebox
 from tkcalendar import Calendar
 
+
 class TaskCard(ctk.CTkFrame):
-    """Καρτέλα εργασίας για προβολή"""
-    
+    """Καρτέλα εργασίας για προβολή - Compact Design"""
+
     def __init__(self, parent, task_data, on_click=None):
-        self.theme = theme_config.get_current_theme()
         theme = theme_config.get_current_theme()
         super().__init__(
-            parent, 
-            corner_radius=10, 
+            parent,
+            corner_radius=8,  # Smaller radius
             fg_color=theme["card_bg"],
             border_color=theme["card_border"],
-            border_width=1
+            border_width=1,
+            height=65  # Fixed compact height
         )
-        
+
         self.task = task_data
         self.on_click = on_click
         self.theme = theme
+
+        # Prevent frame from shrinking
+        self.pack_propagate(False)
+
         self.create_card()
-        
+
         # Clickable
         if on_click:
             self.configure(cursor="hand2")
             self.bind("<Button-1>", lambda e: on_click(task_data))
-        
+
     def create_card(self):
-        """Δημιουργία της καρτέλας"""
-        
-        # Status indicator
-        status_color = "#2fa572" if self.task['status'] == 'completed' else "#ff9800"
-        status_text = "✓ Ολοκληρωμένη" if self.task['status'] == 'completed' else "⏳ Εκκρεμής"
-        
-        # Priority indicator
-        priority_colors = {"low": "#4CAF50", "medium": "#FF9800", "high": "#f44336"}
-        priority_color = priority_colors.get(self.task. get('priority', 'medium'), "#FF9800")
-        
-        # Header with status and priority
+        """Δημιουργία της καρτέλας - Compact Layout"""
+
+        # Status & Priority colors
+        status_color = self.theme["accent_green"] if self.task['status'] == 'completed' else self.theme["accent_orange"]
+        status_icon = "✓" if self.task['status'] == 'completed' else "⏳"
+        status_text = "Ολοκληρωμένη" if self.task['status'] == 'completed' else "Εκκρεμής"
+
+        priority_colors = {
+            "low": self.theme["accent_green"],
+            "medium": self.theme["accent_orange"],
+            "high": self.theme["accent_red"]
+        }
+        priority_color = priority_colors.get(self.task.get('priority', 'medium'), self.theme["accent_orange"])
+        priority_icons = {"low": "🟢", "medium": "🟡", "high": "🔴"}
+        priority_icon = priority_icons.get(self.task.get('priority', 'medium'), "🟡")
+
+        # ===== ROW 1: Header Line (Type → Item | Status | Priority) =====
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=(10, 5))
-        
-        status_label = ctk.CTkLabel(
-            header_frame,
-            text=status_text,
-            font=theme_config.get_font("small", "bold"),
-            text_color=status_color
-        )
-        status_label.pack(side="left")
-        
-        priority_label = ctk.CTkLabel(
-            header_frame,
-            text=f"  •  {self.task.get('priority', 'medium').upper()}",
-            font=theme_config.get_font("tiny", "bold"),
-            text_color=priority_color
-        )
-        priority_label.pack(side="left")
-        
-        # Task type and item - Phase 2.3
+        header_frame.pack(fill="x", padx=12, pady=(8, 4))
+
+        # LEFT:  Task Type → Task Item
         type_text = f"🔧 {self.task['task_type_name']}"
         if self.task.get('task_item_name'):
             type_text += f" → {self.task['task_item_name']}"
-        
+
         type_label = ctk.CTkLabel(
-            self,
-            text=f"🔧 {self.task['task_type_name']}",
+            header_frame,
+            text=type_text,
             font=theme_config.get_font("body", "bold"),
-            text_color=self.theme["text_primary"]
+            text_color=self.theme["text_primary"],
+            anchor="w"
         )
-        type_label.grid(row=1, column=0, sticky="w", padx=15, pady=2)
-        
-        # Description
-        desc_text = self.task['description'][:80] + "..." if len(self.task['description']) > 80 else self.task['description']
-        desc_label = ctk.CTkLabel(
-            self,
-            text=desc_text,
+        type_label.pack(side="left")
+
+        # Spacer
+        ctk.CTkLabel(header_frame, text="", width=20).pack(side="left")
+
+        # CENTER: Status
+        status_label = ctk.CTkLabel(
+            header_frame,
+            text=f"{status_icon} {status_text}",
+            font=theme_config.get_font("small", "bold"),
+            text_color=status_color
+        )
+        status_label.pack(side="left", padx=10)
+
+        # RIGHT:  Priority
+        priority_label = ctk.CTkLabel(
+            header_frame,
+            text=f"{priority_icon} {self.task.get('priority', 'medium').upper()}",
+            font=theme_config.get_font("small", "bold"),
+            text_color=priority_color
+        )
+        priority_label.pack(side="right")
+
+        # ===== ROW 2: Info Line (Description • Unit • Date • Technician) =====
+        info_frame = ctk.CTkFrame(self, fg_color="transparent")
+        info_frame.pack(fill="x", padx=12, pady=(0, 8))
+
+        # Build info parts
+        info_parts = []
+
+        # Description (truncated)
+        desc_text = self.task['description'][: 45] + "..." if len(self.task['description']) > 45 else self.task[
+            'description']
+        info_parts.append(desc_text)
+
+        # Unit
+        info_parts.append(f"📍 {self.task['unit_name']}")
+
+        # Date
+        info_parts.append(f"📅 {self.task['created_date']}")
+
+        # Technician (if exists)
+        if self.task.get('technician_name'):
+            info_parts.append(f"👤 {self.task['technician_name']}")
+
+        # Join with bullet separator
+        info_text = "  •  ".join(info_parts)
+
+        info_label = ctk.CTkLabel(
+            info_frame,
+            text=info_text,
             font=theme_config.get_font("small"),
             text_color=self.theme["text_secondary"],
-            wraplength=500,
-            justify="left"
+            anchor="w"
         )
-        desc_label.grid(row=2, column=0, sticky="w", padx=15, pady=2)
-        
-        # Unit and date
-        info_text = f"📍 {self.task['unit_name']} ({self.task['group_name']}) | 📅 {self.task['created_date']}"
-        if self.task.get('technician_name'):
-            info_text += f" | 👤 {self.task['technician_name']}"
-        
-        info_label = ctk.CTkLabel(
-            self,
-            text=info_text,
-            font=theme_config.get_font("tiny"),
-            text_color=self.theme["text_disabled"]
-        )
-        info_label.grid(row=3, column=0, sticky="w", padx=15, pady=(2, 10))
-        
+        info_label.pack(side="left", fill="x", expand=True)
+
         # Bind click to all widgets
         if self.on_click:
-            for widget in [self, header_frame, status_label, priority_label, type_label, desc_label, info_label]: 
+            for widget in [self, header_frame, type_label, status_label, priority_label, info_frame, info_label]:
                 widget.bind("<Button-1>", lambda e: self.on_click(self.task))
                 widget.configure(cursor="hand2")
 
