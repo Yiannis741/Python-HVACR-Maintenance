@@ -2274,7 +2274,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         )
         desc_label.pack(anchor="w", padx=12, pady=(0, 5))
 
-        # Status + Priority
+        # Status + Technician
         meta_frame = ctk.CTkFrame(card, fg_color="transparent")
         meta_frame.pack(fill="x", padx=12, pady=(0, 10))
 
@@ -2297,23 +2297,33 @@ class TaskRelationshipsView(ctk.CTkFrame):
             ).pack(side="left")
 
         # ═══════════════════════════════════════════════════
-        # RIGHT SIDE - REMOVE BUTTON (if removable)
+        # REMOVE BUTTON - INLINE (inside card, on the right)
         # ═══════════════════════════════════════════════════
 
-        if is_removable and item_type != "current":
-            actions_frame = ctk.CTkFrame(card_container, fg_color="transparent")
-            actions_frame.pack(side="right", padx=(0, 40))  # Align with card
+        print(f"DEBUG:  Checking remove button - is_removable={is_removable}, item_type={item_type}")
 
+        if is_removable and item_type != "current":
+            print(f"DEBUG:   Creating INLINE remove button for task {task['id']}")
+
+            # Button στο meta_frame (δεξιά)
             remove_btn = ctk.CTkButton(
-                actions_frame,
-                text="✖\nΑφαίρεση",
-                command=lambda: self.remove_relationship(task, item_type),
-                width=90,
-                height=70,
-                **theme_config.get_button_style("danger"),
-                font=theme_config.get_font("small", "bold")
+                meta_frame,
+                text="✖ Αφαίρεση από Αλυσίδα",
+                command=lambda t=task, it=item_type: self.remove_relationship(t, it),
+                width=180,
+                height=28,
+                fg_color=self.theme["accent_red"],
+                hover_color="#8B0000",
+                text_color="white",
+                font=theme_config.get_font("tiny", "bold"),
+                corner_radius=6
             )
-            remove_btn.pack()
+            remove_btn.pack(side="right")
+            print(f"DEBUG:  Inline remove button created!")
+        else:
+            print(f"DEBUG: NO remove button - is_removable={is_removable}, item_type={item_type}")
+
+        print("---")
 
     def create_arrow(self, label_text, dashed=False):
         """Δημιουργία βέλους σύνδεσης"""
@@ -2622,12 +2632,12 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 # PARENT:  Σύνδεση με την τρέχουσα (όπως πριν)
                 confirm_text = (
                     f"Ορισμός ως ΑΡΧΙΚΗ εργασία:\n\n"
-                    f"🔵 Αρχική:  {task['task_type_name']}"
+                    f"🔵 Αρχική:   {task['task_type_name']}"
                     f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
                     f"📍 {task['unit_name']}\n"
                     f"📅 {task['created_date']}\n\n"
                     f"       ↓ προκάλεσε\n\n"
-                    f"🟡 Τρέχουσα:  {self.task_data['task_type_name']}"
+                    f"🟡 Τρέχουσα:   {self.task_data['task_type_name']}"
                     f"{' → ' + self.task_data['task_item_name'] if self.task_data.get('task_item_name') else ''}\n"
                     f"📍 {self.task_data['unit_name']}\n"
                     f"📅 {self.task_data['created_date']}"
@@ -2647,45 +2657,36 @@ class TaskRelationshipsView(ctk.CTkFrame):
                         messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
 
             else:
-                # CHILD: ΝΕΑ ΛΟΓΙΚΗ - Σύνδεση με την τελευταία εργασία της αλυσίδας!
+                # CHILD:   ΝΕΑ ΛΟΓΙΚΗ - Βρες την ΤΕΛΕΥΤΑΙΑ εργασία της αλυσίδας
 
-                # Βρες την τελευταία εργασία της τρέχουσας αλυσίδας
-                current_relations = database.get_related_tasks(self.task_data['id'])
+                # Παίρνουμε ολόκληρη την αλυσίδα
+                full_chain = self.get_full_chain(self.task_data['id'])
 
-                # Αν υπάρχουν ήδη children, βρες την τελευταία
-                if current_relations['children']:
-                    # Η τελευταία child είναι αυτή που δεν έχει δικά της children
-                    last_child = None
-                    for child in current_relations['children']:
-                        child_relations = database.get_related_tasks(child['id'])
-                        if not child_relations['children']:
-                            # Αυτή δεν έχει children, είναι η τελευταία
-                            last_child = child
-                            break
+                # Η τελευταία εργασία είναι η last στο chain
+                last_task_in_chain = full_chain[-1]
 
-                    # Αν δεν βρήκαμε (όλες έχουν children), πάρε την πρώτη
-                    if not last_child:
-                        last_child = current_relations['children'][0]
+                print(f"\nDEBUG select_task (CHILD):")
+                print(f"  Current task ID: {self.task_data['id']}")
+                print(f"  Full chain length: {len(full_chain)}")
+                print(f"  Full chain IDs: {[t['id'] for t in full_chain]}")
+                print(f"  Last task in chain: ID={last_task_in_chain['id']}")
+                print(f"  Selected task to add: ID={task['id']}")
 
-                    # Θα συνδεθεί με την last_child
-                    link_to_task = last_child
-                    link_position = len(current_relations['parents']) + 1 + len(current_relations['children'])
-                else:
-                    # Αν δεν υπάρχουν children, σύνδεσε με την τρέχουσα
-                    link_to_task = self.task_data
-                    link_position = len(current_relations['parents']) + 1
+                # Θα συνδεθεί ΜΕ την τελευταία
+                link_to_task = last_task_in_chain
+                new_position = len(full_chain) + 1
 
                 confirm_text = (
                     f"Προσθήκη ως ΣΥΝΕΧΕΙΑ στην αλυσίδα:\n\n"
-                    f"🔗 Αλυσίδα τώρα: {link_position} εργασίες\n"
-                    f"➕ Νέα θέση: {link_position + 1}\n\n"
-                    f"Τελευταία εργασία:\n"
-                    f"🟢 {link_to_task['task_type_name']}"
+                    f"📊 Αλυσίδα τώρα:  {len(full_chain)} εργασίες\n"
+                    f"➕ Νέα θέση: {new_position}\n\n"
+                    f"Τελευταία εργασία της αλυσίδας:\n"
+                    f"🟢 [{len(full_chain)}] {link_to_task['task_type_name']}"
                     f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''}\n"
                     f"📅 {link_to_task['created_date']}\n\n"
                     f"       ↓ ακολούθησε\n\n"
                     f"Νέα συνέχεια:\n"
-                    f"🟢 {task['task_type_name']}"
+                    f"🟢 [{new_position}] {task['task_type_name']}"
                     f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
                     f"📅 {task['created_date']}"
                 )
@@ -2694,9 +2695,12 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
                 if result:
                     try:
-                        # Σύνδεσε με την τελευταία εργασία (link_to_task), όχι με την τρέχουσα!
+                        # Σύνδεσε την ΤΕΛΕΥΤΑΙΑ εργασία της αλυσίδας με την νέα
+                        print(f"DEBUG: Linking {link_to_task['id']} → {task['id']}")
                         database.add_task_relationship(link_to_task['id'], task['id'], "related")
-                        messagebox.showinfo("Επιτυχία", f"Η εργασία προστέθηκε ως Συνέχεια {link_position + 1}!")
+
+                        messagebox.showinfo("Επιτυχία",
+                                            f"Η εργασία προστέθηκε ως Συνέχεια {new_position - len(full_chain) + len([t for t in full_chain if t['id'] == self.task_data['id']]) - 1}!")
                         dialog.destroy()
                         self.load_relationships()
                         self.refresh_callback()
