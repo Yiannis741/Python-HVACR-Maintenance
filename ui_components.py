@@ -49,9 +49,10 @@ class TaskCard(ctk.CTkFrame):
             visited.add(tid)
             rels = database.get_related_tasks(tid)
             for parent in rels['parents']:
-                if parent['id'] not in [c['id'] for c in chain]:
+                parent_id = parent['id']
+                if parent_id not in [c['id'] for c in chain]:
                     chain.insert(0, parent)
-                    get_parents(parent['id'])
+                    get_parents(parent_id)
 
         def get_children(tid):
             if tid in visited:
@@ -59,15 +60,19 @@ class TaskCard(ctk.CTkFrame):
             visited.add(tid)
             rels = database.get_related_tasks(tid)
             for child in rels['children']:
-                if child['id'] not in [c['id'] for c in chain]:
+                child_id = child['id']
+                if child_id not in [c['id'] for c in chain]:
                     chain.append(child)
-                    get_children(child['id'])
+                    get_children(child_id)
 
+        # Build full chain
         get_parents(task_id)
-        chain.append(self.task)
+        chain.append(self.task)  # Current task
         get_children(task_id)
 
         return chain
+
+
 
     def create_card(self):
         """Δημιουργία της καρτέλας - Compact Layout"""
@@ -99,10 +104,11 @@ class TaskCard(ctk.CTkFrame):
             full_chain = self._get_full_chain_simple(self.task['id'])
 
             if len(full_chain) > 1:  # Υπάρχει αλυσίδα
+                # Βρες τη θέση της τρέχουσας εργασίας στην αλυσίδα
                 position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
                 chain_length = len(full_chain)
 
-                # Link badge - FIX: Εμφάνιση position/total
+                # Link badge - FIX: Σωστή εμφάνιση position/total
                 link_badge = ctk.CTkLabel(
                     left_section,
                     text=f"🔗 {position}/{chain_length}",
@@ -2083,9 +2089,10 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
             rels = database.get_related_tasks(tid)
             for parent in rels['parents']:
-                if parent['id'] not in [c['id'] for c in chain]:
+                parent_id = parent['id']
+                if parent_id not in [c['id'] for c in chain]:
                     chain.insert(0, parent)  # Προσθήκη στην αρχή
-                    get_all_parents(parent['id'])  # Recursive
+                    get_all_parents(parent_id)  # Recursive
 
         # 2. Βρες όλα τα children recursively
         def get_all_children(tid):
@@ -2095,13 +2102,17 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
             rels = database.get_related_tasks(tid)
             for child in rels['children']:
-                if child['id'] not in [c['id'] for c in chain]:
+                child_id = child['id']
+                if child_id not in [c['id'] for c in chain]:
                     chain.append(child)  # Προσθήκη στο τέλος
-                    get_all_children(child['id'])  # Recursive
+                    get_all_children(child_id)  # Recursive ← FIX: Σωστή κλήση
 
-        # Build chain
+        # Build chain:  parents + current + children
         get_all_parents(task_id)
-        chain.append(self.task_data)  # Current task
+
+        # Προσθήκη current task
+        chain.append(self.task_data)
+
         get_all_children(task_id)
 
         return chain
@@ -2172,17 +2183,10 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 child_counter += 1
                 sequence_num = child_counter
 
-            # Removability Rules - ΝΕΟ:  Όλα removable εκτός από μοναδική εργασία
-            if total_in_chain == 1:
-                is_removable = False  # Μόνη εργασία
-            elif item_type == "current":
-                is_removable = True  # ← FIX: Η τρέχουσα ΜΠΟΡΕΙ να αφαιρεθεί
-            elif item_type == "parent":
-                is_removable = (idx == current_position - 1)
-            elif item_type == "child":
-                is_removable = True
-            else:
-                is_removable = False
+            # ═══════════════════════════════════════════
+            # FIX: Κουμπί ΜΟΝΟ για την τρέχουσα
+            # ═══════════════════════════════════════════
+            is_removable = (item_type == "current" and total_in_chain > 1)
 
             self.create_timeline_item(
                 task,
@@ -2248,42 +2252,33 @@ class TaskRelationshipsView(ctk.CTkFrame):
         task_card_frame = ctk.CTkFrame(card_container, fg_color="transparent")
         task_card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        # Enhanced task card - FIX: Bold border για current
+        # Enhanced task card - Bold border για current
         card = ctk.CTkFrame(
             task_card_frame,
             fg_color=self.theme["card_bg"],
             border_color=badge_color,
-            border_width=4 if item_type == "current" else 2,  # ← Bold για current
+            border_width=4 if item_type == "current" else 2,
             corner_radius=10
         )
         card.pack(fill="x", padx=(40, 0))
 
         # ═══════════════════════════════════════════════════
-        # REMOVE BUTTON - TOP RIGHT (inside card, prominent)
+        # REMOVE BUTTON - Μόνο για current, πάνω δεξιά
         # ═══════════════════════════════════════════════════
 
-        # ΝΕΟ: Εμφάνιση ΚΑΙ για την τρέχουσα
-        if is_removable:
+        if is_removable and item_type == "current":
             remove_container = ctk.CTkFrame(card, fg_color="transparent")
             remove_container.pack(fill="x", padx=12, pady=(10, 0))
 
             # Spacer (pushes button to right)
             ctk.CTkLabel(remove_container, text="").pack(side="left", fill="x", expand=True)
 
-            # Διαφορετικό κείμενο για current
-            if item_type == "current":
-                button_text = "✖ Αφαίρεση Τρέχουσας"
-                button_width = 165
-            else:
-                button_text = "✖ Αφαίρεση"
-                button_width = 100
-
             ctk.CTkButton(
                 remove_container,
-                text=button_text,
+                text="✖ Αφαίρεση από Αλυσίδα",
                 command=lambda t=task, it=item_type: self.remove_relationship(t, it),
-                width=button_width,
-                height=28,
+                width=180,
+                height=30,
                 fg_color=self.theme["accent_red"],
                 hover_color="#8B0000",
                 text_color="white",
