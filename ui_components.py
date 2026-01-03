@@ -807,17 +807,27 @@ class UnitsManagement(ctk.CTkFrame):
 
         # Expand/Collapse state
         is_expanded = self.expanded_groups.get(group['id'], True)
-        arrow = "▼" if is_expanded else "▶"
 
         # Header label με arrow, όνομα ομάδας και count
+        arrow_var = ctk.StringVar(value="▼" if is_expanded else "▶")
+
         header_label = ctk.CTkLabel(
             header_frame,
-            text=f"{arrow} {group['name']} ({units_count} μονάδες)",
+            textvariable=arrow_var,
             font=theme_config.get_font("body", "bold"),
             text_color=theme["accent_blue"],
             cursor="hand2"
         )
-        header_label.pack(side="left", padx=15, pady=12)
+        header_label.pack(side="left", padx=(15, 5), pady=12)
+
+        name_label = ctk.CTkLabel(
+            header_frame,
+            text=f"{group['name']} ({units_count} μονάδες)",
+            font=theme_config.get_font("body", "bold"),
+            text_color=theme["accent_blue"],
+            cursor="hand2"
+        )
+        name_label.pack(side="left", padx=0, pady=12)
 
         # Description αν υπάρχει
         if group.get('description'):
@@ -832,19 +842,8 @@ class UnitsManagement(ctk.CTkFrame):
         # Units container (collapsible)
         units_container = ctk.CTkFrame(group_container, fg_color="transparent")
 
-        if is_expanded:
-            units_container.pack(fill="x", padx=20)
-
-        # Bind click event για toggle
-        def toggle_group(event=None):
-            self.expanded_groups[group['id']] = not self.expanded_groups[group['id']]
-            self.refresh_ui()
-
-        header_frame.bind("<Button-1>", toggle_group)
-        header_label.bind("<Button-1>", toggle_group)
-
-        # Εμφάνιση μονάδων αν είναι expanded
-        if is_expanded and units:
+        # Δημιουργία του περιεχομένου των μονάδων
+        if units:
             for unit in units:
                 unit_frame = ctk.CTkFrame(
                     units_container,
@@ -886,8 +885,7 @@ class UnitsManagement(ctk.CTkFrame):
                     **theme_config.get_button_style("primary")
                 )
                 edit_btn.pack(side="right", padx=10, pady=10)
-
-        elif is_expanded and not units:
+        else:
             # Άδεια ομάδα
             empty_label = ctk.CTkLabel(
                 units_container,
@@ -896,6 +894,30 @@ class UnitsManagement(ctk.CTkFrame):
                 text_color=theme["text_disabled"]
             )
             empty_label.pack(pady=10, padx=20)
+
+        # Αρχική κατάσταση (show/hide)
+        if is_expanded:
+            units_container.pack(fill="x", padx=20)
+
+        # Toggle function - LOCAL UPDATE ΜΟΝΟ!
+        def toggle_group(event=None):
+            current_state = self.expanded_groups[group['id']]
+            new_state = not current_state
+            self.expanded_groups[group['id']] = new_state
+
+            # Update arrow
+            arrow_var.set("▼" if new_state else "▶")
+
+            # Show/Hide container (NO FULL REFRESH!)
+            if new_state:
+                units_container.pack(fill="x", padx=20)
+            else:
+                units_container.pack_forget()
+
+        # Bind click events
+        header_frame.bind("<Button-1>", toggle_group)
+        header_label.bind("<Button-1>", toggle_group)
+        name_label.bind("<Button-1>", toggle_group)
 
     def create_groups_tab(self, parent):
         """Tab για διαχείριση ομάδων - Compact View"""
