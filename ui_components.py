@@ -2030,72 +2030,200 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 text="Δεν υπάρχουν συνδεδεμένες εργασίες",
                 font=ctk.CTkFont(size=13)
             ).pack(pady=50)
-    
+
     def create_relation_card(self, task, relation_type):
         """Δημιουργία καρτέλας συνδεδεμένης εργασίας"""
-        
+
         container = ctk.CTkFrame(self.relations_frame, fg_color="transparent")
         container.pack(fill="x", pady=5, padx=10)
-        
-        # Task card
-        card_frame = ctk.CTkFrame(container, corner_radius=10, fg_color="#e8f4f8")
-        card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        
-        # Info
-        info_text = f"🔧 {task['task_type_name']}: {task['description'][:60]}.. .\n"
-        info_text += f"📍 {task['unit_name']} | 📅 {task['created_date']}"
-        
-        info_label = ctk.CTkLabel(
-            card_frame,
-            text=info_text,
-            font=theme_config.get_font("small"),
-            justify="left"
+
+        # Task card (αριστερά) - Χρήση TaskCard!
+        card_container = ctk.CTkFrame(container, fg_color="transparent")
+        card_container.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+        # Icon prefix ανάλογα με relation type
+        if relation_type == "parent":
+            prefix_icon = "⬆️"
+        else:
+            prefix_icon = "⬇️"
+
+        # Create TaskCard
+        task_card = ui_components.TaskCard(card_container, task, on_click=None)
+        task_card.pack(fill="x")
+
+        # Προσθήκη prefix label για parent/child indicator
+        theme = theme_config.get_current_theme()
+        prefix_label = ctk.CTkLabel(
+            task_card,
+            text=prefix_icon,
+            font=theme_config.get_font("heading"),
+            text_color=theme["accent_blue"]
         )
-        info_label.pack(anchor="w", padx=15, pady=10)
-        
-        # Remove button
+        prefix_label.place(x=5, y=5)  # Top-left corner
+
+        # Remove button (δεξιά)
         remove_btn = ctk.CTkButton(
             container,
-            text="✖",
-            command=lambda:  self.remove_relationship(task, relation_type),
-            width=40,
+            text="✖ Αφαίρεση",
+            command=lambda: self.remove_relationship(task, relation_type),
+            width=100,
+            height=32,
             **theme_config.get_button_style("danger")
         )
         remove_btn.pack(side="right")
-    
+
     def add_relationship_dialog(self):
         """Dialog για προσθήκη σύνδεσης"""
-        
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Σύνδεση με άλλη εργασία")
-        dialog.geometry("600x500")
+        dialog.geometry("700x600")
         dialog.grab_set()
-        
+
+        theme = theme_config.get_current_theme()
+
+        # Header
+        header_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        header_frame.pack(fill="x", pady=20, padx=20)
+
         ctk.CTkLabel(
-            dialog,
+            header_frame,
             text="Επιλέξτε εργασία για σύνδεση:",
-            font=theme_config.get_font("body", "bold")
-        ).pack(pady=20)
-        
+            font=theme_config.get_font("heading", "bold"),
+            text_color=theme["text_primary"]
+        ).pack(side="left")
+
+        # Search box
+        search_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        search_frame.pack(fill="x", padx=20, pady=(0, 10))
+
+        ctk.CTkLabel(
+            search_frame,
+            text="🔍 Αναζήτηση:",
+            font=theme_config.get_font("body"),
+            text_color=theme["text_primary"]
+        ).pack(side="left", padx=(0, 10))
+
+        search_var = ctk.StringVar()
+        search_entry = ctk.CTkEntry(
+            search_frame,
+            textvariable=search_var,
+            width=300,
+            placeholder_text="Αναζήτηση στην περιγραφή, μονάδα..."
+        )
+        search_entry.pack(side="left")
+
         # List of tasks
-        tasks_frame = ctk.CTkScrollableFrame(dialog, height=350)
+        tasks_frame = ctk.CTkScrollableFrame(dialog, height=400)
         tasks_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
+
         all_tasks = database.get_all_tasks()
-        # Exclude current task
-        available_tasks = [t for t in all_tasks if t['id'] != self.task_data['id']]
-        
-        selected_task = {"task":  None}
-        
-        for task in available_tasks: 
-            task_btn = ctk.CTkButton(
+
+        # Exclude current task and already related tasks
+        relations = database.get_related_tasks(self.task_data['id'])
+        related_ids = {self.task_data['id']}  # Exclude self
+        related_ids.update(r['id'] for r in relations['parents'])
+        related_ids.update(r['id'] for r in relations['children'])
+
+        available_tasks = [t for t in all_tasks if t['id'] not in related_ids]
+
+        if not available_tasks:
+            ctk.CTkLabel(
                 tasks_frame,
-                text=f"{task['task_type_name']}: {task['description'][:50]}...  | {task['unit_name']}",
-                command=lambda t=task: self.select_task_for_relation(t, selected_task, dialog),
-                anchor="w",
-                **theme_config.get_button_style("primary")
+                text="Δεν υπάρχουν διαθέσιμες εργασίες για σύνδεση.",
+                font=theme_config.get_font("body"),
+                text_color=theme["text_secondary"]
+            ).pack(pady=50)
+            return
+
+        # Function to filter tasks
+        def filter_tasks(*args):
+            search_text = search_var.get().lower()
+
+            # Clear existing
+            for widget in tasks_frame.winfo_children():
+                widget.destroy()
+
+            filtered_tasks = available_tasks
+            if search_text:
+                filtered_tasks = [
+                    t for t in available_tasks
+                    if search_text in t['description'].lower()
+                       or search_text in t['unit_name'].lower()
+                       or search_text in t['task_type_name'].lower()
+                ]
+
+            if not filtered_tasks:
+                ctk.CTkLabel(
+                    tasks_frame,
+                    text="Δεν βρέθηκαν εργασίες.",
+                    font=theme_config.get_font("body"),
+                    text_color=theme["text_secondary"]
+                ).pack(pady=20)
+                return
+
+            # Display filtered tasks using TaskCard
+            for task in filtered_tasks:
+                # Container για card + button
+                task_container = ctk.CTkFrame(tasks_frame, fg_color="transparent")
+                task_container.pack(fill="x", pady=3, padx=5)
+
+                # Card container
+                card_frame = ctk.CTkFrame(task_container, fg_color="transparent")
+                card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+                # TaskCard με click
+                task_card = ui_components.TaskCard(
+                    card_frame,
+                    task,
+                    on_click=lambda t=task: select_and_close(t)
+                )
+                task_card.pack(fill="x")
+
+                # Select button
+                select_btn = ctk.CTkButton(
+                    task_container,
+                    text="➕ Σύνδεση",
+                    command=lambda t=task: select_and_close(t),
+                    width=100,
+                    height=32,
+                    **theme_config.get_button_style("success")
+                )
+                select_btn.pack(side="right")
+
+        def select_and_close(task):
+            """Επιλογή εργασίας και κλείσιμο"""
+            result = messagebox.askyesno(
+                "Επιβεβαίωση",
+                f"Σύνδεση με:\n\n{task['task_type_name']}:  {task['description'][: 80]}..."
             )
-            task_btn.pack(fill="x", pady=3, padx=5)
+
+            if result:
+                try:
+                    # Add relationship (current task is parent, selected is child)
+                    database.add_task_relationship(self.task_data['id'], task['id'], "related")
+                    messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
+                    dialog.destroy()
+                    self.load_relationships()
+                    self.refresh_callback()
+                except Exception as e:
+                    messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
+
+        # Bind search
+        search_var.trace('w', filter_tasks)
+
+        # Initial load
+        filter_tasks()
+
+        # Close button
+        close_btn = ctk.CTkButton(
+            dialog,
+            text="✖ Κλείσιμο",
+            command=dialog.destroy,
+            width=120,
+            **theme_config.get_button_style("secondary")
+        )
+        close_btn.pack(pady=10)
     
     def select_task_for_relation(self, task, selected_container, dialog):
         """Επιλογή εργασίας για σύνδεση"""
