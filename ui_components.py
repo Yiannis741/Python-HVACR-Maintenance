@@ -2284,11 +2284,11 @@ class TaskRelationshipsView(ctk.CTkFrame):
         )
         line_frame.pack(side="left", padx=(58, 10))  # Align with position badge
 
-        # Label
+        # Label - FIX:   Remove "italic", use "normal"
         ctk.CTkLabel(
             arrow_container,
             text=f"↓ {label_text}",
-            font=theme_config.get_font("small", "italic"),
+            font=theme_config.get_font("small"),  # ← FIX:   Removed "italic"
             text_color=self.theme["text_disabled"] if dashed else self.theme["text_secondary"]
         ).pack(side="left")
 
@@ -2326,9 +2326,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         add_btn.pack(side="left", fill="x", expand=True, padx=(10, 0))
 
     def add_relationship_dialog(self, relation_type):
-        """Dialog για προσθήκη σύνδεσης"""
-        # ...  (κρατήστε τον υπάρχοντα κώδικα από προηγούμενη απάντηση)
-        # Ο κώδικας παραμένει ο ίδιος με πριν
+        """Dialog για προσθήκη σύνδεσης - Grouped by Unit"""
 
         dialog = ctk.CTkToplevel(self)
 
@@ -2383,10 +2381,258 @@ class TaskRelationshipsView(ctk.CTkFrame):
             text_color=self.theme["accent_blue"]
         ).pack()
 
-        # Rest of dialog implementation (filters, task list, etc.)
-        # ... (χρησιμοποιήστε τον κώδικα από την προηγούμενη add_relationship_dialog)
+        # Filters frame
+        filters_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        filters_frame.pack(fill="x", padx=20, pady=(0, 10))
 
-        # [ΤΟ ΥΠΟΛΟΙΠΟ IMPLEMENTATION ΠΑΡΑΜΕΝΕΙ ΤΟ ΙΔΙΟ ΜΕ ΠΡΙΝ]
+        # Search
+        ctk.CTkLabel(
+            filters_frame,
+            text="🔍 Αναζήτηση:",
+            font=theme_config.get_font("body"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(0, 10))
+
+        search_var = ctk.StringVar()
+        search_entry = ctk.CTkEntry(
+            filters_frame,
+            textvariable=search_var,
+            width=250,
+            placeholder_text="Περιγραφή, τύπος, είδος..."
+        )
+        search_entry.pack(side="left", padx=(0, 20))
+
+        # Unit filter
+        ctk.CTkLabel(
+            filters_frame,
+            text="📍 Μονάδα:",
+            font=theme_config.get_font("body"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(0, 10))
+
+        all_units = database.get_all_units()
+        unit_filter_var = ctk.StringVar(value="Όλες")
+        unit_filter = ctk.CTkComboBox(
+            filters_frame,
+            values=["Όλες", "Ίδια Μονάδα"] + [u['name'] for u in all_units],
+            variable=unit_filter_var,
+            width=180,
+            state="readonly"
+        )
+        unit_filter.pack(side="left")
+
+        # Tasks scrollable frame
+        tasks_scrollable = ctk.CTkScrollableFrame(dialog, height=480)
+        tasks_scrollable.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # Get all tasks
+        all_tasks = database.get_all_tasks()
+
+        # Exclude current task and already related
+        relations = database.get_related_tasks(self.task_data['id'])
+        related_ids = {self.task_data['id']}
+        related_ids.update(r['id'] for r in relations['parents'])
+        related_ids.update(r['id'] for r in relations['children'])
+
+        available_tasks = [t for t in all_tasks if t['id'] not in related_ids]
+
+        # Current unit name
+        current_unit = self.task_data['unit_name']
+
+        # Expanded state dictionary
+        expanded_units = {current_unit: True}
+
+        def filter_and_display():
+            """Φιλτράρισμα και εμφάνιση εργασιών"""
+
+            # Clear
+            for widget in tasks_scrollable.winfo_children():
+                widget.destroy()
+
+            search_text = search_var.get().lower()
+            unit_filter_value = unit_filter_var.get()
+
+            # Filter tasks
+            filtered_tasks = available_tasks
+
+            if unit_filter_value == "Ίδια Μονάδα":
+                filtered_tasks = [t for t in filtered_tasks if t['unit_name'] == current_unit]
+            elif unit_filter_value != "Όλες":
+                filtered_tasks = [t for t in filtered_tasks if t['unit_name'] == unit_filter_value]
+
+            if search_text:
+                filtered_tasks = [
+                    t for t in filtered_tasks
+                    if search_text in t['description'].lower()
+                       or search_text in t['task_type_name'].lower()
+                       or (t.get('task_item_name') and search_text in t['task_item_name'].lower())
+                ]
+
+            # Group filtered tasks by unit
+            filtered_by_unit = {}
+            for task in filtered_tasks:
+                unit_name = task['unit_name']
+                if unit_name not in filtered_by_unit:
+                    filtered_by_unit[unit_name] = []
+                filtered_by_unit[unit_name].append(task)
+
+            if not filtered_by_unit:
+                ctk.CTkLabel(
+                    tasks_scrollable,
+                    text="Δεν βρέθηκαν εργασίες με τα συγκεκριμένα κριτήρια.",
+                    font=theme_config.get_font("body"),
+                    text_color=self.theme["text_secondary"]
+                ).pack(pady=50)
+                return
+
+            # Display grouped tasks - Current unit first
+            if current_unit in filtered_by_unit:
+                create_unit_group(current_unit, filtered_by_unit[current_unit], True)
+
+            # Other units
+            for unit_name in sorted(filtered_by_unit.keys()):
+                if unit_name != current_unit:
+                    create_unit_group(unit_name, filtered_by_unit[unit_name], False)
+
+        def create_unit_group(unit_name, tasks, is_current):
+            """Δημιουργία ομάδας μονάδας"""
+
+            # Container
+            group_container = ctk.CTkFrame(tasks_scrollable, fg_color="transparent")
+            group_container.pack(fill="x", pady=5, padx=5)
+
+            # Header
+            is_expanded = expanded_units.get(unit_name, False)
+            arrow = "▼" if is_expanded else "▶"
+
+            header_color = self.theme["accent_blue"] if is_current else self.theme["text_primary"]
+            header_text = f"{arrow} {'💡 ' if is_current else '📍 '}{unit_name} ({len(tasks)} εργασίες)"
+            if is_current:
+                header_text += " - Ίδια Μονάδα"
+
+            header_frame = ctk.CTkFrame(
+                group_container,
+                fg_color=self.theme["card_bg"],
+                border_color=self.theme["accent_blue"] if is_current else self.theme["card_border"],
+                border_width=2 if is_current else 1,
+                corner_radius=8,
+                cursor="hand2"
+            )
+            header_frame.pack(fill="x", pady=(0, 5))
+
+            header_label = ctk.CTkLabel(
+                header_frame,
+                text=header_text,
+                font=theme_config.get_font("body", "bold"),
+                text_color=header_color,
+                cursor="hand2"
+            )
+            header_label.pack(padx=15, pady=10)
+
+            # Tasks container
+            tasks_container = ctk.CTkFrame(group_container, fg_color="transparent")
+
+            if is_expanded:
+                tasks_container.pack(fill="x", padx=20)
+
+            # Toggle function
+            def toggle():
+                expanded_units[unit_name] = not expanded_units.get(unit_name, False)
+                filter_and_display()
+
+            header_frame.bind("<Button-1>", lambda e: toggle())
+            header_label.bind("<Button-1>", lambda e: toggle())
+
+            # Display tasks if expanded
+            if is_expanded:
+                for task in tasks:
+                    task_container = ctk.CTkFrame(tasks_container, fg_color="transparent")
+                    task_container.pack(fill="x", pady=3, padx=5)
+
+                    # Card
+                    card_frame = ctk.CTkFrame(task_container, fg_color="transparent")
+                    card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
+                    task_card = TaskCard(card_frame, task, on_click=lambda t=task: select_task(t), show_relations=False)
+                    task_card.pack(fill="x")
+
+                    # Select button
+                    btn_text = "🔵 Ορισμός ως Αρχική" if relation_type == "parent" else "🟢 Ορισμός ως Συνέχεια"
+                    select_btn = ctk.CTkButton(
+                        task_container,
+                        text=btn_text,
+                        command=lambda t=task: select_task(t),
+                        width=180,
+                        height=32,
+                        **theme_config.get_button_style("success")
+                    )
+                    select_btn.pack(side="right")
+
+        def select_task(task):
+            """Επιλογή εργασίας"""
+
+            if relation_type == "parent":
+                confirm_text = (
+                    f"Ορισμός ως ΑΡΧΙΚΗ εργασία:\n\n"
+                    f"🔵 Αρχική:   {task['task_type_name']}"
+                    f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
+                    f"📍 {task['unit_name']}\n"
+                    f"📅 {task['created_date']}\n\n"
+                    f"       ↓ προκάλεσε\n\n"
+                    f"🟡 Τρέχουσα:  {self.task_data['task_type_name']}"
+                    f"{' → ' + self.task_data['task_item_name'] if self.task_data.get('task_item_name') else ''}\n"
+                    f"📍 {self.task_data['unit_name']}\n"
+                    f"📅 {self.task_data['created_date']}"
+                )
+            else:
+                confirm_text = (
+                    f"Ορισμός ως ΣΥΝΕΧΕΙΑ εργασίας:\n\n"
+                    f"🟡 Τρέχουσα:  {self.task_data['task_type_name']}"
+                    f"{' → ' + self.task_data['task_item_name'] if self.task_data.get('task_item_name') else ''}\n"
+                    f"📍 {self.task_data['unit_name']}\n"
+                    f"📅 {self.task_data['created_date']}\n\n"
+                    f"       ↓ ακολούθησε\n\n"
+                    f"🟢 Συνέχεια:  {task['task_type_name']}"
+                    f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
+                    f"📍 {task['unit_name']}\n"
+                    f"📅 {task['created_date']}"
+                )
+
+            result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
+
+            if result:
+                try:
+                    if relation_type == "parent":
+                        # task is parent, current is child
+                        database.add_task_relationship(task['id'], self.task_data['id'], "related")
+                    else:
+                        # current is parent, task is child
+                        database.add_task_relationship(self.task_data['id'], task['id'], "related")
+
+                    messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
+                    dialog.destroy()
+                    self.load_relationships()
+                    self.refresh_callback()
+                except Exception as e:
+                    messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
+
+        # Bind filters
+        search_var.trace('w', lambda *args: filter_and_display())
+        unit_filter_var.trace('w', lambda *args: filter_and_display())
+
+        # Initial load
+        filter_and_display()
+
+        # Close button
+        close_btn = ctk.CTkButton(
+            dialog,
+            text="✖ Κλείσιμο",
+            command=dialog.destroy,
+            width=140,
+            height=40,
+            **theme_config.get_button_style("secondary")
+        )
+        close_btn.pack(pady=15)
 
     def remove_relationship(self, task, relation_type):
         """Αφαίρεση σύνδεσης"""
