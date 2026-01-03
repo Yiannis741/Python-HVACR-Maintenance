@@ -145,6 +145,7 @@ class TaskCard(ctk.CTkFrame):
         # ===== ROW 2: Chain Indicator (if exists) =====
         chain_indicator = None
         chain_label = None
+        chain_frame = None
         if self.show_relations:
             full_chain = self._get_full_chain_simple(self.task['id'])
 
@@ -202,6 +203,8 @@ class TaskCard(ctk.CTkFrame):
         if self.on_click:
             widgets = [self, header_frame, left_section, type_label, status_label, priority_label, unit_label, info_frame,
                        info_label]
+            if chain_frame:
+                widgets.append(chain_frame)
             if chain_label:
                 widgets.append(chain_label)
             for widget in widgets:
