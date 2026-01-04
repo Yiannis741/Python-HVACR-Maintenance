@@ -2832,7 +2832,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
         result = messagebox.askyesno(
             "Επιβεβαίωση Αφαίρεσης",
-            "Είστε σίγουροι ότι θέλετε να αφαιρέσετε αυτή την εργασία από την αλυσίδα;\n\n"
+            "Είστε σίγουροι ότι θέλετε να αφαιρέσετε αυτή την εργασία από την αλυσίδα?\n\n"
             "Η εργασία θα παραμείνει ενεργή αλλά θα αποσυνδεθεί."
         )
 
@@ -2840,16 +2840,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
             try:
                 current_id = self.task_data['id']
 
-                # Get relationships
-                relations = database.get_related_tasks(current_id)
-
-                # Remove parent links
-                for parent in relations['parents']:
-                    database.mark_relationship_manually_removed(parent['id'], current_id)
-
-                # Remove child links
-                for child in relations['children']:
-                    database.mark_relationship_manually_removed(current_id, child['id'])
+                # ✅ ΝΕΟ:  Χρήση του remove_task_from_chain με bypass logic!
+                database.remove_task_from_chain(current_id)
 
                 messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από την αλυσίδα!")
                 self.refresh_callback()
