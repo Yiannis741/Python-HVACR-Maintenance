@@ -188,8 +188,12 @@ class TaskCard(ctk.CTkFrame):
         )
         info_label.pack(side="left", fill="x", expand=True)
 
+
         # Bind click to all widgets
         if self.on_click:
+            # Capture self.task EARLY to avoid reference issues
+            task_ref = self.task
+
             widgets = [
                 self, header_frame, left_section, type_label,
                 status_label, priority_label,
@@ -197,7 +201,8 @@ class TaskCard(ctk.CTkFrame):
             ]
 
             for widget in widgets:
-                widget.bind("<Button-1>", lambda e: self.on_click(self.task))
+                # Use task_ref instead of self.task in lambda
+                widget.bind("<Button-1>", lambda e, t=task_ref: self.on_click(t))
                 widget.configure(cursor="hand2")
 
 
@@ -3074,57 +3079,102 @@ class TaskRelationshipsView(ctk.CTkFrame):
         close_btn.pack(pady=15)
 
     def remove_relationship(self, task, relation_type):
-        """Αφαίρεση σύνδεσης με enhanced warnings"""
+        """Smart remove - αφαιρεί εργασία και δημιουργεί bypass"""
 
         # Get full chain info
         full_chain = self.get_full_chain(self.task_data['id'])
         current_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
-        task_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == task['id']), None)
 
-        warning_text = ""
+        # ═════════════════════════════════════════════════
+        # Αφαιρούμε την ΤΡΕΧΟΥΣΑ εργασία από την αλυσίδα
+        # ═════════════════════════════════════════════════
 
-        if relation_type == "parent":
-            # Αφαιρείς την άμεση προηγούμενη
+        # Get τη θέση της τρέχουσας στην αλυσίδα
+        current_task = self.task_data
+        current_idx = current_pos - 1  # 0-indexed
+
+        # Find parent and child of current
+        parent_task = full_chain[current_idx - 1] if current_idx > 0 else None
+        child_task = full_chain[current_idx + 1] if current_idx < len(full_chain) - 1 else None
+
+        # Build warning
+        if parent_task and child_task:
             warning_text = (
-                f"⚠️ Θα διακοπεί η αλυσίδα!\n\n"
-                f"Η αλυσίδα θα χωριστεί σε 2 κομμάτια:\n"
-                f"  • Κομμάτι 1:  Εργασίες 1-{task_pos}\n"
-                f"  • Κομμάτι 2:  Εργασίες {current_pos}-{len(full_chain)}\n\n"
+                f"⚠️ ΑΦΑΙΡΕΣΗ ΑΠΟ ΑΛΥΣΙΔΑ:\n\n"
+                f"Η εργασία θα αφαιρεθεί και η αλυσίδα θα συνεχιστεί:\n\n"
+                f"ΠΡΙΝ:\n"
+                f"...  → [{current_idx}] {parent_task['task_type_name'][: 20]} →\n"
+                f"[{current_pos}] {current_task['task_type_name'][:20]} →\n"
+                f"[{current_pos + 1}] {child_task['task_type_name'][:20]} → .. .\n\n"
+                f"ΜΕΤΑ:\n"
+                f"...  → [{current_idx}] {parent_task['task_type_name'][:20]} →\n"
+                f"[{current_pos}] {child_task['task_type_name'][:20]} → ...\n\n"
+                f"Η εργασία θα γίνει ΑΝΕΞΑΡΤΗΤΗ (εκτός αλυσίδας)."
             )
-        elif relation_type == "child":
-            # Αφαιρείς child - πιο ασφαλές
-            warning_text = f"Αφαίρεση της Συνέχειας {task_pos - current_pos}.\n\n"
+        elif parent_task:
+            warning_text = (
+                f"⚠️ Η εργασία είναι ΤΕΛΕΥΤΑΙΑ στην αλυσίδα.\n"
+                f"Θα αφαιρεθεί και θα γίνει ανεξάρτητη."
+            )
+        elif child_task:
+            warning_text = (
+                f"⚠️ Η εργασία είναι ΠΡΩΤΗ στην αλυσίδα.\n"
+                f"Θα αφαιρεθεί και η επόμενη εργασία θα γίνει η νέα αρχή."
+            )
+        else:
+            warning_text = "Η εργασία είναι ήδη μόνη της."
 
         confirm_text = (
-            f"Αφαίρεση από την αλυσίδα:\n\n"
-            f"[{task_pos}] 📅 {task['created_date']}\n"
-            f"🔧 {task['task_type_name']}"
-            f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
-            f"📝 {task['description'][: 60]}.. .\n\n"
-            f"{warning_text}"
-            f"Είστε σίγουροι;"
+            f"Αφαίρεση εργασίας από αλυσίδα:\n\n"
+            f"📅 {current_task['created_date']}\n"
+            f"🔧 {current_task['task_type_name']}"
+            f"{' → ' + current_task['task_item_name'] if current_task.get('task_item_name') else ''}\n"
+            f"📝 {current_task['description'][:60]}.. .\n\n"
+            f"{warning_text}\n\n"
+            f"Συνέχιση;"
         )
 
         result = messagebox.askyesno("Επιβεβαίωση Αφαίρεσης", confirm_text)
 
         if result:
             try:
-                if relation_type == "parent":
-                    # Αφαίρεση σύνδεσης parent → current
-                    database.remove_task_relationship(task['id'], self.task_data['id'])
+                # ═════════════════════════════════════════════════
+                # SMART REMOVE με BYPASS
+                # ═════════════════════════════════════════════════
+
+                if parent_task and child_task:
+                    # MIDDLE:   Remove current, create bypass parent → child
+
+                    # Step 1:  Remove parent → current
+                    database.remove_task_relationship(parent_task['id'], current_task['id'])
+
+                    # Step 2:  Remove current → child
+                    database.remove_task_relationship(current_task['id'], child_task['id'])
+
+                    # Step 3:  Create bypass parent → child
+                    database.add_task_relationship(parent_task['id'], child_task['id'], "related")
+
+                    messagebox.showinfo("Επιτυχία",
+                                        "Η εργασία αφαιρέθηκε!\n"
+                                        "Η αλυσίδα συνεχίστηκε αυτόματα (bypass).")
+
+                elif parent_task:
+                    # LAST:  Remove parent → current
+                    database.remove_task_relationship(parent_task['id'], current_task['id'])
+
+                    messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από το τέλος της αλυσίδας!")
+
+                elif child_task:
+                    # FIRST:   Remove current → child
+                    database.remove_task_relationship(current_task['id'], child_task['id'])
+
+                    messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από την αρχή της αλυσίδας!")
+
                 else:
-                    # Αφαίρεση σύνδεσης current → child
-                    # Πρέπει να βρούμε ποια είναι η ΑΜΕΣΗ parent του child
-                    child_relations = database.get_related_tasks(task['id'])
+                    messagebox.showwarning("Προσοχή", "Η εργασία είναι ήδη μόνη της.")
 
-                    # Βρες ποια από τις parents του child είναι στην αλυσίδα
-                    for parent in child_relations['parents']:
-                        if parent['id'] in [t['id'] for t in full_chain]:
-                            database.remove_task_relationship(parent['id'], task['id'])
-                            break
-
-                messagebox.showinfo("Επιτυχία", "Η σύνδεση αφαιρέθηκε!")
                 self.load_relationships()
                 self.refresh_callback()
+
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία:   {str(e)}")
