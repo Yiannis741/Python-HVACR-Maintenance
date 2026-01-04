@@ -609,15 +609,20 @@ class TaskForm(ctk.CTkFrame):
                 command=self.delete_task,
                 width=150,
                 height=40,
-
                 font=theme_config.get_font("body", "bold"),
                 **theme_config.get_button_style("danger")
             )
             delete_btn.pack(side="left", padx=(10, 0))
 
-        # Initialize cascade selects
+        # Initialize cascade selects (ΜΟΝΟ ΜΙΑ ΦΟΡΑ!)
         self.on_group_change(self.group_combo.get() if self.groups_dict else None)
         self.on_task_type_change(self.task_type_combo.get() if self.task_types_dict else None)
+
+        # ═══════════════════════════════════════════════════════
+        # COMPACT CHAIN PREVIEW (μόνο σε edit mode) - ΣΤΟ ΤΕΛΟΣ!
+        # ═══════════════════════════════════════════════════════
+        if self.is_edit_mode:
+            self.add_compact_chain_preview(scrollable)
 
     def open_date_picker(self):
         """Άνοιγμα calendar picker"""
@@ -794,23 +799,220 @@ class TaskForm(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
-    
+
     def delete_task(self):
         """Διαγραφή εργασίας"""
         if not self.is_edit_mode:
             return
-        
-        result = messagebox.askyesno("Επιβεβαίωση", 
-                                     "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εργασία;\n\n"
+
+        result = messagebox.askyesno("Επιβεβαίωση",
+                                     "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εργασία?\n\n"
                                      "Η εργασία θα μεταφερθεί στον Κάδο Ανακύκλωσης.")
-        
-        if result: 
+
+        if result:
             try:
                 database.delete_task(self.task_data['id'])
                 messagebox.showinfo("Επιτυχία", "Η εργασία διαγράφηκε!")
                 self.on_save_callback()
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
+
+    def add_compact_chain_preview(self, parent):
+        """Προσθήκη compact chain preview κάτω από τα buttons - Edit mode only"""
+
+        theme = theme_config.get_current_theme()
+
+        # Get full chain
+        full_chain = self._get_full_chain_simple(self.task_data['id'])
+
+        if len(full_chain) <= 1:
+            return  # Δεν υπάρχει αλυσίδα, skip
+
+        # Find current position
+        current_position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
+        total_in_chain = len(full_chain)
+
+
+
+        # ═══════════════════════════════════════════════
+        # SEPARATOR (ROW 20 - μακριά από τα buttons)
+        # ═══════════════════════════════════════════════
+        separator = ctk.CTkFrame(parent, height=2, fg_color=theme["card_border"])
+        separator.grid(row=20, column=0, columnspan=2, sticky="ew", padx=10, pady=(30, 20))
+
+        # ═══════════════════════════════════════════════
+        # HEADER (ROW 21)
+        # ═══════════════════════════════════════════════
+        chain_header_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        chain_header_frame.grid(row=21, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 10))
+
+        # Left:  Title
+        title_label = ctk.CTkLabel(
+            chain_header_frame,
+            text="🔗 Αλυσίδα Εργασιών",
+            font=theme_config.get_font("heading", "bold"),
+            text_color=theme["accent_blue"]
+        )
+        title_label.pack(side="left")
+
+        # Right:  Info
+        info_label = ctk.CTkLabel(
+            chain_header_frame,
+            text=f"📊 {total_in_chain} εργασίες  •  Θέση {current_position}/{total_in_chain}",
+            font=theme_config.get_font("small", "bold"),
+            text_color=theme["text_secondary"]
+        )
+        info_label.pack(side="right")
+
+        # ═══════════════════════════════════════════════
+        # COMPACT TIMELINE CONTAINER (ROW 22)
+        # ═══════════════════════════════════════════════
+
+        # Scrollable container για το timeline (για να χωράει)
+        timeline_container = ctk.CTkScrollableFrame(
+            parent,
+            height=300,  # Fixed height
+            fg_color=theme["card_bg"],
+            corner_radius=10,
+            border_color=theme["card_border"],
+            border_width=1
+        )
+        timeline_container.grid(row=22, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 20))
+
+        # Display tasks (μέσα στο scrollable timeline)
+        for idx, chain_task in enumerate(full_chain, 1):
+            is_current = (chain_task['id'] == self.task_data['id'])
+
+            # Task row container
+            task_container = ctk.CTkFrame(
+                timeline_container,
+                fg_color=theme["bg_secondary"] if is_current else "transparent",
+                corner_radius=6
+            )
+            task_container.pack(fill="x", padx=8, pady=2)
+
+            # Content frame
+            content_frame = ctk.CTkFrame(task_container, fg_color="transparent")
+            content_frame.pack(fill="x", padx=8, pady=6)
+
+            # Left:   Position + Icon
+            left_section = ctk.CTkFrame(content_frame, fg_color="transparent")
+            left_section.pack(side="left")
+
+            # Position badge
+            pos_color = theme["accent_orange"] if is_current else theme["text_disabled"]
+            ctk.CTkLabel(
+                left_section,
+                text=f"[{idx}]",
+                font=theme_config.get_font("small", "bold"),
+                text_color=pos_color,
+                width=35
+            ).pack(side="left")
+
+            # Icon
+            if idx < current_position:
+                icon_text = "🔵"
+            elif is_current:
+                icon_text = "🟡"
+            else:
+                icon_text = "🟢"
+
+            ctk.CTkLabel(
+                left_section,
+                text=icon_text,
+                font=theme_config.get_font("body")
+            ).pack(side="left", padx=3)
+
+            # Middle:   Task info
+            info_section = ctk.CTkFrame(content_frame, fg_color="transparent")
+            info_section.pack(side="left", fill="x", expand=True, padx=8)
+
+            # Build info text
+            task_info = f"📅 {chain_task['created_date']}  •  {chain_task['task_type_name']}"
+            if chain_task.get('task_item_name'):
+                task_info += f" → {chain_task['task_item_name']}"
+
+            # Short description
+            if chain_task.get('description'):
+                desc = chain_task['description'][:35] + "..." if len(chain_task['description']) > 35 else chain_task[
+                    'description']
+                task_info += f"  •  {desc}"
+
+            text_color = theme["text_primary"] if is_current else theme["text_secondary"]
+            font_style = "bold" if is_current else "normal"
+
+            ctk.CTkLabel(
+                info_section,
+                text=task_info,
+                font=theme_config.get_font("small", font_style),
+                text_color=text_color,
+                anchor="w"
+            ).pack(side="left", fill="x", expand=True)
+
+            # Right:  Current indicator
+            if is_current:
+                ctk.CTkLabel(
+                    content_frame,
+                    text="◄ ΤΡΕΧΟΥΣΑ",
+                    font=theme_config.get_font("tiny", "bold"),
+                    text_color=theme["accent_orange"],
+                    width=90
+                ).pack(side="right", padx=5)
+
+            # Arrow (except last)
+            if idx < total_in_chain:
+                arrow_label = ctk.CTkLabel(
+                    timeline_container,
+                    text="        ↓",
+                    font=theme_config.get_font("small"),
+                    text_color=theme["text_disabled"]
+                )
+                arrow_label.pack(anchor="w", padx=20, pady=0)
+
+    def _get_full_chain_simple(self, task_id):
+        """Helper για να πάρει ολόκληρη την αλυσίδα (simplified για TaskForm)"""
+        chain = []
+        visited_parents = set()
+        visited_children = set()
+
+        # Get all tasks
+        all_tasks = database.get_all_tasks()
+        task_dict = {t['id']: t for t in all_tasks}
+
+        def get_parents(tid):
+            if tid in visited_parents:
+                return
+            visited_parents.add(tid)
+            rels = database.get_related_tasks(tid)
+            for parent in rels['parents']:
+                parent_id = parent['id']
+                if parent_id not in [c['id'] for c in chain]:
+                    chain.insert(0, parent)
+                    get_parents(parent_id)
+
+        def get_children(tid):
+            if tid in visited_children:
+                return
+            visited_children.add(tid)
+            rels = database.get_related_tasks(tid)
+            for child in rels['children']:
+                child_id = child['id']
+                if child_id not in [c['id'] for c in chain]:
+                    chain.append(child)
+                    get_children(child_id)
+
+        # Build chain
+        get_parents(task_id)
+
+        # Add current task
+        if task_id in task_dict:
+            chain.append(task_dict[task_id])
+
+        get_children(task_id)
+
+        return chain
+
+
 
 
 class UnitsManagement(ctk.CTkFrame):

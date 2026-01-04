@@ -18,100 +18,267 @@ def get_connection():
 
 def init_database():
     """Αρχικοποίηση της database με τους πίνακες"""
-    
+
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     # Πίνακας Ομάδων Μονάδων
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS groups (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
+                   CREATE TABLE IF NOT EXISTS groups
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       name
+                       TEXT
+                       NOT
+                       NULL
+                       UNIQUE,
+                       description
+                       TEXT,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP
+                   )
+                   ''')
+
     # Πίνακας Μονάδων
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS units (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            group_id INTEGER NOT NULL,
-            location TEXT,
-            model TEXT,
-            serial_number TEXT,
-            installation_date DATE,
-            is_active BOOLEAN DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (group_id) REFERENCES groups(id)
-        )
-    ''')
-    
+                   CREATE TABLE IF NOT EXISTS units
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       name
+                       TEXT
+                       NOT
+                       NULL,
+                       group_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       location
+                       TEXT,
+                       model
+                       TEXT,
+                       serial_number
+                       TEXT,
+                       installation_date
+                       DATE,
+                       is_active
+                       BOOLEAN
+                       DEFAULT
+                       1,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       group_id
+                   ) REFERENCES groups
+                   (
+                       id
+                   )
+                       )
+                   ''')
+
     # Πίνακας Ειδών Εργασιών
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS task_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            description TEXT,
-            is_predefined BOOLEAN DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Πίνακας Ειδών Εργασιών (Task Items) - Phase 2.3
+                   CREATE TABLE IF NOT EXISTS task_types
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       name
+                       TEXT
+                       NOT
+                       NULL
+                       UNIQUE,
+                       description
+                       TEXT,
+                       is_predefined
+                       BOOLEAN
+                       DEFAULT
+                       0,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP
+                   )
+                   ''')
+
+    # Πίνακας Ειδών Εργασιών (Task Items) - Phase 2. 3
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS task_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            task_type_id INTEGER NOT NULL,
-            description TEXT,
-            is_active BOOLEAN DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (task_type_id) REFERENCES task_types(id),
-            UNIQUE(name, task_type_id)
-        )
-    ''')
-    
+                   CREATE TABLE IF NOT EXISTS task_items
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       name
+                       TEXT
+                       NOT
+                       NULL,
+                       task_type_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       description
+                       TEXT,
+                       is_active
+                       BOOLEAN
+                       DEFAULT
+                       1,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       task_type_id
+                   ) REFERENCES task_types
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       name,
+                       task_type_id
+                   )
+                       )
+                   ''')
+
     # Πίνακας Εργασιών
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            unit_id INTEGER NOT NULL,
-            task_type_id INTEGER NOT NULL,
-            description TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('pending', 'completed')),
-            priority TEXT CHECK(priority IN ('low', 'medium', 'high')),
-            created_date DATE NOT NULL,
-            completed_date DATE,
-            technician_name TEXT,
-            notes TEXT,
-            is_deleted BOOLEAN DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (unit_id) REFERENCES units(id),
-            FOREIGN KEY (task_type_id) REFERENCES task_types(id)
-        )
-    ''')
-    
-    # Migration: Add task_item_id column if it doesn't exist
+                   CREATE TABLE IF NOT EXISTS tasks
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       unit_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       task_type_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       description
+                       TEXT
+                       NOT
+                       NULL,
+                       status
+                       TEXT
+                       NOT
+                       NULL
+                       CHECK (
+                       status
+                       IN
+                   (
+                       'pending',
+                       'completed'
+                   )),
+                       priority TEXT CHECK
+                   (
+                       priority
+                       IN
+                   (
+                       'low',
+                       'medium',
+                       'high'
+                   )),
+                       created_date DATE NOT NULL,
+                       completed_date DATE,
+                       technician_name TEXT,
+                       notes TEXT,
+                       is_deleted BOOLEAN DEFAULT 0,
+                       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                       FOREIGN KEY
+                   (
+                       unit_id
+                   ) REFERENCES units
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       task_type_id
+                   ) REFERENCES task_types
+                   (
+                       id
+                   )
+                       )
+                   ''')
+
+    # Migration:  Add task_item_id column if it doesn't exist
     cursor.execute("PRAGMA table_info(tasks)")
     columns = [column[1] for column in cursor.fetchall()]
     if 'task_item_id' not in columns:
         cursor.execute('ALTER TABLE tasks ADD COLUMN task_item_id INTEGER REFERENCES task_items(id)')
-    
-    # Πίνακας Συνδέσεων Εργασιών (π.χ. Βλάβη -> Επισκευή)
+
+    # Πίνακας Συνδέσεων Εργασιών (π. χ. Βλάβη -> Επισκευή)
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS task_relationships (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            parent_task_id INTEGER NOT NULL,
-            child_task_id INTEGER NOT NULL,
-            relationship_type TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (parent_task_id) REFERENCES tasks(id),
-            FOREIGN KEY (child_task_id) REFERENCES tasks(id)
-        )
-    ''')
-    
+                   CREATE TABLE IF NOT EXISTS task_relationships
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       parent_task_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       child_task_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       relationship_type
+                       TEXT,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       parent_task_id
+                   ) REFERENCES tasks
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       child_task_id
+                   ) REFERENCES tasks
+                   (
+                       id
+                   )
+                       )
+                   ''')
+
+    # ═══════════════════════════════════════════════════════════
+    # Migration: ADD is_deleted COLUMN to task_relationships
+    # ═══════════════════════════════════════════════════════════
+    cursor.execute("PRAGMA table_info(task_relationships)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'is_deleted' not in columns:
+        cursor.execute('ALTER TABLE task_relationships ADD COLUMN is_deleted INTEGER DEFAULT 0')
+        print("✅ Added is_deleted column to task_relationships")
+
     conn.commit()
     conn.close()
 
@@ -488,27 +655,56 @@ def update_task(task_id, unit_id, task_type_id, description, status, priority,
 
 
 def delete_task(task_id):
-    """Soft delete εργασίας (δεν διαγράφεται πραγματικά)"""
+    """Soft delete - μετακίνηση στον κάδο (κρατάει relationships)"""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('UPDATE tasks SET is_deleted = 1 WHERE id = ?', (task_id,))
-    
+
+    # Mark task as deleted
+    cursor.execute("""
+                   UPDATE tasks
+                   SET is_deleted = 1
+                   WHERE id = ?
+                   """, (task_id,))
+
+    # ═════════════════════════════════════════════════
+    # Backup relationships (mark as deleted too)
+    # ═════════════════════════════════════════════════
+    cursor.execute("""
+                   UPDATE task_relationships
+                   SET is_deleted = 1
+                   WHERE parent_task_id = ?
+                      OR child_task_id = ?
+                   """, (task_id, task_id))
+
     conn.commit()
     conn.close()
-    return True
 
 
 def restore_task(task_id):
-    """Επαναφορά διαγραμμένης εργασίας"""
+    """Επαναφορά από τον κάδο (επαναφέρει και relationships)"""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('UPDATE tasks SET is_deleted = 0 WHERE id = ?', (task_id,))
-    
+
+    # Restore task
+    cursor.execute("""
+                   UPDATE tasks
+                   SET is_deleted = 0
+                   WHERE id = ?
+                   """, (task_id,))
+
+    # ═════════════════════════════════════════════════
+    # Restore relationships (ΜΟΝΟ αν ΚΑΙ οι 2 tasks ΔΕΝ είναι deleted)
+    # ═════════════════════════════════════════════════
+    cursor.execute("""
+                   UPDATE task_relationships
+                   SET is_deleted = 0
+                   WHERE (parent_task_id = ? OR child_task_id = ?)
+                     AND parent_task_id IN (SELECT id FROM tasks WHERE is_deleted = 0)
+                     AND child_task_id IN (SELECT id FROM tasks WHERE is_deleted = 0)
+                   """, (task_id, task_id))
+
     conn.commit()
     conn.close()
-    return True
 
 
 def permanent_delete_task(task_id):
@@ -592,7 +788,7 @@ def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, d
         query += " AND (t.description LIKE ? OR t.notes LIKE ? OR u.name LIKE ?)"
         search_param = f"%{search_text}%"
         params.extend([search_param, search_param, search_param])
-    
+
     query += " ORDER BY t.created_date DESC, t.created_at DESC"
     
     cursor.execute(query, params)
@@ -617,38 +813,56 @@ def add_task_relationship(parent_task_id, child_task_id, relationship_type="rela
 
 
 def get_related_tasks(task_id):
-    """Επιστρέφει συνδεδεμένες εργασίες"""
+    """Παίρνει τις συνδεδεμένες εργασίες (parents & children)"""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    # Παιδικές εργασίες (π.χ. Επισκευές μιας Βλάβης)
-    cursor.execute('''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, 
-               tr.relationship_type, 'child' as relation
-        FROM task_relationships tr
-        JOIN tasks t ON tr.child_task_id = t.id
-        JOIN units u ON t.unit_id = u.id
-        JOIN task_types tt ON t.task_type_id = tt.id
-        WHERE tr.parent_task_id = ? AND t.is_deleted = 0
-    ''', (task_id,))
-    
-    children = [dict(row) for row in cursor.fetchall()]
-    
-    # Γονικές εργασίες (π.χ. Βλάβη μιας Επισκευής)
-    cursor.execute('''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, 
-               tr.relationship_type, 'parent' as relation
-        FROM task_relationships tr
-        JOIN tasks t ON tr.parent_task_id = t.id
-        JOIN units u ON t.unit_id = u.id
-        JOIN task_types tt ON t.task_type_id = tt.id
-        WHERE tr.child_task_id = ? AND t.is_deleted = 0
-    ''', (task_id,))
-    
+
+    # Parents
+    cursor.execute("""
+                   SELECT t.*,
+                          u.name  as unit_name,
+                          tt.name as task_type_name,
+                          ti.name as task_item_name,
+                          g.name  as group_name
+                   FROM tasks t
+                            JOIN task_relationships tr ON t.id = tr.parent_task_id
+                            JOIN units u ON t.unit_id = u.id
+                            JOIN groups g ON u.group_id = g.id
+                            JOIN task_types tt ON t.task_type_id = tt.id
+                            LEFT JOIN task_items ti ON t.task_item_id = ti.id
+                   WHERE tr.child_task_id = ?
+                     AND t.is_deleted = 0
+                     AND tr.is_deleted = 0
+                   """, (task_id,))
+
     parents = [dict(row) for row in cursor.fetchall()]
-    
+
+    # Children
+    cursor.execute("""
+                   SELECT t.*,
+                          u.name  as unit_name,
+                          tt.name as task_type_name,
+                          ti.name as task_item_name,
+                          g.name  as group_name
+                   FROM tasks t
+                            JOIN task_relationships tr ON t.id = tr.child_task_id
+                            JOIN units u ON t.unit_id = u.id
+                            JOIN groups g ON u.group_id = g.id
+                            JOIN task_types tt ON t.task_type_id = tt.id
+                            LEFT JOIN task_items ti ON t.task_item_id = ti.id
+                   WHERE tr.parent_task_id = ?
+                     AND t.is_deleted = 0
+                     AND tr.is_deleted = 0
+                   """, (task_id,))
+
+    children = [dict(row) for row in cursor.fetchall()]
+
     conn.close()
-    return {'parents': parents, 'children': children}
+
+    return {
+        'parents': parents,
+        'children': children
+    }
 
 
 def remove_task_relationship(parent_task_id, child_task_id):

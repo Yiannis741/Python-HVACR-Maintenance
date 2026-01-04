@@ -527,23 +527,64 @@ class HVACRApp(ctk.CTk):
         
         # Task list για επιλογή
         ui_components.TaskHistoryView(self.main_frame, on_task_select=self.show_task_edit)
-    
+
     def show_task_edit(self, task):
         """Εμφάνιση φόρμας επεξεργασίας εργασίας"""
         self.clear_main_frame()
-        
+
+        # Header
+        header_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=20, padx=40)
+
+        # Get chain info για τον τίτλο μόνο
+        full_chain = self._get_full_chain_for_preview(task['id'])
+        current_position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == task['id']), 1)
+        chain_length = len(full_chain)
+        has_chain = chain_length > 1
+
+        # Title με chain indicator
+        title_text = f"✏️ Επεξεργασία Εργασίας #{task['id']}"
+        if has_chain:
+            title_text += f"  🔗 ({current_position}/{chain_length})"
+
         title = ctk.CTkLabel(
-            self.main_frame,
-            text=f"✏️ Επεξεργασία Εργασίας #{task['id']}",
+            header_frame,
+            text=title_text,
             font=theme_config.get_font("title", "bold"),
             text_color=self.theme["text_primary"]
         )
-        title.pack(pady=20)
-        
-        # Edit form
+        title.pack(side="left")
+
+        # Action buttons
+        btn_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        btn_frame.pack(side="right")
+
+        relations_btn = ctk.CTkButton(
+            btn_frame,
+            text="🔗 Συνδέσεις",
+            command=lambda: self.show_task_relationships(task),
+            width=140,
+            height=35,
+            **theme_config.get_button_style("special")
+        )
+        relations_btn.pack(side="left", padx=5)
+
+        back_btn = ctk.CTkButton(
+            btn_frame,
+            text="↩️ Πίσω",
+            command=self.show_edit,
+            width=100,
+            height=35,
+            **theme_config.get_button_style("secondary")
+        )
+        back_btn.pack(side="left", padx=5)
+
+        # ΧΩΡΙΣ chain preview εδώ - θα το προσθέσει το TaskForm!
+
+        # Form
         form_frame = ctk.CTkFrame(self.main_frame)
-        form_frame.pack(pady=20, padx=100, fill="both", expand=True)
-        
+        form_frame.pack(pady=10, padx=100, fill="both", expand=True)
+
         ui_components.TaskForm(form_frame, self.on_task_saved, task_data=task)
 
     def show_task_detail(self, task):
