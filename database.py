@@ -841,12 +841,14 @@ def restore_task(task_id):
 
     if insert_after and insert_before:
         # MIDDLE INSERT
-        # Remove bypass (if exists)
+        # Remove bypass (if exists) between the adjacent tasks
         cursor.execute("""
                        DELETE
                        FROM task_relationships
                        WHERE parent_task_id = ?
                          AND child_task_id = ?
+                         AND is_deleted = 0
+                         AND relationship_type = 'related'
                        """, (insert_after['id'], insert_before['id']))
 
         # Create:  insert_after → restored_task
