@@ -327,7 +327,7 @@ class HVACRApp(ctk.CTk):
         title.pack(expand=True)
 
         # ══════════════════════════════════════════════════
-        # UNIT DROPDOWNS ROW (Groups → Units)
+        # UNIT DROPDOWNS ROW (Groups → Units)  -- με labels πάνω από κάθε dropdown
         # ══════════════════════════════════════════════════
         units_filter_frame = ctk.CTkFrame(
             self.main_frame,
@@ -361,7 +361,7 @@ class HVACRApp(ctk.CTk):
         )
         self.all_units_btn.pack(side="left", padx=5)
 
-        # Get groups and create dropdowns
+        # Get groups and create labeled dropdowns
         groups = database.get_all_groups()
         self.unit_filter_buttons = {}
 
@@ -369,7 +369,7 @@ class HVACRApp(ctk.CTk):
             units = database.get_units_by_group(group['id'])
 
             if units:
-                # Create dropdown per group
+                # Prepare values
                 unit_names = [u['name'] for u in units]
                 unit_ids = {u['name']: u['id'] for u in units}
 
@@ -379,19 +379,32 @@ class HVACRApp(ctk.CTk):
                         unit_id = uid_map.get(selected)
                         if unit_id is not None:
                             self.filter_by_unit(unit_id)
-
                     return handler
 
+                # Create a small vertical column: label (group name) above the combobox
+                group_col = ctk.CTkFrame(units_content, fg_color="transparent")
+                group_col.pack(side="left", padx=5)
+
+                # Group label above combobox
+                ctk.CTkLabel(
+                    group_col,
+                    text=group['name'],
+                    font=theme_config.get_font("small", "bold"),
+                    text_color=self.theme["text_primary"]
+                ).pack(side="top", pady=(0, 4))
+
+                # Combobox with unit names
                 dropdown = ctk.CTkComboBox(
-                    units_content,
+                    group_col,
                     values=unit_names,
                     width=180,
                     height=35,
                     state="readonly",
                     command=make_unit_filter(unit_ids)
                 )
-                dropdown.set(group['name'])
-                dropdown.pack(side="left", padx=5)
+                # Show first unit by default (does not trigger command)
+                dropdown.set(unit_names[0])
+                dropdown.pack(side="top")
 
                 self.unit_filter_buttons[group['id']] = dropdown
 
