@@ -377,7 +377,8 @@ class TaskForm(ctk.CTkFrame):
             values=list(self.groups_dict.keys()),
             width=300,
             state="readonly",
-            command=self.on_group_change
+            command=self.on_group_change,
+            font=theme_config.get_font("input")
         )
         self.group_combo.grid(row=1, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
         if self.groups_dict:
@@ -398,7 +399,8 @@ class TaskForm(ctk.CTkFrame):
             values=list(self.task_types_dict.keys()),
             width=300,
             state="readonly",
-            command=self.on_task_type_change
+            command=self.on_task_type_change,
+            font=theme_config.get_font("input")
         )
         self.task_type_combo.grid(row=1, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
         if self.task_types_dict:
@@ -418,7 +420,8 @@ class TaskForm(ctk.CTkFrame):
             scrollable,
             values=[],
             width=300,
-            state="readonly"
+            state="readonly",
+            font=theme_config.get_font("input")
         )
         self.unit_combo.grid(row=3, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
 
@@ -434,7 +437,8 @@ class TaskForm(ctk.CTkFrame):
             scrollable,
             values=[],
             width=300,
-            state="readonly"
+            state="readonly",
+            font=theme_config.get_font("input")
         )
         self.task_item_combo.grid(row=3, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
 
@@ -477,7 +481,8 @@ class TaskForm(ctk.CTkFrame):
             scrollable,
             values=["Χαμηλή (low)", "Μεσαία (medium)", "Υψηλή (high)"],
             width=300,
-            state="readonly"
+            state="readonly",
+            font=theme_config.get_font("input")
         )
         self.priority_combo.grid(row=5, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
         self.priority_combo.set("Μεσαία (medium)")
@@ -504,7 +509,11 @@ class TaskForm(ctk.CTkFrame):
         date_entry_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
         date_entry_frame.grid(row=7, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
 
-        self.created_date_entry = ctk.CTkEntry(date_entry_frame, width=220)
+        self.created_date_entry = ctk.CTkEntry(
+            date_entry_frame,
+            width=220,
+            font=theme_config.get_font("input")
+        )
         self.created_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         self.created_date_entry.pack(side="left", padx=(0, 5))
 
@@ -525,7 +534,11 @@ class TaskForm(ctk.CTkFrame):
             font=theme_config.get_font("body", "bold")
         ).grid(row=6, column=1, sticky="w", padx=(5, 10), pady=(10, 5))
 
-        self.technician_entry = ctk.CTkEntry(scrollable, width=300)
+        self.technician_entry = ctk.CTkEntry(
+            scrollable,
+            width=300,
+            font=theme_config.get_font("input")
+        )
         self.technician_entry.grid(row=7, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
 
         # ===== ROW 8: Περιγραφή (FULL WIDTH) =====
@@ -536,7 +549,11 @@ class TaskForm(ctk.CTkFrame):
             font=theme_config.get_font("body", "bold")
         ).grid(row=8, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 5))
 
-        self.description_text = ctk.CTkTextbox(scrollable, height=80)
+        self.description_text = ctk.CTkTextbox(
+            scrollable,
+            height=80,
+            font=theme_config.get_font("input")
+        )
         self.description_text.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 15))
 
         # ===== ROW 10: Σημειώσεις (FULL WIDTH) =====
@@ -547,7 +564,11 @@ class TaskForm(ctk.CTkFrame):
             font=theme_config.get_font("body", "bold")
         ).grid(row=10, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 5))
 
-        self.notes_text = ctk.CTkTextbox(scrollable, height=60)
+        self.notes_text = ctk.CTkTextbox(
+            scrollable,
+            height=60,
+            font=theme_config.get_font("input")
+        )
         self.notes_text.grid(row=11, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 20))
 
         # ===== ROW 12: Κουμπιά (FULL WIDTH) =====
@@ -1128,36 +1149,36 @@ class UnitsManagement(ctk.CTkFrame):
         
         # Όνομα
         ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         name_entry.pack(padx=20, pady=(0, 15))
         
         # Ομάδα
         ctk.CTkLabel(dialog, text="Ομάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         groups = database.get_all_groups()
         groups_dict = {g['name']: g['id'] for g in groups}
-        group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly")
+        group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly", font=theme_config. get_font("input"))
         group_combo.pack(padx=20, pady=(0, 15))
         if groups_dict:
             group_combo.set(list(groups_dict.keys())[0])
         
         # Τοποθεσία
         ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        location_entry = ctk.CTkEntry(dialog, width=450)
+        location_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         location_entry.pack(padx=20, pady=(0, 15))
         
         # Μοντέλο
         ctk.CTkLabel(dialog, text="Μοντέλο:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        model_entry = ctk.CTkEntry(dialog, width=450)
+        model_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         model_entry.pack(padx=20, pady=(0, 15))
         
         # Serial Number
         ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        serial_entry = ctk.CTkEntry(dialog, width=450)
+        serial_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         serial_entry.pack(padx=20, pady=(0, 15))
         
         # Ημερομηνία εγκατάστασης
         ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        install_entry = ctk.CTkEntry(dialog, width=450)
+        install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         install_entry.pack(padx=20, pady=(0, 20))
         
@@ -1219,12 +1240,12 @@ class UnitsManagement(ctk.CTkFrame):
         
         # Όνομα
         ctk.CTkLabel(dialog, text="Όνομα Ομάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         name_entry.pack(padx=20, pady=(0, 15))
         
         # Περιγραφή
         ctk.CTkLabel(dialog, text="Περιγραφή:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
+        desc_text = ctk.CTkTextbox(dialog, width=450, height=100, font=theme_config.get_font("input"))
         desc_text.pack(padx=20, pady=(0, 20))
         
         # Populate fields if editing
@@ -1449,13 +1470,13 @@ class TaskManagement(ctk.CTkFrame):
         # Όνομα
         ctk.CTkLabel(dialog, text="Όνομα Τύπου:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
                                                                                                    pady=(20, 5))
-        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         name_entry.pack(padx=20, pady=(0, 15))
 
         # Περιγραφή
         ctk.CTkLabel(dialog, text="Περιγραφή:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
                                                                                                  pady=(10, 5))
-        desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
+        desc_text = ctk.CTkTextbox(dialog, width=450, height=100, font=theme_config. get_font("input"))
         desc_text.pack(padx=20, pady=(0, 20))
 
         def save():
@@ -1542,7 +1563,8 @@ class TaskManagement(ctk.CTkFrame):
             width=250,
             state="readonly",
             command=self.on_type_selected,
-            variable=self.selected_type_var
+            variable=self.selected_type_var,
+            font=theme_config.get_font("input")
         )
         self.type_selector.pack(side="left", padx=10)
         if self.task_types_dict:
@@ -1676,13 +1698,13 @@ class TaskManagement(ctk.CTkFrame):
         # Όνομα
         ctk.CTkLabel(dialog, text="Όνομα Είδους:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
                                                                                                     pady=(10, 5))
-        name_entry = ctk.CTkEntry(dialog, width=450)
+        name_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         name_entry.pack(padx=20, pady=(0, 15))
 
         # Περιγραφή
         ctk.CTkLabel(dialog, text="Περιγραφή (προαιρετική):", font=theme_config.get_font("body", "bold")).pack(
             anchor="w", padx=20, pady=(10, 5))
-        desc_text = ctk.CTkTextbox(dialog, width=450, height=100)
+        desc_text = ctk.CTkTextbox(dialog, width=450, height=100, font=theme_config.get_font("input"))
         desc_text.pack(padx=20, pady=(0, 20))
 
         # Populate if editing
@@ -1772,11 +1794,22 @@ class TaskHistoryView(ctk.CTkFrame):
         row1.pack(fill="x", padx=10, pady=(10, 5))
         
         ctk. CTkLabel(row1, text="🔍 Αναζήτηση:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(0, 5))
-        self.search_entry = ctk. CTkEntry(row1, width=200, placeholder_text="Περιγραφή, σημειώσεις, μονάδα...")
+        self.search_entry = ctk.CTkEntry(
+            row1,
+            width=200,
+            placeholder_text="Περιγραφή, σημειώσεις, μονάδα...",
+            font=theme_config.get_font("input")
+        )
         self.search_entry.pack(side="left", padx=5)
         
         ctk.CTkLabel(row1, text="Κατάσταση:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(20, 5))
-        self.status_combo = ctk.CTkComboBox(row1, values=["Όλες", "Εκκρεμείς", "Ολοκληρωμένες"], width=150, state="readonly")
+        self.status_combo = ctk.CTkComboBox(
+            row1,
+            values=["Όλες", "Εκκρεμείς", "Ολοκληρωμένες"],
+            width=150,
+            state="readonly",
+            font=theme_config.get_font("input")
+        )
         self.status_combo.set("Όλες")
         self.status_combo.pack(side="left", padx=5)
         
@@ -1788,7 +1821,13 @@ class TaskHistoryView(ctk.CTkFrame):
         units = database.get_all_units()
         unit_names = ["Όλες"] + [f"{u['name']} - {u['group_name']}" for u in units]
         self.units_dict = {f"{u['name']} - {u['group_name']}": u['id'] for u in units}
-        self.unit_combo = ctk.CTkComboBox(row2, values=unit_names, width=200, state="readonly")
+        self.unit_combo = ctk.CTkComboBox(
+            row2,
+            values=unit_names,
+            width=200,
+            state="readonly",
+            font=theme_config.get_font("input")
+        )
         self.unit_combo.set("Όλες")
         self.unit_combo.pack(side="left", padx=5)
         
@@ -1796,7 +1835,13 @@ class TaskHistoryView(ctk.CTkFrame):
         task_types = database.get_all_task_types()
         type_names = ["Όλα"] + [tt['name'] for tt in task_types]
         self.types_dict = {tt['name']: tt['id'] for tt in task_types}
-        self. type_combo = ctk.CTkComboBox(row2, values=type_names, width=150, state="readonly")
+        self.type_combo = ctk.CTkComboBox(
+            row2,
+            values=type_names,
+            width=150,
+            state="readonly",
+            font=theme_config.get_font("input")
+        )
         self.type_combo.set("Όλα")
         self.type_combo.pack(side="left", padx=5)
         
@@ -2479,7 +2524,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
             filters_frame,
             textvariable=search_var,
             width=250,
-            placeholder_text="Περιγραφή, τύπος, είδος..."
+            placeholder_text="Περιγραφή, τύπος, είδος.. .",
+            font=theme_config.get_font("input")
         )
         search_entry.pack(side="left", padx=(0, 20))
 
@@ -2498,7 +2544,8 @@ class TaskRelationshipsView(ctk.CTkFrame):
             values=["Όλες", "Ίδια Μονάδα"] + [u['name'] for u in all_units],
             variable=unit_filter_var,
             width=180,
-            state="readonly"
+            state="readonly",
+            font=theme_config.get_font("input")
         )
         unit_filter.pack(side="left")
 

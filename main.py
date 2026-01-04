@@ -56,10 +56,10 @@ class HVACRApp(ctk.CTk):
         
         # Αρχικό περιεχόμενο
         self.show_dashboard()
-        
+
     def create_sidebar(self):
         """Δημιουργία της αριστερής sidebar με κουμπιά"""
-        
+
         # Logo/Τίτλος
         title_label = ctk.CTkLabel(
             self.sidebar,
@@ -68,7 +68,7 @@ class HVACRApp(ctk.CTk):
             text_color=self.theme["accent_blue"]
         )
         title_label.pack(pady=(20, 30))
-        
+
         # Κουμπιά με style types
         buttons_config = [
             ("🏠 Αρχική", self.show_dashboard, "primary"),
@@ -82,10 +82,10 @@ class HVACRApp(ctk.CTk):
             ("🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "danger"),
             ("⚙️ Ρυθμίσεις", self.show_settings, "secondary"),
         ]
-        
+
         self.sidebar_buttons = {}
-        
-        for btn_text, command, style_type in buttons_config: 
+
+        for btn_text, command, style_type in buttons_config:
             style = theme_config.get_button_style(style_type)
             btn = ctk.CTkButton(
                 self.sidebar,
@@ -93,10 +93,8 @@ class HVACRApp(ctk.CTk):
                 command=command,
                 width=200,
                 height=45,
-                corner_radius=10,
                 font=theme_config.get_font("body", "bold"),
-                fg_color=style["fg_color"],
-                hover_color=style["hover_color"]
+                **style  # ← 3D effect με border!
             )
             btn.pack(pady=8, padx=10)
             self.sidebar_buttons[btn_text] = btn

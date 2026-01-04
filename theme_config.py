@@ -63,6 +63,7 @@ BASE_FONTS = {
     "title": 24,
     "heading": 18,
     "body": 13,
+    "input": 15,  # ← ΠΡΟΣΘΗΚΗ!   Νέο μέγεθος για input fields
     "small": 11,
     "tiny": 9
 }
@@ -169,8 +170,8 @@ def get_font(size_key, weight="normal"):
 
 def get_button_style(button_type):
     """
-    Επιστροφή button styling
-    button_type: "primary", "success", "danger", "secondary"
+    Επιστροφή button styling με 3D effect
+    button_type: "primary", "success", "danger", "secondary", "special"
     """
     theme = get_current_theme()
 
@@ -179,25 +180,41 @@ def get_button_style(button_type):
             "fg_color": theme["accent_blue"],
             "hover_color": "#2d6ca3",
             "text_color": "white",
-            "corner_radius": 10
+            "corner_radius": 10,
+            "border_width": 2,
+            "border_color": "#5AA3D9"
         },
         "success": {
             "fg_color": theme["accent_green"],
             "hover_color": "#218838",
             "text_color": "white",
-            "corner_radius": 10
+            "corner_radius": 10,
+            "border_width": 2,
+            "border_color": "#4FD664"
         },
         "danger": {
             "fg_color": theme["accent_red"],
             "hover_color": "#bd2130",
             "text_color": "white",
-            "corner_radius": 10
+            "corner_radius": 10,
+            "border_width": 2,
+            "border_color": "#FF5A6E"
         },
         "secondary": {
             "fg_color": theme["bg_tertiary"],
             "hover_color": theme["card_border"],
             "text_color": theme["text_primary"],
-            "corner_radius": 10
+            "corner_radius": 10,
+            "border_width": 2,
+            "border_color": theme["card_border"]
+        },
+        "special": {
+            "fg_color": "#6C63FF",
+            "hover_color": "#5549CC",
+            "text_color": "white",
+            "corner_radius": 10,
+            "border_width": 2,
+            "border_color": "#9B93FF"
         }
     }
 
