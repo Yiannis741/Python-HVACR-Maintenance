@@ -655,41 +655,45 @@ def update_task(task_id, unit_id, task_type_id, description, status, priority,
 
 
 def delete_task(task_id):
-    """Smart delete - reconnects chain automatically"""
+    """Smart delete με auto-reconnect (bypass)"""
     conn = get_connection()
     cursor = conn.cursor()
 
     # ═════════════════════════════════════════════════
-    # SMART DELETE:  Reconnect chain before deleting
+    # STEP 1:  Get relationships before delete
     # ═════════════════════════════════════════════════
-
-    # Get all parents and children of this task
     relations = get_related_tasks(task_id)
     parents = relations['parents']
     children = relations['children']
 
-    # If task is in the middle of a chain, reconnect parent → child
-    if parents and children:
-        for parent in parents:
-            for child in children:
-                # Create direct link parent → child (bypass deleted task)
-                try:
-                    cursor.execute("""
-                                   INSERT INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
-                                   VALUES (?, ?, 'related', 0)
-                                   """, (parent['id'], child['id']))
-                except:
-                    # Relationship already exists, skip
-                    pass
+    # ═════════════════════════════════════════════════
+    # STEP 2:  Create bypass (ONLY if 1 parent + 1 child)
+    # ═════════════════════════════════════════════════
+    if len(parents) == 1 and len(children) == 1:
+        parent = parents[0]
+        child = children[0]
 
-    # Mark task as deleted
+        # Create bypass:  parent → child (skip deleted task)
+        try:
+            cursor.execute("""
+                           INSERT INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+                           VALUES (?, ?, 'bypass', 0)
+                           """, (parent['id'], child['id']))
+        except:
+            pass  # Relationship already exists
+
+    # ═════════════════════════════════════════════════
+    # STEP 3:  Mark task as deleted
+    # ═════════════════════════════════════════════════
     cursor.execute("""
                    UPDATE tasks
                    SET is_deleted = 1
                    WHERE id = ?
                    """, (task_id,))
 
-    # Mark task's relationships as deleted (backup)
+    # ═════════════════════════════════════════════════
+    # STEP 4:  Mark task's relationships as deleted (backup)
+    # ═════════════════════════════════════════════════
     cursor.execute("""
                    UPDATE task_relationships
                    SET is_deleted = 1
@@ -702,11 +706,72 @@ def delete_task(task_id):
 
 
 def restore_task(task_id):
-    """Επαναφορά από τον κάδο (επαναφέρει και relationships)"""
+    """Smart restore - επαναφέρει task ΚΑΙ τη θέση της στην αλυσίδα"""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Restore task
+    # ═════════════════════════════════════════════════
+    # STEP 1:  Get the task being restored
+    # ═════════════════════════════════════════════════
+    cursor.execute("""
+                   SELECT t.*,
+                          u.name  as unit_name,
+                          tt.name as task_type_name,
+                          ti.name as task_item_name,
+                          g.name  as group_name
+                   FROM tasks t
+                            JOIN units u ON t.unit_id = u.id
+                            JOIN groups g ON u.group_id = g.id
+                            JOIN task_types tt ON t.task_type_id = tt.id
+                            LEFT JOIN task_items ti ON t.task_item_id = ti.id
+                   WHERE t.id = ?
+                   """, (task_id,))
+
+    restored_task = dict(cursor.fetchone())
+    restored_date = restored_task['created_date']
+    unit_id = restored_task['unit_id']
+
+    # ═════════════════════════════════════════════════
+    # STEP 2:  Find existing chain for this unit
+    # ═════════════════════════════════════════════════
+
+    # Get all active tasks for this unit (ordered by date)
+    cursor.execute("""
+                   SELECT t.*,
+                          u.name  as unit_name,
+                          tt.name as task_type_name,
+                          ti.name as task_item_name,
+                          g.name  as group_name
+                   FROM tasks t
+                            JOIN units u ON t.unit_id = u.id
+                            JOIN groups g ON u.group_id = g.id
+                            JOIN task_types tt ON t.task_type_id = tt.id
+                            LEFT JOIN task_items ti ON t.task_item_id = ti.id
+                   WHERE t.unit_id = ?
+                     AND t.is_deleted = 0
+                     AND t.id != ?
+                   ORDER BY t.created_date ASC
+                   """, (unit_id, task_id))
+
+    unit_tasks = [dict(row) for row in cursor.fetchall()]
+
+    # ═════════════════════════════════════════════════
+    # STEP 3:  Find correct insertion point by date
+    # ═════════════════════════════════════════════════
+
+    insert_after = None  # Task BEFORE restored task (chronologically)
+    insert_before = None  # Task AFTER restored task (chronologically)
+
+    for task in unit_tasks:
+        if task['created_date'] < restored_date:
+            insert_after = task
+        elif task['created_date'] > restored_date and insert_before is None:
+            insert_before = task
+            break
+
+    # ═════════════════════════════════════════════════
+    # STEP 4:  Restore task
+    # ═════════════════════════════════════════════════
     cursor.execute("""
                    UPDATE tasks
                    SET is_deleted = 0
@@ -714,15 +779,50 @@ def restore_task(task_id):
                    """, (task_id,))
 
     # ═════════════════════════════════════════════════
-    # Restore relationships (ΜΟΝΟ αν ΚΑΙ οι 2 tasks ΔΕΝ είναι deleted)
+    # STEP 5:  Rebuild relationships chronologically
     # ═════════════════════════════════════════════════
-    cursor.execute("""
-                   UPDATE task_relationships
-                   SET is_deleted = 0
-                   WHERE (parent_task_id = ? OR child_task_id = ?)
-                     AND parent_task_id IN (SELECT id FROM tasks WHERE is_deleted = 0)
-                     AND child_task_id IN (SELECT id FROM tasks WHERE is_deleted = 0)
-                   """, (task_id, task_id))
+
+    if insert_after and insert_before:
+        # MIDDLE INSERT:   Remove bypass, insert in middle
+        # Remove old bypass relationship (if exists)
+        cursor.execute("""
+                       DELETE
+                       FROM task_relationships
+                       WHERE parent_task_id = ?
+                         AND child_task_id = ?
+                       """, (insert_after['id'], insert_before['id']))
+
+        # Create:  insert_after → restored_task
+        cursor.execute("""
+                       INSERT
+                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+            VALUES (?, ?, 'related', 0)
+                       """, (insert_after['id'], task_id))
+
+        # Create: restored_task → insert_before
+        cursor.execute("""
+                       INSERT
+                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+            VALUES (?, ?, 'related', 0)
+                       """, (task_id, insert_before['id']))
+
+    elif insert_after and not insert_before:
+        # APPEND TO END:  Restored task is last chronologically
+        cursor.execute("""
+                       INSERT
+                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+            VALUES (?, ?, 'related', 0)
+                       """, (insert_after['id'], task_id))
+
+    elif not insert_after and insert_before:
+        # PREPEND TO START:  Restored task is first chronologically
+        cursor.execute("""
+                       INSERT
+                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+            VALUES (?, ?, 'related', 0)
+                       """, (task_id, insert_before['id']))
+
+    # If both None:  restored task is ALONE (no other tasks in unit)
 
     conn.commit()
     conn.close()
@@ -734,8 +834,8 @@ def permanent_delete_task(task_id):
     cursor = conn.cursor()
     
     # Διαγραφή σχέσεων πρώτα
-    cursor.execute('DELETE FROM task_relationships WHERE parent_task_id = ? OR child_task_id = ?', 
-                  (task_id, task_id))
+    cursor.execute('DELETE FROM task_relationships WHERE parent_task_id = ? OR child_task_id = ?',
+                   (task_id, task_id))
     
     # Διαγραφή εργασίας
     cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
@@ -751,8 +851,8 @@ def get_deleted_tasks():
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT t.*, u.name as unit_name, tt.name as task_type_name, g.name as group_name,
-               ti.name as task_item_name
+        SELECT t.*,u.name as unit_name,tt.name as task_type_name,g.name as group_name,
+               ti.name    as task_item_name
         FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
