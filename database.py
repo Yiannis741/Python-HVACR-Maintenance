@@ -890,12 +890,45 @@ def permanent_delete_task(task_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Διαγραφή σχέσεων πρώτα
-    cursor.execute('DELETE FROM task_relationships WHERE parent_task_id = ? OR child_task_id = ?',
-                   (task_id, task_id))
+    # Βρίσκουμε τους "γειτονικούς" κόμβους της εργασίας που διαγράφεται
+    cursor.execute("""
+                   SELECT parent_task_id, child_task_id
+                   FROM task_relationships
+                   WHERE (parent_task_id = ? OR child_task_id = ?)
+                     AND is_deleted = 0
+                     AND relationship_type = 'related'
+                   """, (task_id, task_id))
 
-    # Διαγραφή εργασίας
-    cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    relationships = cursor.fetchall()
+
+    # Αναγνωρίζουμε τον "γονέα" (parent_id) και το "παιδί" (child_id) της task_id
+    parent_id = None
+    child_id = None
+
+    for relationship in relationships:
+        if relationship['child_task_id'] == task_id:
+            parent_id = relationship['parent_task_id']
+        if relationship['parent_task_id'] == task_id:
+            child_id = relationship['child_task_id']
+
+    # Δημιουργούμε τη σχέση Task1 → Task3 (γονέας → παιδί) αν υπάρχουν
+    if parent_id and child_id:
+        cursor.execute("""
+                       INSERT
+                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+            VALUES (?, ?, 'related', 0)
+                       """, (parent_id, child_id))
+
+    # Διαγράφουμε τις σχέσεις που περιλαμβάνουν το task_id
+    cursor.execute("""
+                   DELETE
+                   FROM task_relationships
+                   WHERE parent_task_id = ?
+                      OR child_task_id = ?
+                   """, (task_id, task_id))
+
+    # Διαγραφή της ίδιας της εργασίας
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
 
     conn.commit()
     conn.close()
@@ -1105,6 +1138,53 @@ def remove_task_from_chain(task_id):
 
     conn.commit()
     conn.close()
+
+
+def remove_task_from_chain(task_id):
+    """Αφαιρεί μια εργασία από την αλυσίδα χωρίς να σπάσει η αλυσίδα"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Εντοπισμός γονέα (parent) και παιδιού (child)
+    cursor.execute("""
+                   SELECT (SELECT parent_task_id
+                           FROM task_relationships
+                           WHERE child_task_id = ?
+                             AND is_deleted = 0
+                             AND relationship_type = 'related') AS parent_id,
+                          (SELECT child_task_id
+                           FROM task_relationships
+                           WHERE parent_task_id = ?
+                             AND is_deleted = 0
+                             AND relationship_type = 'related') AS child_id
+                   """, (task_id, task_id))
+
+    result = cursor.fetchone()  # Ανάγνωση αποτελέσματος
+
+    parent_id = result['parent_id']  # Το task πριν το αφαιρεθέν
+    child_id = result['child_id']  # Το task μετά το αφαιρεθέν
+
+    # Αν βρεθούν γονέας και παιδί, δημιουργούμε τη νέα σχέση
+    if parent_id and child_id:
+        cursor.execute("""
+                       INSERT
+                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+            VALUES (?, ?, 'related', 0)
+                       """, (parent_id, child_id))
+
+    # Διαγραφή σχέσεων που περιλαμβάνουν το task_id
+    cursor.execute("""
+                   DELETE
+                   FROM task_relationships
+                   WHERE parent_task_id = ?
+                      OR child_task_id = ?
+                       AND relationship_type = 'related'
+                   """, (task_id, task_id))
+
+    conn.commit()
+    conn.close()
+
+    return True
 
 
 def mark_relationship_manually_removed(parent_task_id, child_task_id):
