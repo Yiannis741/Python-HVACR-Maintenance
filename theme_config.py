@@ -1,223 +1,212 @@
 """
-Theme Configuration System - Phase 2.2
-Centralized theme management with dark/light modes and enhanced typography
+Theme Configuration - Dynamic με Settings Support
 """
 
 import customtkinter as ctk
+import json
+import os
 
-# ==================== APPEARANCE CONFIGURATION ====================
+# ═══════════════════════════════════════════════════
+# SETTINGS FILE
+# ═══════════════════════════════════════════════════
 
-# Set the appearance mode: "dark" or "light"
-APPEARANCE_MODE = "dark"
+SETTINGS_FILE = "settings.json"
 
-# ==================== TYPOGRAPHY CONFIGURATION ====================
+# Default settings
+_current_theme_name = "dark"
+_current_font_scale = 1.0
 
-# Primary font with excellent Greek character support
-PRIMARY_FONT = "Segoe UI"
+# ═══════════════════════════════════════════════════
+# THEMES
+# ═══════════════════════════════════════════════════
 
-# Fallback font for cross-platform compatibility
-FALLBACK_FONT = "Arial"
-
-# Font sizes with enhanced readability
-FONT_SIZES = {
-    "stat_value": 48,   # Large stat values on dashboard
-    "title_large": 28,  # Large titles (from 24px)
-    "title": 24,        # Section titles (from 20px)
-    "subtitle": 18,     # Subtitles (from 16px)
-    "heading": 18,      # Headings (increased from 16px)
-    "body": 16,         # Body text (increased from 14px)
-    "small": 14,        # Small text (increased from 12px)
-    "tiny": 12          # Tiny text (increased from 10px)
+THEMES = {
+    "dark": {
+        "bg_primary": "#1a1a1a",
+        "bg_secondary": "#2b2b2b",
+        "bg_tertiary": "#3a3a3a",
+        "card_bg": "#2b2b2b",
+        "card_border": "#404040",
+        "text_primary": "#ffffff",
+        "text_secondary": "#b0b0b0",
+        "text_disabled": "#666666",
+        "accent_blue": "#3B8ED0",
+        "accent_green": "#28a745",
+        "accent_orange": "#ffa500",
+        "accent_red": "#dc3545",
+        "sidebar_bg": "#1e1e1e",
+        "sidebar_hover": "#2d2d2d",
+    },
+    "light": {
+        "bg_primary": "#f0f0f0",
+        "bg_secondary": "#ffffff",
+        "bg_tertiary": "#e8e8e8",
+        "card_bg": "#ffffff",
+        "card_border": "#d0d0d0",
+        "text_primary": "#000000",
+        "text_secondary": "#555555",
+        "text_disabled": "#999999",
+        "accent_blue": "#1E5A8E",
+        "accent_green": "#1e7e34",
+        "accent_orange": "#e67e00",
+        "accent_red": "#c82333",
+        "sidebar_bg": "#e0e0e0",
+        "sidebar_hover": "#d0d0d0",
+    }
 }
 
-# ==================== COLOR THEMES ====================
+# ═══════════════════════════════════════════════════
+# BASE FONT SIZES (before scaling)
+# ═══════════════════════════════════════════════════
 
-DARK_THEME = {
-    # Background colors
-    "bg_primary": "#1a1a1a",      # Primary background
-    "bg_secondary": "#2b2b2b",    # Secondary background (cards, panels)
-    "bg_tertiary": "#3a3a3a",     # Tertiary background (hover states)
-    
-    # Text colors
-    "text_primary": "#ffffff",    # Primary text
-    "text_secondary": "#b0b0b0",  # Secondary text (descriptions, labels)
-    "text_disabled": "#666666",   # Disabled text
-    
-    # Accent colors
-    "accent_blue": "#1f6aa5",     # Primary actions, links
-    "accent_green": "#2fa572",    # Success, add actions
-    "accent_red": "#c94242",      # Danger, delete actions
-    "accent_orange": "#ff9800",   # Warning, pending states
-    "accent_purple": "#9c27b0",   # Special features
-    
-    # Card styling
-    "card_bg": "#2b2b2b",
-    "card_border": "#3a3a3a",
-    "card_hover": "#353535",
-    
-    # Status colors
-    "status_completed": "#2fa572",
-    "status_pending": "#ff9800",
-    "status_error": "#c94242"
+BASE_FONTS = {
+    "title": 24,
+    "heading": 18,
+    "body": 13,
+    "small": 11,
+    "tiny": 9
 }
 
-LIGHT_THEME = {
-    # Background colors
-    "bg_primary": "#f5f5f5",      # Primary background
-    "bg_secondary": "#ffffff",    # Secondary background (cards, panels)
-    "bg_tertiary": "#e0e0e0",     # Tertiary background (hover states)
-    
-    # Text colors
-    "text_primary": "#212121",    # Primary text
-    "text_secondary": "#757575",  # Secondary text (descriptions, labels)
-    "text_disabled": "#bdbdbd",   # Disabled text
-    
-    # Accent colors (same as dark for consistency)
-    "accent_blue": "#1f6aa5",
-    "accent_green": "#2fa572",
-    "accent_red": "#c94242",
-    "accent_orange": "#ff9800",
-    "accent_purple": "#9c27b0",
-    
-    # Card styling
-    "card_bg": "#ffffff",
-    "card_border": "#e0e0e0",
-    "card_hover": "#f5f5f5",
-    
-    # Status colors
-    "status_completed": "#2fa572",
-    "status_pending": "#ff9800",
-    "status_error": "#c94242"
-}
 
-# ==================== HELPER FUNCTIONS ====================
+# ═══════════════════════════════════════════════════
+# SETTINGS MANAGEMENT
+# ═══════════════════════════════════════════════════
+
+def load_settings():
+    """Φόρτωση settings από JSON"""
+    global _current_theme_name, _current_font_scale
+
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+                _current_theme_name = settings.get("theme", "dark")
+                _current_font_scale = settings.get("font_scale", 1.0)
+
+                # Validation
+                if _current_theme_name not in THEMES:
+                    _current_theme_name = "dark"
+                if not (0.8 <= _current_font_scale <= 1.5):
+                    _current_font_scale = 1.0
+
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            save_settings()  # Create default
+    else:
+        save_settings()  # Create default
+
+
+def save_settings():
+    """Αποθήκευση settings σε JSON"""
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump({
+                "theme": _current_theme_name,
+                "font_scale": _current_font_scale
+            }, f, indent=2)
+    except Exception as e:
+        print(f"Error saving settings: {e}")
+
+
+def get_current_theme_name():
+    """Επιστροφή ονόματος theme"""
+    return _current_theme_name
+
 
 def get_current_theme():
-    """
-    Returns the active theme colors based on APPEARANCE_MODE setting.
-    
-    Returns:
-        dict: Dictionary containing all theme colors
-    """
-    if APPEARANCE_MODE == "dark":
-        return DARK_THEME
-    else:
-        return LIGHT_THEME
+    """Επιστροφή theme dictionary"""
+    return THEMES[_current_theme_name]
 
 
-def get_font(size_key="body", weight="normal"):
-    """
-    Creates a CTkFont object with specified size and weight.
-    
-    Args:
-        size_key (str): Key from FONT_SIZES dictionary (e.g., "title", "body", "small")
-        weight (str): Font weight - "normal" or "bold"
-    
-    Returns:
-        CTkFont: Configured font object
-    """
-    size = FONT_SIZES.get(size_key, FONT_SIZES["body"])
-    return ctk.CTkFont(family=PRIMARY_FONT, size=size, weight=weight)
+def set_theme(theme_name):
+    """Αλλαγή theme"""
+    global _current_theme_name
+    if theme_name in THEMES:
+        _current_theme_name = theme_name
+        save_settings()
+        return True
+    return False
 
 
-def apply_theme():
-    """
-    Applies the global theme to CustomTkinter.
-    Should be called before creating the main application window.
-    """
-    ctk.set_appearance_mode(APPEARANCE_MODE)
-    ctk.set_default_color_theme("blue")
+def get_font_scale():
+    """Επιστροφή font scale"""
+    return _current_font_scale
 
 
-def get_button_style(button_type="primary"):
+def set_font_scale(scale):
+    """Αλλαγή font scale"""
+    global _current_font_scale
+    if 0.8 <= scale <= 1.5:
+        _current_font_scale = scale
+        save_settings()
+        return True
+    return False
+
+
+# ═══════════════════════════════════════════════════
+# FONT HELPER
+# ═══════════════════════════════════════════════════
+
+def get_font(size_key, weight="normal"):
     """
-    Returns predefined button styling based on button type.
-    
-    Args:
-        button_type (str): Type of button - "primary", "success", "danger", "secondary"
-    
-    Returns:
-        dict: Dictionary with fg_color and hover_color
+    Επιστροφή scaled font
+    size_key: "title", "heading", "body", "small", "tiny"
+    weight:  "normal", "bold"
+    """
+    base_size = BASE_FONTS.get(size_key, 13)
+    scaled_size = int(base_size * _current_font_scale)
+
+    return ctk.CTkFont(
+        family="Segoe UI",
+        size=scaled_size,
+        weight=weight
+    )
+
+
+# ═══════════════════════════════════════════════════
+# BUTTON STYLES
+# ═══════════════════════════════════════════════════
+
+def get_button_style(button_type):
+    """
+    Επιστροφή button styling
+    button_type: "primary", "success", "danger", "secondary"
     """
     theme = get_current_theme()
-    
+
     styles = {
         "primary": {
             "fg_color": theme["accent_blue"],
-            "hover_color": _adjust_color(theme["accent_blue"], -20)
+            "hover_color": "#2d6ca3",
+            "text_color": "white",
+            "corner_radius": 10
         },
         "success": {
             "fg_color": theme["accent_green"],
-            "hover_color": _adjust_color(theme["accent_green"], -20)
+            "hover_color": "#218838",
+            "text_color": "white",
+            "corner_radius": 10
         },
         "danger": {
             "fg_color": theme["accent_red"],
-            "hover_color": _adjust_color(theme["accent_red"], -20)
+            "hover_color": "#bd2130",
+            "text_color": "white",
+            "corner_radius": 10
         },
         "secondary": {
-            "fg_color": theme["text_disabled"],
-            "hover_color": _adjust_color(theme["text_disabled"], -20)
-        },
-        "special": {
-            "fg_color": theme["accent_purple"],
-            "hover_color": _adjust_color(theme["accent_purple"], -20)
-        },
-        "warning": {
-            "fg_color": theme["accent_orange"],
-            "hover_color": _adjust_color(theme["accent_orange"], -20)
+            "fg_color": theme["bg_tertiary"],
+            "hover_color": theme["card_border"],
+            "text_color": theme["text_primary"],
+            "corner_radius": 10
         }
     }
-    
+
     return styles.get(button_type, styles["primary"])
 
 
-def get_card_style():
-    """
-    Returns consistent card styling for the current theme.
-    
-    Returns:
-        dict: Dictionary with card styling properties
-    """
-    theme = get_current_theme()
-    
-    return {
-        "fg_color": theme["card_bg"],
-        "border_color": theme["card_border"],
-        "border_width": 1,
-        "corner_radius": 10
-    }
+# ═══════════════════════════════════════════════════
+# INITIALIZATION
+# ═══════════════════════════════════════════════════
 
-
-def _adjust_color(hex_color, adjustment):
-    """
-    Adjusts a hex color by a given amount (for hover effects).
-    
-    Args:
-        hex_color (str): Hex color string (e.g., "#1f6aa5")
-        adjustment (int): Amount to adjust RGB values (-255 to 255)
-    
-    Returns:
-        str: Adjusted hex color string
-    """
-    hex_color = hex_color.lstrip('#')
-    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-    r = max(0, min(255, r + adjustment))
-    g = max(0, min(255, g + adjustment))
-    b = max(0, min(255, b + adjustment))
-    return f'#{r:02x}{g:02x}{b:02x}'
-
-
-# ==================== LEGACY COMPATIBILITY ====================
-
-def adjust_color(hex_color, adjustment):
-    """
-    Public wrapper for _adjust_color for backward compatibility.
-    
-    Args:
-        hex_color (str): Hex color string
-        adjustment (int): Amount to adjust RGB values
-    
-    Returns:
-        str: Adjusted hex color string
-    """
-    return _adjust_color(hex_color, adjustment)
+# Load settings on module import
+load_settings()

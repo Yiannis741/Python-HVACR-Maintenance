@@ -562,7 +562,7 @@ class TaskForm(ctk.CTkFrame):
             command=self.save_task,
             width=150,
             height=40,
-            corner_radius=10,
+
             font=theme_config.get_font("body", "bold"),
             **theme_config.get_button_style("success")
         )
@@ -574,7 +574,7 @@ class TaskForm(ctk.CTkFrame):
             command=self.on_save_callback,
             width=150,
             height=40,
-            corner_radius=10,
+
             font=theme_config.get_font("body", "bold"),
             **theme_config.get_button_style("secondary")
         )
@@ -588,7 +588,7 @@ class TaskForm(ctk.CTkFrame):
                 command=self.delete_task,
                 width=150,
                 height=40,
-                corner_radius=10,
+
                 font=theme_config.get_font("body", "bold"),
                 **theme_config.get_button_style("danger")
             )

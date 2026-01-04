@@ -9,8 +9,7 @@ import database
 import ui_components
 import theme_config
 
-# Εφαρμογή theme πριν τη δημιουργία του app
-theme_config.apply_theme()
+
 
 
 class HVACRApp(ctk.CTk):
@@ -81,6 +80,7 @@ class HVACRApp(ctk.CTk):
             ("📅 Πρόγραμμα Βαρδιών", self.show_shifts, "primary"),
             ("📤 Εξαγωγή", self.show_export, "primary"),
             ("🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "danger"),
+            ("⚙️ Ρυθμίσεις", self.show_settings, "secondary"),
         ]
         
         self.sidebar_buttons = {}
@@ -966,6 +966,282 @@ class HVACRApp(ctk.CTk):
         self.clear_main_frame()
         
         ui_components.RecycleBinView(self.main_frame, self.on_task_saved)
+
+    def show_settings(self):
+        """Settings page - Theme & Font Size"""
+        self.clear_main_frame()
+
+        # Title
+        title_frame = ctk.CTkFrame(
+            self.main_frame,
+            corner_radius=12,
+            fg_color=self.theme["bg_secondary"],
+            border_color=self.theme["accent_blue"],
+            border_width=2,
+            height=60
+        )
+        title_frame.pack(fill="x", padx=40, pady=(20, 10))
+        title_frame.pack_propagate(False)
+
+        title = ctk.CTkLabel(
+            title_frame,
+            text="⚙️ Ρυθμίσεις Εφαρμογής",
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["accent_blue"]
+        )
+        title.pack(expand=True)
+
+        # Settings container
+        settings_container = ctk.CTkScrollableFrame(
+            self.main_frame,
+            fg_color="transparent"
+        )
+        settings_container.pack(fill="both", expand=True, padx=40, pady=10)
+
+        # ═══════════════════════════════════════════════
+        # THEME SECTION
+        # ═══════════════════════════════════════════════
+
+        theme_frame = ctk.CTkFrame(
+            settings_container,
+            corner_radius=15,
+            fg_color=self.theme["card_bg"],
+            border_color=self.theme["card_border"],
+            border_width=1
+        )
+        theme_frame.pack(fill="x", pady=(0, 20))
+
+        ctk.CTkLabel(
+            theme_frame,
+            text="🎨 Θέμα Εμφάνισης",
+            font=theme_config.get_font("heading", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(anchor="w", padx=20, pady=(20, 10))
+
+        ctk.CTkLabel(
+            theme_frame,
+            text="Επιλέξτε το θέμα που προτιμάτε.  Η αλλαγή θα εφαρμοστεί μετά από επανεκκίνηση.",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"],
+            wraplength=600,
+            justify="left"
+        ).pack(anchor="w", padx=20, pady=(0, 15))
+
+        # Theme buttons
+        theme_buttons_frame = ctk.CTkFrame(theme_frame, fg_color="transparent")
+        theme_buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
+
+        current_theme = theme_config.get_current_theme_name()
+
+        dark_btn = ctk.CTkButton(
+            theme_buttons_frame,
+            text="🌙 Σκούρο Θέμα" + (" ✓" if current_theme == "dark" else ""),
+            command=lambda: self.change_theme("dark"),
+            width=200,
+            height=50,
+            font=theme_config.get_font("body", "bold"),
+            **theme_config.get_button_style("primary" if current_theme == "dark" else "secondary")
+        )
+        dark_btn.pack(side="left", padx=(0, 10))
+
+        light_btn = ctk.CTkButton(
+            theme_buttons_frame,
+            text="☀️ Ανοιχτό Θέμα" + (" ✓" if current_theme == "light" else ""),
+            command=lambda: self.change_theme("light"),
+            width=200,
+            height=50,
+            font=theme_config.get_font("body", "bold"),
+            **theme_config.get_button_style("primary" if current_theme == "light" else "secondary")
+        )
+        light_btn.pack(side="left")
+
+        # ═══════════════════════════════════════════════
+        # FONT SIZE SECTION
+        # ═══════════════════════════════════════════════
+
+        font_frame = ctk.CTkFrame(
+            settings_container,
+            corner_radius=15,
+            fg_color=self.theme["card_bg"],
+            border_color=self.theme["card_border"],
+            border_width=1
+        )
+        font_frame.pack(fill="x", pady=(0, 20))
+
+        ctk.CTkLabel(
+            font_frame,
+            text="🔤 Μέγεθος Γραμματοσειράς",
+            font=theme_config.get_font("heading", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(anchor="w", padx=20, pady=(20, 10))
+
+        ctk.CTkLabel(
+            font_frame,
+            text="Προσαρμόστε το μέγεθος των γραμμάτων στις προτιμήσεις σας (80% - 150%).",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"],
+            wraplength=600,
+            justify="left"
+        ).pack(anchor="w", padx=20, pady=(0, 15))
+
+        # Slider container
+        slider_container = ctk.CTkFrame(font_frame, fg_color="transparent")
+        slider_container.pack(fill="x", padx=20, pady=(0, 20))
+
+        current_scale = theme_config.get_font_scale()
+
+        # Scale label
+        scale_label = ctk.CTkLabel(
+            slider_container,
+            text=f"Τρέχον μέγεθος: {int(current_scale * 100)}%",
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["accent_blue"]
+        )
+        scale_label.pack(anchor="w", pady=(0, 10))
+
+        # Preview text
+        self.preview_label = ctk.CTkLabel(
+            slider_container,
+            text="Αυτό είναι ένα δείγμα κειμένου",
+            font=ctk.CTkFont(family="Segoe UI", size=int(13 * current_scale)),
+            text_color=self.theme["text_primary"]
+        )
+        self.preview_label.pack(anchor="w", pady=(0, 15))
+
+        def on_scale_change(value):
+            scale_label.configure(text=f"Νέο μέγεθος: {int(value * 100)}%")
+            # Update preview
+            self.preview_label.configure(
+                font=ctk.CTkFont(family="Segoe UI", size=int(13 * value))
+            )
+
+        slider = ctk.CTkSlider(
+            slider_container,
+            from_=0.8,
+            to=1.5,
+            number_of_steps=14,
+            command=on_scale_change,
+            width=500
+        )
+        slider.set(current_scale)
+        slider.pack(fill="x", pady=(0, 10))
+
+        # Scale indicators
+        indicators_frame = ctk.CTkFrame(slider_container, fg_color="transparent")
+        indicators_frame.pack(fill="x")
+
+        ctk.CTkLabel(
+            indicators_frame,
+            text="80%",
+            font=theme_config.get_font("tiny"),
+            text_color=self.theme["text_disabled"]
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            indicators_frame,
+            text="100%",
+            font=theme_config.get_font("tiny"),
+            text_color=self.theme["text_disabled"]
+        ).pack(side="left", expand=True)
+
+        ctk.CTkLabel(
+            indicators_frame,
+            text="150%",
+            font=theme_config.get_font("tiny"),
+            text_color=self.theme["text_disabled"]
+        ).pack(side="right")
+
+        # Apply font button
+        apply_font_btn = ctk.CTkButton(
+            font_frame,
+            text="✔️ Εφαρμογή Μεγέθους",
+            command=lambda: self.apply_font_scale(slider.get()),
+            width=200,
+            height=45,
+            font=theme_config.get_font("body", "bold"),
+            **theme_config.get_button_style("success")
+        )
+        apply_font_btn.pack(pady=(0, 20))
+
+        # ═══════════════════════════════════════════════
+        # RESTART INFO
+        # ═══════════════════════════════════════════════
+
+        info_frame = ctk.CTkFrame(
+            settings_container,
+            corner_radius=10,
+            fg_color=self.theme["bg_secondary"],
+            border_color=self.theme["accent_orange"],
+            border_width=2
+        )
+        info_frame.pack(fill="x", pady=(0, 20))
+
+        ctk.CTkLabel(
+            info_frame,
+            text="ℹ️ Σημαντική Σημείωση",
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["accent_orange"]
+        ).pack(anchor="w", padx=15, pady=(15, 5))
+
+        ctk.CTkLabel(
+            info_frame,
+            text="Οι αλλαγές στο θέμα και στο μέγεθος γραμματοσειράς απαιτούν επανεκκίνηση "
+                 "της εφαρμογής για να εφαρμοστούν πλήρως.",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"],
+            wraplength=650,
+            justify="left"
+        ).pack(anchor="w", padx=15, pady=(0, 15))
+
+    def change_theme(self, theme_name):
+        """Αλλαγή θέματος"""
+        if theme_config.set_theme(theme_name):
+            from tkinter import messagebox
+
+            result = messagebox.askyesno(
+                "Επανεκκίνηση Απαιτείται",
+                f"Το θέμα άλλαξε σε '{theme_name}'.\n\n"
+                "Η εφαρμογή πρέπει να επανεκκινήσει για να εφαρμοστούν οι αλλαγές.\n\n"
+                "Επανεκκίνηση τώρα;",
+                icon='question'
+            )
+
+            if result:
+                self.restart_app()
+            else:
+                messagebox.showinfo(
+                    "Πληροφορία",
+                    "Οι αλλαγές θα εφαρμοστούν στην επόμενη εκκίνηση."
+                )
+
+    def apply_font_scale(self, scale):
+        """Εφαρμογή font scale"""
+        if theme_config.set_font_scale(scale):
+            from tkinter import messagebox
+
+            result = messagebox.askyesno(
+                "Επανεκκίνηση Απαιτείται",
+                f"Το μέγεθος γραμματοσειράς άλλαξε σε {int(scale * 100)}%.\n\n"
+                "Η εφαρμογή πρέπει να επανεκκινήσει για να εφαρμοστούν οι αλλαγές.\n\n"
+                "Επανεκκίνηση τώρα;",
+                icon='question'
+            )
+
+            if result:
+                self.restart_app()
+            else:
+                messagebox.showinfo(
+                    "Πληροφορία",
+                    "Οι αλλαγές θα εφαρμοστούν στην επόμενη εκκίνηση."
+                )
+
+    def restart_app(self):
+        """Επανεκκίνηση εφαρμογής"""
+        import sys
+        import os
+
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
         
     def load_initial_data(self):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""
