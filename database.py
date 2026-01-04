@@ -784,6 +784,7 @@ def restore_task(task_id):
 
     restored_task = dict(cursor.fetchone())
     restored_date = restored_task['created_date']
+    restored_time = restored_task['created_at']
     unit_id = restored_task['unit_id']
 
     # Get all active tasks for this unit (ordered by date)
@@ -812,29 +813,42 @@ def restore_task(task_id):
         conn.close()
         return
 
-    # Find correct insertion point by date
+    # Find correct insertion point by date and timestamp
     insert_after = None
     insert_before = None
 
     for task in unit_tasks:
-        if task['created_date'] < restored_date:
+        if task['created_date'] < restored_date or \
+           (task['created_date'] == restored_date and task['created_at'] < restored_time):
             insert_after = task
-        elif task['created_date'] > restored_date and insert_before is None:
-            insert_before = task
-            break
+        elif task['created_date'] > restored_date or \
+             (task['created_date'] == restored_date and task['created_at'] > restored_time):
+            if insert_before is None:
+                insert_before = task
+                break
 
     # ═════════════════════════════════════════════════
     # Rebuild relationships chronologically
     # ═════════════════════════════════════════════════
 
+    # Clean up ALL old bypass relationships involving this task
+    cursor.execute("""
+        DELETE FROM task_relationships
+        WHERE (parent_task_id = ? OR child_task_id = ?)
+          AND is_deleted = 0
+          AND relationship_type = 'related'
+    """, (task_id, task_id))
+
     if insert_after and insert_before:
         # MIDDLE INSERT
-        # Remove bypass (if exists)
+        # Remove bypass (if exists) between the adjacent tasks
         cursor.execute("""
                        DELETE
                        FROM task_relationships
                        WHERE parent_task_id = ?
                          AND child_task_id = ?
+                         AND is_deleted = 0
+                         AND relationship_type = 'related'
                        """, (insert_after['id'], insert_before['id']))
 
         # Create:  insert_after → restored_task
