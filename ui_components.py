@@ -10,83 +10,33 @@ from tkinter import messagebox
 from tkcalendar import Calendar
 from datetime import datetime, timedelta
 
-# Replace only the TaskCard class in ui_components.py with this improved version.
-
 class TaskCard(ctk.CTkFrame):
-    """Καρτέλα εργασίας για προβολή - Compact Design με Link Indicators (improved)"""
+    """Καρτέλα εργασίας για προβολή - Compact Design με Link Indicators"""
 
     def __init__(self, parent, task_data, on_click=None, show_relations=True):
-        self.theme = theme_config.get_current_theme()
+        theme = theme_config.get_current_theme()
         super().__init__(
             parent,
             corner_radius=8,
-            fg_color=self.theme["card_bg"],
-            border_color=self.theme["card_border"],
+            fg_color=theme["card_bg"],
+            border_color=theme["card_border"],
             border_width=1,
-            height=70
+            height=65
         )
 
         self.task = task_data
         self.on_click = on_click
+        self.theme = theme
         self.show_relations = show_relations
 
         self.pack_propagate(False)
 
-        # For hover state
-        self._is_hover = False
-
-        # Create UI
         self.create_card()
 
-        # Clickable + hover bindings
+        # Clickable
         if on_click:
             self.configure(cursor="hand2")
-        self.bind_all_children_for_click(self, on_click)
-
-        # Hover: change bg / border to give elevation feel
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-
-        # Tooltip for full description (shows on hover)
-        self._tooltip = None
-
-    def bind_all_children_for_click(self, widget, on_click):
-        """Bind click on widget and all children so clicking label also triggers."""
-        if on_click:
-            widget.bind("<Button-1>", lambda e: on_click(self.task))
-        for child in widget.winfo_children():
-            self.bind_all_children_for_click(child, on_click)
-
-    def _on_enter(self, event=None):
-        if self._is_hover:
-            return
-        self._is_hover = True
-        # Slightly stronger border + subtle bg
-        self.configure(border_color=self.theme["accent_blue"], border_width=2, fg_color=self.theme.get("card_bg_hover", self.theme["bg_tertiary"]))
-        # Show tooltip with full description if description is long
-        desc = self.task.get("description", "")
-        if desc and len(desc) > 60:
-            # simple tooltip using a top-level
-            x = self.winfo_rootx() + 20
-            y = self.winfo_rooty() + self.winfo_height() + 5
-            self._tooltip = ctk.CTkToplevel(self)
-            self._tooltip.overrideredirect(True)
-            self._tooltip.wm_attributes("-topmost", True)
-            lbl = ctk.CTkLabel(self._tooltip, text=desc, font=theme_config.get_font("tiny"), fg_color=self.theme["card_bg"], text_color=self.theme["text_primary"], wraplength=400)
-            lbl.pack(padx=8, pady=6)
-            self._tooltip.geometry(f"+{x}+{y}")
-
-    def _on_leave(self, event=None):
-        if not self._is_hover:
-            return
-        self._is_hover = False
-        self.configure(border_color=self.theme["card_border"], border_width=1, fg_color=self.theme["card_bg"])
-        if self._tooltip:
-            try:
-                self._tooltip.destroy()
-            except:
-                pass
-            self._tooltip = None
+            self.bind("<Button-1>", lambda e: on_click(task_data))
 
     def _get_full_chain_simple(self, task_id):
         """Lightweight chain calculation για το badge"""
@@ -124,7 +74,7 @@ class TaskCard(ctk.CTkFrame):
         return chain
 
     def create_card(self):
-        """Δημιουργία της καρτέλας - Compact Layout (improved visual)"""
+        """Δημιουργία της καρτέλας - Compact Layout"""
 
         # Status & Priority colors
         status_color = self.theme["accent_green"] if self.task['status'] == 'completed' else self.theme["accent_orange"]
@@ -140,19 +90,19 @@ class TaskCard(ctk.CTkFrame):
         priority_icons = {"low": "🟢", "medium": "🟡", "high": "🔴"}
         priority_icon = priority_icons.get(self.task.get('priority', 'medium'), "🟡")
 
-        # Layout
+        # ===== ROW 1: Header Line =====
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(fill="x", padx=12, pady=(8, 4))
 
+        # LEFT SECTION: Task Type → Task Item → Unit
         left_section = ctk.CTkFrame(header_frame, fg_color="transparent")
         left_section.pack(side="left", fill="x", expand=True)
 
-        # Task Type → Task Item → Unit (short)
-        type_parts = [f"🔧 {self.task['task_type_name']}"]
+        # Task Type → Task Item → Unit
+        type_text = f"🔧 {self.task['task_type_name']}"
         if self.task.get('task_item_name'):
-            type_parts.append(self.task['task_item_name'])
-        type_parts.append(f"📍 {self.task['unit_name']}")
-        type_text = " → ".join(type_parts)
+            type_text += f" → {self.task['task_item_name']}"
+        type_text += f" → 📍 {self.task['unit_name']}"
 
         type_label = ctk.CTkLabel(
             left_section,
@@ -161,62 +111,73 @@ class TaskCard(ctk.CTkFrame):
             text_color=self.theme["text_primary"],
             anchor="w"
         )
-        type_label.pack(side="left", fill="x", expand=True)
+        type_label.pack(side="left")
 
-        # Right: Priority and status as compact badges
-        right_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
-        right_frame.pack(side="right")
+        # RIGHT SECTION:  Priority + Status (pack από δεξιά)
 
-        # Priority badge
-        pri_badge = ctk.CTkLabel(
-            right_frame,
+        # Priority (pack first = farthest right)
+        priority_label = ctk.CTkLabel(
+            header_frame,
             text=f"{priority_icon} {self.task.get('priority', 'medium').upper()}",
-            font=theme_config.get_font("tiny", "bold"),
+            font=theme_config.get_font("small", "bold"),
             text_color=priority_color
         )
-        pri_badge.pack(side="right", padx=(6, 0))
+        priority_label.pack(side="right", padx=(10, 0))
 
-        status_badge = ctk.CTkLabel(
-            right_frame,
-            text=f"{status_icon}",
+        # Status (pack second = left of priority)
+        status_label = ctk.CTkLabel(
+            header_frame,
+            text=f"{status_icon} {status_text}",
             font=theme_config.get_font("small", "bold"),
             text_color=status_color
         )
-        status_badge.pack(side="right", padx=(0, 6))
+        status_label.pack(side="right", padx=(0, 10))
 
-        # Info line
+        # ===== ROW 2: Info Line (Chain + Description + Date + Technician) =====
         info_frame = ctk.CTkFrame(self, fg_color="transparent")
         info_frame.pack(fill="x", padx=12, pady=(2, 8))
 
-        # Chain indicator (use theme color, not hardcoded)
+        # Chain indicator FIRST (if exists) - με ΜΠΛΕ χρώμα
+        chain_widget = None
         if self.show_relations:
             full_chain = self._get_full_chain_simple(self.task['id'])
             if len(full_chain) > 1:
                 position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
                 chain_length = len(full_chain)
+
                 chain_widget = ctk.CTkLabel(
                     info_frame,
                     text=f"🔗 {position}/{chain_length}",
                     font=theme_config.get_font("small", "bold"),
-                    text_color=self.theme["accent_blue"],
+                    text_color="#3B8ED0",  # ← Hardcoded ΜΠΛΕ!
                     anchor="w"
                 )
-                chain_widget.pack(side="left", padx=(0, 6))
+                chain_widget.pack(side="left", padx=(0, 5))
 
+                # Separator
                 ctk.CTkLabel(
                     info_frame,
                     text="•",
                     font=theme_config.get_font("small"),
                     text_color=self.theme["text_disabled"]
-                ).pack(side="left", padx=(0, 6))
+                ).pack(side="left", padx=(0, 5))
 
-        # Description (short) + date + technician
-        desc = self.task.get('description', '')
-        short_desc = desc[:55] + "..." if len(desc) > 55 else desc
-        parts = [short_desc, f"📅 {self.task['created_date']}"]
+        # Rest of info (Description + Date + Technician)
+        info_parts = []
+
+        # Description
+        desc_text = self.task['description'][:45] + "..." if len(self.task['description']) > 45 else self.task[
+            'description']
+        info_parts.append(desc_text)
+
+        # Date
+        info_parts.append(f"📅 {self.task['created_date']}")
+
+        # Technician
         if self.task.get('technician_name'):
-            parts.append(f"👤 {self.task['technician_name']}")
-        info_text = " • ".join(p for p in parts if p)
+            info_parts.append(f"👤 {self.task['technician_name']}")
+
+        info_text = " • ".join(info_parts)
 
         info_label = ctk.CTkLabel(
             info_frame,
@@ -226,6 +187,23 @@ class TaskCard(ctk.CTkFrame):
             anchor="w"
         )
         info_label.pack(side="left", fill="x", expand=True)
+
+        # Bind click to all widgets
+        # Bind click to all widgets
+        if self.on_click:
+            # Capture self.task EARLY to avoid reference issues
+            task_ref = self.task
+
+            widgets = [
+                self, header_frame, left_section, type_label,
+                status_label, priority_label,
+                info_frame, info_label
+            ]
+
+            for widget in widgets:
+                # Use task_ref instead of self.task in lambda
+                widget.bind("<Button-1>", lambda e, t=task_ref: self.on_click(t))
+                widget.configure(cursor="hand2")
 
 
 class DatePickerDialog(ctk.CTkToplevel):
@@ -2155,143 +2133,164 @@ class TaskHistoryView(ctk.CTkFrame):
         self.type_combo. set("Όλα")
         self.load_tasks()
 
-
 class RecycleBinView(ctk.CTkFrame):
-    """Κάδος Ανακύκλωσης"""
-    
-    def __init__(self, parent, refresh_callback):
+    """
+    Recycle Bin view - lists soft-deleted tasks with options to Restore or Permanently Delete.
+    Uses compact, less-dangerous Delete button (small, with confirmation).
+    """
+
+    def __init__(self, parent, on_change_callback=None):
         super().__init__(parent, fg_color="transparent")
-        
-        self. refresh_callback = refresh_callback
-        self.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        self.create_ui()
-        self.load_deleted_tasks()
-        
-    def create_ui(self):
-        """Δημιουργία UI"""
-        
+        self.parent = parent
+        self.on_change_callback = on_change_callback
+        self.theme = theme_config.get_current_theme()
+
+        self.pack(fill="both", expand=True, padx=40, pady=10)
+
         # Header
-        header_frame = ctk.CTkFrame(self, height=60, fg_color="transparent")
-        header_frame.pack(fill="x", pady=(0, 10))
-        
-        ctk.CTkLabel(
+        header_frame = ctk.CTkFrame(self, corner_radius=10, fg_color=self.theme["bg_secondary"])
+        header_frame.pack(fill="x", pady=(0, 12))
+        header_frame.pack_propagate(False)
+        header_frame.configure(height=60)
+
+        title = ctk.CTkLabel(
             header_frame,
-            text="🗑️ Διαγραμμένες Εργασίες",
-            font=theme_config.get_font("title", "bold")
-        ).pack(side="left", padx=10)
-        
-        ctk.CTkButton(
+            text="🗑️ Κάδος Ανακύκλωσης - Διαγραμμένες Εργασίες",
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["accent_blue"]
+        )
+        title.pack(side="left", padx=15)
+
+        info = ctk.CTkLabel(
             header_frame,
-            text="🔄 Ανανέωση",
-            command=self.load_deleted_tasks,
-            width=120,
-            **theme_config.get_button_style("primary")
-        ).pack(side="right", padx=10)
-        
-        # Tasks List
-        self.tasks_frame = ctk.CTkScrollableFrame(self)
-        self.tasks_frame.pack(fill="both", expand=True)
+            text="Εδώ μπορείτε να επαναφέρετε ή να διαγράψετε οριστικά εργασίες.",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"]
+        )
+        info.pack(side="right", padx=15)
+
+        # Scrollable list container
+        self.list_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.list_frame.pack(fill="both", expand=True, pady=(8, 0))
+
+        # Load content
+        self.load_deleted_tasks()
+
+    def _make_button(self, parent, text, command, style_type="primary", width=100, height=32):
+        """
+        Small helper to create buttons using theme_config.get_button_style safely.
+        Avoids passing duplicate keyword args that cause CTkButton TypeError.
+        """
+        style = theme_config.get_button_style(style_type) or {}
+        # Ensure we don't accidentally pass duplicates of common args
+        # We'll pass style dict entirely and also provide width/height/text/command explicitly.
+        btn = ctk.CTkButton(parent, text=text, command=command, width=width, height=height, **style)
+        return btn
 
     def load_deleted_tasks(self):
-        """Φόρτωση διαγραμμένων εργασιών"""
+        """Load soft-deleted tasks from DB and render them."""
+        # Clear list
+        for w in self.list_frame.winfo_children():
+            w.destroy()
 
-        # Clear existing
-        for widget in self.tasks_frame.winfo_children():
-            widget.destroy()
+        deleted = database.get_deleted_tasks()
 
-        tasks = database.get_deleted_tasks()
-
-        if not tasks:
-            no_tasks = ctk.CTkLabel(
-                self.tasks_frame,
-                text="🎉 Ο Κάδος Ανακύκλωσης είναι άδειος",
+        if not deleted:
+            empty_lbl = ctk.CTkLabel(
+                self.list_frame,
+                text="Δεν υπάρχουν διαγραμμένες εργασίες στον κάδο.",
                 font=theme_config.get_font("body"),
-                text_color=theme_config.get_current_theme()["text_secondary"]
+                text_color=self.theme["text_secondary"]
             )
-            no_tasks.pack(pady=50)
+            empty_lbl.pack(pady=40)
             return
 
-        # Count label
-        theme = theme_config.get_current_theme()
-        count_label = ctk.CTkLabel(
-            self.tasks_frame,
-            text=f"🗑️ {len(tasks)} διαγραμμένες εργασίες",
+        # Count header
+        count_lbl = ctk.CTkLabel(
+            self.list_frame,
+            text=f"Βρέθηκαν {len(deleted)} εργασίες στον κάδο",
             font=theme_config.get_font("body", "bold"),
-            text_color=theme["accent_red"]
+            text_color=self.theme["accent_blue"]
         )
-        count_label.pack(anchor="w", padx=10, pady=10)
+        count_lbl.pack(anchor="w", padx=8, pady=(8, 12))
 
-        # Task cards με action buttons
-        for task in tasks:
-            # Container για card + buttons
-            container = ctk.CTkFrame(self.tasks_frame, fg_color="transparent")
-            container.pack(fill="x", pady=5, padx=10)
+        for task in deleted:
+            self._render_deleted_task(task)
 
-            # Task card (αριστερά) - χρήση της compact TaskCard!
-            card_container = ctk.CTkFrame(container, fg_color="transparent")
-            card_container.pack(side="left", fill="both", expand=True, padx=(0, 10))
+    def _render_deleted_task(self, task):
+        """Render a single deleted task row with Restore + Delete buttons."""
+        row = ctk.CTkFrame(self.list_frame, fg_color=self.theme["card_bg"],
+                           border_color=self.theme["card_border"], border_width=1, corner_radius=8)
+        row.pack(fill="x", padx=8, pady=6)
 
-            # Create TaskCard με red border για "deleted" look
-            task_card = TaskCard(card_container, task, on_click=None)  # No click για deleted
-            task_card.pack(fill="x")
+        # Left info: basic summary
+        left = ctk.CTkFrame(row, fg_color="transparent")
+        left.pack(side="left", fill="x", expand=True, padx=(12, 8), pady=8)
 
-            # Override border color to red για deleted indicator
-            task_card.configure(
-                border_color=theme["accent_red"],
-                border_width=2
-            )
+        title_text = f"#{task['id']}  •  {task['task_type_name']} — {task['unit_name']}"
+        lbl_title = ctk.CTkLabel(left, text=title_text, font=theme_config.get_font("body", "bold"),
+                                 text_color=self.theme["text_primary"], anchor="w")
+        lbl_title.pack(fill="x")
 
-            # Action buttons (δεξιά)
-            actions_frame = ctk.CTkFrame(container, fg_color="transparent")
-            actions_frame.pack(side="right")
+        subtitle = task.get('task_item_name') or task.get('description') or ""
+        lbl_sub = ctk.CTkLabel(left, text=f"{task.get('created_date')}  •  {subtitle}",
+                               font=theme_config.get_font("small"), text_color=self.theme["text_secondary"], anchor="w")
+        lbl_sub.pack(fill="x", pady=(3, 0))
 
-            restore_btn = ctk.CTkButton(
-                actions_frame,
-                text="↩️ Επαναφορά",
-                command=lambda t=task: self.restore_task(t['id']),
-                width=120,
-                height=32,
-                **theme_config.get_button_style("success")
-            )
-            restore_btn.pack(pady=2)
+        # Right actions: Restore + Permanent Delete (compact)
+        actions = ctk.CTkFrame(row, fg_color="transparent")
+        actions.pack(side="right", padx=12, pady=8)
 
-            delete_btn = ctk.CTkButton(
-                actions_frame,
-                text="🗑️ Οριστική Διαγραφή",
-                command=lambda t=task: self.permanent_delete_task(t['id']),
-                width=120,
-                height=32,
-                **theme_config.get_button_style("danger")
-            )
-            delete_btn.pack(pady=2)
-    
-    def restore_task(self, task_id):
-        """Επαναφορά εργασίας"""
-        result = messagebox.askyesno("Επιβεβαίωση", "Επαναφορά αυτής της εργασίας;")
-        
-        if result:
-            try: 
-                database.restore_task(task_id)
-                messagebox.showinfo("Επιτυχία", "Η εργασία επαναφέρθηκε!")
-                self.load_deleted_tasks()
-                self.refresh_callback()
-            except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία επαναφοράς: {str(e)}")
-    
-    def permanent_delete_task(self, task_id):
-        """Οριστική διαγραφή εργασίας"""
-        result = messagebox.askyesno("ΠΡΟΣΟΧΗ!", 
-                                     "Είστε ΣΙΓΟΥΡΟΙ ότι θέλετε να διαγράψετε ΟΡΙΣΤΙΚΑ αυτή την εργασία?\n\n"
-                                     "Αυτή η ενέργεια ΔΕΝ μπορεί να αναιρεθεί!")
-        
-        if result: 
-            try:
-                database.permanent_delete_task(task_id)
-                messagebox.showinfo("Επιτυχία", "Η εργασία διαγράφηκε οριστικά!")
-                self.load_deleted_tasks()
-            except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
+        # Restore button (green/success)
+        restore_cmd = lambda t=task: self._on_restore(t)
+        restore_btn = self._make_button(actions, "Επαναφορά", restore_cmd, style_type="success", width=110, height=30)
+        restore_btn.pack(side="right", padx=(6, 0))
+
+        # Permanent delete button (small, danger). Confirm before deleting.
+        delete_cmd = lambda t=task: self._on_permanent_delete(t)
+        delete_btn = self._make_button(actions, "Διάγρ. Οριστικά", delete_cmd, style_type="danger", width=120, height=30)
+        delete_btn.pack(side="right", padx=(0, 6))
+
+    def _on_restore(self, task):
+        """Restore a soft-deleted task."""
+        from tkinter import messagebox
+        result = messagebox.askyesno("Επαναφορά Εργασίας", f"Θέλετε να επαναφέρετε την εργασία #{task['id']};")
+        if not result:
+            return
+
+        try:
+            database.restore_task(task['id'])
+        except Exception as e:
+            messagebox.showerror("Σφάλμα", f"Σφάλμα κατά την επαναφορά: {e}")
+            return
+
+        # refresh list and notify caller
+        self.load_deleted_tasks()
+        if callable(self.on_change_callback):
+            self.on_change_callback()
+
+    def _on_permanent_delete(self, task):
+        """Permanently delete task after confirmation."""
+        from tkinter import messagebox
+        result = messagebox.askyesno(
+            "Οριστική Διαγραφή",
+            f"Η εργασία #{task['id']} θα διαγραφεί οριστικά. Η ενέργεια δεν μπορεί να αναιρεθεί.\n\nΘέλετε να συνεχίσετε?"
+        )
+        if not result:
+            return
+
+        try:
+            database.permanent_delete_task(task['id'])
+        except Exception as e:
+            messagebox.showerror("Σφάλμα", f"Σφάλμα κατά την οριστική διαγραφή: {e}")
+            return
+
+        # refresh list and notify caller
+        self.load_deleted_tasks()
+        if callable(self.on_change_callback):
+            self.on_change_callback()
+
+
 
 
 class TaskRelationshipsView(ctk.CTkFrame):
