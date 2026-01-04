@@ -333,14 +333,14 @@ class HVACRApp(ctk.CTk):
             self.main_frame,
             fg_color=self.theme["bg_secondary"],
             corner_radius=10,
-            height=70
+            height=110
         )
-        units_filter_frame.pack(fill="x", padx=40, pady=(0, 10))
+        units_filter_frame.pack(fill="x", padx=30, pady=(0, 10))
         units_filter_frame.pack_propagate(False)
 
         # Content container
         units_content = ctk.CTkFrame(units_filter_frame, fg_color="transparent")
-        units_content.pack(fill="x", padx=20, pady=15)
+        units_content.pack(fill="x", padx=20, pady=(20,20))
 
         # Label
         ctk.CTkLabel(
@@ -355,7 +355,7 @@ class HVACRApp(ctk.CTk):
             units_content,
             text="Όλες",
             command=lambda: self.filter_by_unit(None),
-            width=100,
+            width=55,
             height=35,
             **theme_config.get_button_style("primary")
         )
