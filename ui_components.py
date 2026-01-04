@@ -188,7 +188,7 @@ class TaskCard(ctk.CTkFrame):
         )
         info_label.pack(side="left", fill="x", expand=True)
 
-
+        # Bind click to all widgets
         # Bind click to all widgets
         if self.on_click:
             # Capture self.task EARLY to avoid reference issues
@@ -2705,476 +2705,153 @@ class TaskRelationshipsView(ctk.CTkFrame):
         if relation_type == "parent":
             flow_text = "[ Επιλογή ] → προκάλεσε → [ Τρέχουσα Εργασία ]"
         else:
-            flow_text = "[ Τρέχουσα Εργασία ] → ακολούθησε → [ Επιλογή ]"
+            flow_text = "[ Τρέχουσα Εργασία ] → ακολούθησε → [ Επιλογή ]"  # ← FIX:  Κλείσιμο string
 
         ctk.CTkLabel(
             flow_frame,
             text=flow_text,
-            font=theme_config.get_font("body", "bold"),
+            font=theme_config.get_font("small", "bold"),
             text_color=self.theme["accent_blue"]
         ).pack()
 
-        # Filters frame
-        filters_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        filters_frame.pack(fill="x", padx=20, pady=(0, 10))
+        # Scrollable task list
+        scrollable = ctk.CTkScrollableFrame(dialog, height=500)
+        scrollable.pack(fill="both", expand=True, padx=20, pady=10)
 
-        # Search
-        ctk.CTkLabel(
-            filters_frame,
-            text="🔍 Αναζήτηση:",
-            font=theme_config.get_font("body"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 10))
-
-        search_var = ctk.StringVar()
-        search_entry = ctk.CTkEntry(
-            filters_frame,
-            textvariable=search_var,
-            width=250,
-            placeholder_text="Περιγραφή, τύπος, είδος.. .",
-            font=theme_config.get_font("input")
-        )
-        search_entry.pack(side="left", padx=(0, 20))
-
-        # Unit filter
-        ctk.CTkLabel(
-            filters_frame,
-            text="📍 Μονάδα:",
-            font=theme_config.get_font("body"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 10))
-
-        all_units = database.get_all_units()
-        unit_filter_var = ctk.StringVar(value="Όλες")
-        unit_filter = ctk.CTkComboBox(
-            filters_frame,
-            values=["Όλες", "Ίδια Μονάδα"] + [u['name'] for u in all_units],
-            variable=unit_filter_var,
-            width=180,
-            state="readonly",
-            font=theme_config.get_font("input")
-        )
-        unit_filter.pack(side="left")
-
-        # Tasks scrollable frame
-        tasks_scrollable = ctk.CTkScrollableFrame(dialog, height=480)
-        tasks_scrollable.pack(fill="both", expand=True, padx=20, pady=10)
-
-        # Get all tasks
+        # Get available tasks (exclude current task and already linked)
         all_tasks = database.get_all_tasks()
+        current_id = self.task_data['id']
 
-        # Exclude current task and already related
-        relations = database.get_related_tasks(self.task_data['id'])
-        related_ids = {self.task_data['id']}
-        related_ids.update(r['id'] for r in relations['parents'])
-        related_ids.update(r['id'] for r in relations['children'])
+        # Get existing relationships
+        relations = database.get_related_tasks(current_id)
 
-        available_tasks = [t for t in all_tasks if t['id'] not in related_ids]
+        # Filter out current task and already linked tasks
+        linked_ids = {current_id}
+        linked_ids.update([t['id'] for t in relations['parents']])
+        linked_ids.update([t['id'] for t in relations['children']])
 
-        # Current unit name
-        current_unit = self.task_data['unit_name']
+        available_tasks = [t for t in all_tasks if
+                           t['id'] not in linked_ids and t['unit_id'] == self.task_data['unit_id']]
 
-        # Expanded state dictionary
-        expanded_units = {current_unit: True}
+        if not available_tasks:
+            ctk.CTkLabel(
+                scrollable,
+                text="Δεν υπάρχουν διαθέσιμες εργασίες για σύνδεση.",
+                font=theme_config.get_font("body"),
+                text_color=self.theme["text_secondary"]
+            ).pack(pady=50)
+            return
 
-        def filter_and_display():
-            """Φιλτράρισμα και εμφάνιση εργασιών"""
-
-            # Clear
-            for widget in tasks_scrollable.winfo_children():
-                widget.destroy()
-
-            search_text = search_var.get().lower()
-            unit_filter_value = unit_filter_var.get()
-
-            # Filter tasks
-            filtered_tasks = available_tasks
-
-            if unit_filter_value == "Ίδια Μονάδα":
-                filtered_tasks = [t for t in filtered_tasks if t['unit_name'] == current_unit]
-            elif unit_filter_value != "Όλες":
-                filtered_tasks = [t for t in filtered_tasks if t['unit_name'] == unit_filter_value]
-
-            if search_text:
-                filtered_tasks = [
-                    t for t in filtered_tasks
-                    if search_text in t['description'].lower()
-                       or search_text in t['task_type_name'].lower()
-                       or (t.get('task_item_name') and search_text in t['task_item_name'].lower())
-                ]
-
-            # Group filtered tasks by unit
-            filtered_by_unit = {}
-            for task in filtered_tasks:
-                unit_name = task['unit_name']
-                if unit_name not in filtered_by_unit:
-                    filtered_by_unit[unit_name] = []
-                filtered_by_unit[unit_name].append(task)
-
-            if not filtered_by_unit:
-                ctk.CTkLabel(
-                    tasks_scrollable,
-                    text="Δεν βρέθηκαν εργασίες με τα συγκεκριμένα κριτήρια.",
-                    font=theme_config.get_font("body"),
-                    text_color=self.theme["text_secondary"]
-                ).pack(pady=50)
-                return
-
-            # Display grouped tasks - Current unit first
-            if current_unit in filtered_by_unit:
-                create_unit_group(current_unit, filtered_by_unit[current_unit], True)
-
-            # Other units
-            for unit_name in sorted(filtered_by_unit.keys()):
-                if unit_name != current_unit:
-                    create_unit_group(unit_name, filtered_by_unit[unit_name], False)
-
-        def create_unit_group(unit_name, tasks, is_current):
-            """Δημιουργία ομάδας μονάδας"""
-
-            # Container
-            group_container = ctk.CTkFrame(tasks_scrollable, fg_color="transparent")
-            group_container.pack(fill="x", pady=5, padx=5)
-
-            # Header
-            is_expanded = expanded_units.get(unit_name, False)
-            arrow = "▼" if is_expanded else "▶"
-
-            header_color = self.theme["accent_blue"] if is_current else self.theme["text_primary"]
-            header_text = f"{arrow} {'💡 ' if is_current else '📍 '}{unit_name} ({len(tasks)} εργασίες)"
-            if is_current:
-                header_text += " - Ίδια Μονάδα"
-
-            header_frame = ctk.CTkFrame(
-                group_container,
+        # Display tasks
+        for task in available_tasks:
+            task_container = ctk.CTkFrame(
+                scrollable,
                 fg_color=self.theme["card_bg"],
-                border_color=self.theme["accent_blue"] if is_current else self.theme["card_border"],
-                border_width=2 if is_current else 1,
-                corner_radius=8,
-                cursor="hand2"
+                border_color=self.theme["card_border"],
+                border_width=1,
+                corner_radius=8
             )
-            header_frame.pack(fill="x", pady=(0, 5))
+            task_container.pack(fill="x", pady=3, padx=5)
 
-            header_label = ctk.CTkLabel(
-                header_frame,
-                text=header_text,
-                font=theme_config.get_font("body", "bold"),
-                text_color=header_color,
-                cursor="hand2"
+            # Task info (left side)
+            info_frame = ctk.CTkFrame(task_container, fg_color="transparent")
+            info_frame.pack(side="left", fill="both", expand=True, padx=10, pady=8)
+
+            # Date badge
+            ctk.CTkLabel(
+                info_frame,
+                text=f"📅 {task['created_date']}",
+                font=theme_config.get_font("tiny", "bold"),
+                text_color=self.theme["accent_blue"]
+            ).pack(anchor="w")
+
+            # Task type + item
+            type_text = f"🔧 {task['task_type_name']}"
+            if task.get('task_item_name'):
+                type_text += f" → {task['task_item_name']}"
+
+            ctk.CTkLabel(
+                info_frame,
+                text=type_text,
+                font=theme_config.get_font("small", "bold"),
+                text_color=self.theme["text_primary"],
+                anchor="w"
+            ).pack(anchor="w")
+
+            # Description (truncated)
+            desc = task['description'][: 60] + "..." if len(task['description']) > 60 else task['description']
+            ctk.CTkLabel(
+                info_frame,
+                text=desc,
+                font=theme_config.get_font("tiny"),
+                text_color=self.theme["text_secondary"],
+                anchor="w"
+            ).pack(anchor="w", pady=(3, 0))
+
+            # Add button (right side)
+            add_btn = ctk.CTkButton(
+                task_container,
+                text="➕ Προσθήκη",
+                command=lambda t=task: self.link_task(t, relation_type, dialog),
+                width=100,
+                height=30,
+                **theme_config.get_button_style("success")
             )
-            header_label.pack(padx=15, pady=10)
+            add_btn.pack(side="right", padx=10, pady=8)
 
-            # Tasks container
-            tasks_container = ctk.CTkFrame(group_container, fg_color="transparent")
-
-            if is_expanded:
-                tasks_container.pack(fill="x", padx=20)
-
-            # Toggle function
-            def toggle():
-                expanded_units[unit_name] = not expanded_units.get(unit_name, False)
-                filter_and_display()
-
-            header_frame.bind("<Button-1>", lambda e: toggle())
-            header_label.bind("<Button-1>", lambda e: toggle())
-
-            # Display tasks if expanded
-            if is_expanded:
-                for task in tasks:
-                    task_container = ctk.CTkFrame(tasks_container, fg_color="transparent")
-                    task_container.pack(fill="x", pady=3, padx=5)
-
-                    # Card
-                    card_frame = ctk.CTkFrame(task_container, fg_color="transparent")
-                    card_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-
-                    task_card = TaskCard(card_frame, task, on_click=lambda t=task: select_task(t), show_relations=False)
-                    task_card.pack(fill="x")
-
-                    # Select button
-                    btn_text = "🔵 Ορισμός ως Αρχική" if relation_type == "parent" else "🟢 Ορισμός ως Συνέχεια"
-                    select_btn = ctk.CTkButton(
-                        task_container,
-                        text=btn_text,
-                        command=lambda t=task: select_task(t),
-                        width=180,
-                        height=32,
-                        **theme_config.get_button_style("success")
-                    )
-                    select_btn.pack(side="right")
-
-        def select_task(task):
-            """Επιλογή εργασίας - Smart Insert Logic"""
-
-            if relation_type == "parent":
-                # ═════════════════════════════════════════════════
-                # PARENT LOGIC (remains the same)
-                # ═════════════════════════════════════════════════
-                confirm_text = (
-                    f"Ορισμός ως ΑΡΧΙΚΗ εργασία:\n\n"
-                    f"🔵 Αρχική:   {task['task_type_name']}"
-                    f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''}\n"
-                    f"📍 {task['unit_name']}\n"
-                    f"📅 {task['created_date']}\n\n"
-                    f"       ↓ προκάλεσε\n\n"
-                    f"🟡 Τρέχουσα:   {self.task_data['task_type_name']}"
-                    f"{' → ' + self.task_data['task_item_name'] if self.task_data.get('task_item_name') else ''}\n"
-                    f"📍 {self.task_data['unit_name']}\n"
-                    f"📅 {self.task_data['created_date']}"
-                )
-
-                result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
-
-                if result:
-                    try:
-                        database.add_task_relationship(task['id'], self.task_data['id'], "related")
-                        messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
-                        dialog.destroy()
-                        self.load_relationships()
-                        self.refresh_callback()
-                    except Exception as e:
-                        messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
-
-            else:
-                # ═════════════════════════════════════════════════
-                # CHILD LOGIC - SMART INSERT with chronological check
-                # ═════════════════════════════════════════════════
-
-                from datetime import datetime
-
-                # Get full chain
-                full_chain = self.get_full_chain(self.task_data['id'])
-                last_task_in_chain = full_chain[-1]
-
-                # Parse dates
-                try:
-                    selected_date = datetime.strptime(task['created_date'], '%Y-%m-%d')
-                    last_date = datetime.strptime(last_task_in_chain['created_date'], '%Y-%m-%d')
-                except:
-                    # Fallback to string comparison if date parsing fails
-                    selected_date = task['created_date']
-                    last_date = last_task_in_chain['created_date']
-
-                if selected_date >= last_date:
-                    # ═════════════════════════════════════════════════
-                    # NORMAL APPEND (task is AFTER last task)
-                    # ═════════════════════════════════════════════════
-                    link_to_task = last_task_in_chain
-                    new_position = len(full_chain) + 1
-
-                    confirm_text = (
-                        f"🔗 ΝΕΑ ΑΛΥΣΙΔΑ μετά την προσθήκη:\n\n"
-                        f"[1] ... → [{len(full_chain)}] {link_to_task['task_type_name']}"
-                        f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''} → "
-                        f"[{new_position}] {task['task_type_name']}"
-                        f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''} ✨ ΝΕΟ\n\n"
-                        f"Η νέα εργασία θα μπει στη θέση [{new_position}] (τελευταία).\n\n"
-                        f"Συνέχιση;"
-                    )
-
-                    result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
-
-                    if result:
-                        try:
-                            database.add_task_relationship(link_to_task['id'], task['id'], "related")
-
-                            current_pos = next(
-                                (i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
-                            sequence_num = new_position - current_pos
-
-                            messagebox.showinfo("Επιτυχία", f"Η εργασία προστέθηκε ως Συνέχεια {sequence_num}!")
-                            dialog.destroy()
-                            self.load_relationships()
-                            self.refresh_callback()
-                        except Exception as e:
-                            messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
-
-                else:
-                    # ═════════════════════════════════════════════════
-                    # SMART INSERT (task is EARLIER - insert in middle)
-                    # ═════════════════════════════════════════════════
-
-                    # Find insertion point (first task AFTER selected task chronologically)
-                    insert_after_idx = None
-                    for idx, chain_task in enumerate(full_chain):
-                        try:
-                            chain_date = datetime.strptime(chain_task['created_date'], '%Y-%m-%d')
-                        except:
-                            chain_date = chain_task['created_date']
-
-                        if selected_date < chain_date:
-                            insert_after_idx = idx - 1 if idx > 0 else None
-                            break
-
-                    # If still None, task is earlier than all (should be parent, not child)
-                    if insert_after_idx is None:
-                        messagebox.showerror("Σφάλμα",
-                                             "Η επιλεγμένη εργασία είναι ΠΡΙΝ την τρέχουσα αλυσίδα.\n"
-                                             "Χρησιμοποιήστε 'Προσθήκη Αρχικής Εργασίας' αντί για 'Συνέχεια'.")
-                        return
-
-                    # Get tasks for re-link
-                    insert_after_task = full_chain[insert_after_idx]
-                    next_task = full_chain[insert_after_idx + 1] if insert_after_idx + 1 < len(full_chain) else None
-
-                    if not next_task:
-                        messagebox.showerror("Σφάλμα", "Λογικό σφάλμα insertion point.")
-                        return
-
-                    # Preview
-                    confirm_text = (
-                        f"⚡ ΕΙΣΑΓΩΓΗ ΣΤΗΝ ΑΛΥΣΙΔΑ (re-link):\n\n"
-                        f"ΠΡΙΝ:\n"
-                        f"[{insert_after_idx + 1}] {insert_after_task['task_type_name']}"
-                        f"{' → ' + insert_after_task.get('task_item_name', '')} →\n"
-                        f"[{insert_after_idx + 2}] {next_task['task_type_name']}"
-                        f"{' → ' + next_task.get('task_item_name', '')}\n\n"
-                        f"ΜΕΤΑ:\n"
-                        f"[{insert_after_idx + 1}] {insert_after_task['task_type_name']}"
-                        f"{' → ' + insert_after_task.get('task_item_name', '')} →\n"
-                        f"[{insert_after_idx + 2}] {task['task_type_name']}"
-                        f"{' → ' + task.get('task_item_name', '')} ✨ ΝΕΟ →\n"
-                        f"[{insert_after_idx + 3}] {next_task['task_type_name']}"
-                        f"{' → ' + next_task.get('task_item_name', '')}\n\n"
-                        f"Η αλυσίδα θα αναδιαρθρωθεί αυτόματα.\n\n"
-                        f"Συνέχιση;"
-                    )
-
-                    result = messagebox.askyesno("Επιβεβαίωση Smart Insert", confirm_text)
-
-                    if result:
-                        try:
-                            # Step 1: Remove old relationship
-                            database.remove_task_relationship(insert_after_task['id'], next_task['id'])
-
-                            # Step 2: Create new relationships
-                            database.add_task_relationship(insert_after_task['id'], task['id'], "related")
-                            database.add_task_relationship(task['id'], next_task['id'], "related")
-
-                            messagebox.showinfo("Επιτυχία",
-                                                f"Η εργασία εισήχθη στην αλυσίδα!\n"
-                                                f"Νέα θέση: [{insert_after_idx + 2}]")
-                            dialog.destroy()
-                            self.load_relationships()
-                            self.refresh_callback()
-                        except Exception as e:
-                            messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
-
-        # Bind filters
-        search_var.trace('w', lambda *args: filter_and_display())
-        unit_filter_var.trace('w', lambda *args: filter_and_display())
-
-        # Initial load
-        filter_and_display()
-
-        # Close button
-        close_btn = ctk.CTkButton(
+        # Cancel button at bottom
+        ctk.CTkButton(
             dialog,
-            text="✖ Κλείσιμο",
+            text="✖ Ακύρωση",
             command=dialog.destroy,
-            width=140,
+            width=150,
             height=40,
             **theme_config.get_button_style("secondary")
-        )
-        close_btn.pack(pady=15)
+        ).pack(pady=15)
 
-    def remove_relationship(self, task, relation_type):
-        """Smart remove - αφαιρεί εργασία και δημιουργεί bypass"""
+    def link_task(self, selected_task, relation_type, dialog):
+        """Link the selected task to current task"""
 
-        # Get full chain info
-        full_chain = self.get_full_chain(self.task_data['id'])
-        current_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
-
-        # ═════════════════════════════════════════════════
-        # Αφαιρούμε την ΤΡΕΧΟΥΣΑ εργασία από την αλυσίδα
-        # ═════════════════════════════════════════════════
-
-        # Get τη θέση της τρέχουσας στην αλυσίδα
-        current_task = self.task_data
-        current_idx = current_pos - 1  # 0-indexed
-
-        # Find parent and child of current
-        parent_task = full_chain[current_idx - 1] if current_idx > 0 else None
-        child_task = full_chain[current_idx + 1] if current_idx < len(full_chain) - 1 else None
-
-        # Build warning
-        if parent_task and child_task:
-            warning_text = (
-                f"⚠️ ΑΦΑΙΡΕΣΗ ΑΠΟ ΑΛΥΣΙΔΑ:\n\n"
-                f"Η εργασία θα αφαιρεθεί και η αλυσίδα θα συνεχιστεί:\n\n"
-                f"ΠΡΙΝ:\n"
-                f"...  → [{current_idx}] {parent_task['task_type_name'][: 20]} →\n"
-                f"[{current_pos}] {current_task['task_type_name'][:20]} →\n"
-                f"[{current_pos + 1}] {child_task['task_type_name'][:20]} → .. .\n\n"
-                f"ΜΕΤΑ:\n"
-                f"...  → [{current_idx}] {parent_task['task_type_name'][:20]} →\n"
-                f"[{current_pos}] {child_task['task_type_name'][:20]} → ...\n\n"
-                f"Η εργασία θα γίνει ΑΝΕΞΑΡΤΗΤΗ (εκτός αλυσίδας)."
-            )
-        elif parent_task:
-            warning_text = (
-                f"⚠️ Η εργασία είναι ΤΕΛΕΥΤΑΙΑ στην αλυσίδα.\n"
-                f"Θα αφαιρεθεί και θα γίνει ανεξάρτητη."
-            )
-        elif child_task:
-            warning_text = (
-                f"⚠️ Η εργασία είναι ΠΡΩΤΗ στην αλυσίδα.\n"
-                f"Θα αφαιρεθεί και η επόμενη εργασία θα γίνει η νέα αρχή."
-            )
+        if relation_type == "parent":
+            parent_id = selected_task['id']
+            child_id = self.task_data['id']
         else:
-            warning_text = "Η εργασία είναι ήδη μόνη της."
+            parent_id = self.task_data['id']
+            child_id = selected_task['id']
 
-        confirm_text = (
-            f"Αφαίρεση εργασίας από αλυσίδα:\n\n"
-            f"📅 {current_task['created_date']}\n"
-            f"🔧 {current_task['task_type_name']}"
-            f"{' → ' + current_task['task_item_name'] if current_task.get('task_item_name') else ''}\n"
-            f"📝 {current_task['description'][:60]}.. .\n\n"
-            f"{warning_text}\n\n"
-            f"Συνέχιση;"
+        try:
+            database.add_task_relationship(parent_id, child_id, "related")
+            messagebox.showinfo("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+            dialog.destroy()
+            self.load_relationships()
+        except Exception as e:
+            messagebox.showerror("Σφάλμα", f"Αποτυχία σύνδεσης: {str(e)}")
+
+    def remove_relationship(self, task, item_type):
+        """Remove current task from chain"""
+
+        result = messagebox.askyesno(
+            "Επιβεβαίωση Αφαίρεσης",
+            "Είστε σίγουροι ότι θέλετε να αφαιρέσετε αυτή την εργασία από την αλυσίδα;\n\n"
+            "Η εργασία θα παραμείνει ενεργή αλλά θα αποσυνδεθεί."
         )
-
-        result = messagebox.askyesno("Επιβεβαίωση Αφαίρεσης", confirm_text)
 
         if result:
             try:
-                # ═════════════════════════════════════════════════
-                # SMART REMOVE με BYPASS
-                # ═════════════════════════════════════════════════
+                current_id = self.task_data['id']
 
-                if parent_task and child_task:
-                    # MIDDLE:   Remove current, create bypass parent → child
+                # Get relationships
+                relations = database.get_related_tasks(current_id)
 
-                    # Step 1:  Remove parent → current
-                    database.remove_task_relationship(parent_task['id'], current_task['id'])
+                # Remove parent links
+                for parent in relations['parents']:
+                    database.mark_relationship_manually_removed(parent['id'], current_id)
 
-                    # Step 2:  Remove current → child
-                    database.remove_task_relationship(current_task['id'], child_task['id'])
+                # Remove child links
+                for child in relations['children']:
+                    database.mark_relationship_manually_removed(current_id, child['id'])
 
-                    # Step 3:  Create bypass parent → child
-                    database.add_task_relationship(parent_task['id'], child_task['id'], "related")
-
-                    messagebox.showinfo("Επιτυχία",
-                                        "Η εργασία αφαιρέθηκε!\n"
-                                        "Η αλυσίδα συνεχίστηκε αυτόματα (bypass).")
-
-                elif parent_task:
-                    # LAST:  Remove parent → current
-                    database.remove_task_relationship(parent_task['id'], current_task['id'])
-
-                    messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από το τέλος της αλυσίδας!")
-
-                elif child_task:
-                    # FIRST:   Remove current → child
-                    database.remove_task_relationship(current_task['id'], child_task['id'])
-
-                    messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από την αρχή της αλυσίδας!")
-
-                else:
-                    messagebox.showwarning("Προσοχή", "Η εργασία είναι ήδη μόνη της.")
-
-                self.load_relationships()
+                messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από την αλυσίδα!")
                 self.refresh_callback()
-
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία:   {str(e)}")
+                messagebox.showerror("Σφάλμα", f"Αποτυχία αφαίρεσης: {str(e)}")

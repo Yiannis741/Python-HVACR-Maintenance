@@ -706,13 +706,53 @@ def delete_task(task_id):
 
 
 def restore_task(task_id):
-    """Smart restore - επαναφέρει task ΚΑΙ τη θέση της στην αλυσίδα"""
+    """Smart restore - αλλά ΟΧΙ αν η εργασία είχε αφαιρεθεί χειροκίνητα"""
     conn = get_connection()
     cursor = conn.cursor()
 
     # ═════════════════════════════════════════════════
-    # STEP 1:  Get the task being restored
+    # STEP 1:  Check if task was MANUALLY removed from chain
     # ═════════════════════════════════════════════════
+    cursor.execute("""
+                   SELECT COUNT(*) as count
+                   FROM task_relationships
+                   WHERE (parent_task_id = ?
+                      OR child_task_id = ?)
+                     AND is_deleted = 2
+                   """, (task_id, task_id))
+
+    was_manually_removed = cursor.fetchone()['count'] > 0
+
+    # ═════════════════════════════════════════════════
+    # STEP 2:  Restore task
+    # ═════════════════════════════════════════════════
+    cursor.execute("""
+                   UPDATE tasks
+                   SET is_deleted = 0
+                   WHERE id = ?
+                   """, (task_id,))
+
+    # ═════════════════════════════════════════════════
+    # STEP 3:  If MANUALLY removed, DON'T restore to chain
+    # ═════════════════════════════════════════════════
+    if was_manually_removed:
+        # Delete the manually-removed relationships permanently
+        cursor.execute("""
+                       DELETE
+                       FROM task_relationships
+                       WHERE (parent_task_id = ? OR child_task_id = ?)
+                         AND is_deleted = 2
+                       """, (task_id, task_id))
+
+        conn.commit()
+        conn.close()
+        return  # Exit - task is now standalone
+
+    # ═════════════════════════════════════════════════
+    # STEP 4:  Otherwise, restore to chain chronologically
+    # ═════════════════════════════════════════════════
+
+    # Get the task being restored
     cursor.execute("""
                    SELECT t.*,
                           u.name  as unit_name,
@@ -730,10 +770,6 @@ def restore_task(task_id):
     restored_task = dict(cursor.fetchone())
     restored_date = restored_task['created_date']
     unit_id = restored_task['unit_id']
-
-    # ═════════════════════════════════════════════════
-    # STEP 2:  Find existing chain for this unit
-    # ═════════════════════════════════════════════════
 
     # Get all active tasks for this unit (ordered by date)
     cursor.execute("""
@@ -755,12 +791,9 @@ def restore_task(task_id):
 
     unit_tasks = [dict(row) for row in cursor.fetchall()]
 
-    # ═════════════════════════════════════════════════
-    # STEP 3:  Find correct insertion point by date
-    # ═════════════════════════════════════════════════
-
-    insert_after = None  # Task BEFORE restored task (chronologically)
-    insert_before = None  # Task AFTER restored task (chronologically)
+    # Find correct insertion point by date
+    insert_after = None
+    insert_before = None
 
     for task in unit_tasks:
         if task['created_date'] < restored_date:
@@ -769,22 +802,10 @@ def restore_task(task_id):
             insert_before = task
             break
 
-    # ═════════════════════════════════════════════════
-    # STEP 4:  Restore task
-    # ═════════════════════════════════════════════════
-    cursor.execute("""
-                   UPDATE tasks
-                   SET is_deleted = 0
-                   WHERE id = ?
-                   """, (task_id,))
-
-    # ═════════════════════════════════════════════════
-    # STEP 5:  Rebuild relationships chronologically
-    # ═════════════════════════════════════════════════
-
+    # Rebuild relationships chronologically
     if insert_after and insert_before:
-        # MIDDLE INSERT:   Remove bypass, insert in middle
-        # Remove old bypass relationship (if exists)
+        # MIDDLE INSERT
+        # Remove bypass (if exists)
         cursor.execute("""
                        DELETE
                        FROM task_relationships
@@ -807,7 +828,7 @@ def restore_task(task_id):
                        """, (task_id, insert_before['id']))
 
     elif insert_after and not insert_before:
-        # APPEND TO END:  Restored task is last chronologically
+        # APPEND TO END
         cursor.execute("""
                        INSERT
                        OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
@@ -815,14 +836,12 @@ def restore_task(task_id):
                        """, (insert_after['id'], task_id))
 
     elif not insert_after and insert_before:
-        # PREPEND TO START:  Restored task is first chronologically
+        # PREPEND TO START
         cursor.execute("""
                        INSERT
                        OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
             VALUES (?, ?, 'related', 0)
                        """, (task_id, insert_before['id']))
-
-    # If both None:  restored task is ALONE (no other tasks in unit)
 
     conn.commit()
     conn.close()
@@ -1001,7 +1020,31 @@ def remove_task_relationship(parent_task_id, child_task_id):
     return True
 
 
+# ═════════════════════════════════════════════════════════════
+# ΝΕΟ:    Mark relationship as manually removed
+# ═════════════════════════════════════════════════════════════
+def mark_relationship_manually_removed(parent_task_id, child_task_id):
+    """Mark relationship as manually removed by user (not auto-delete)"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Set is_deleted = 2 (manual removal) instead of 1 (soft delete)
+    cursor.execute("""
+                   UPDATE task_relationships
+                   SET is_deleted = 2
+                   WHERE parent_task_id = ?
+                     AND child_task_id = ?
+                   """, (parent_task_id, child_task_id))
+
+    conn.commit()
+    conn.close()
+    return True
+
+
 # ----- PHASE 2.1: NEW FUNCTIONS FOR UNITS, GROUPS, AND TASK TYPES -----
+
+
+
 
 def get_unit_by_id(unit_id):
     """Επιστρέφει μία μονάδα με βάση το ID"""
