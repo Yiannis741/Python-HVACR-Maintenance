@@ -8,7 +8,7 @@ import database
 import theme_config
 from tkinter import messagebox
 from tkcalendar import Calendar
-
+from datetime import datetime, timedelta
 
 class TaskCard(ctk.CTkFrame):
     """Καρτέλα εργασίας για προβολή - Compact Design με Link Indicators"""
@@ -2899,10 +2899,12 @@ class TaskRelationshipsView(ctk.CTkFrame):
                     select_btn.pack(side="right")
 
         def select_task(task):
-            """Επιλογή εργασίας"""
+            """Επιλογή εργασίας - Smart Insert Logic"""
 
             if relation_type == "parent":
-                # PARENT:  Σύνδεση με την τρέχουσα (όπως πριν)
+                # ═════════════════════════════════════════════════
+                # PARENT LOGIC (remains the same)
+                # ═════════════════════════════════════════════════
                 confirm_text = (
                     f"Ορισμός ως ΑΡΧΙΚΗ εργασία:\n\n"
                     f"🔵 Αρχική:   {task['task_type_name']}"
@@ -2920,7 +2922,6 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
                 if result:
                     try:
-                        # task is parent, current is child
                         database.add_task_relationship(task['id'], self.task_data['id'], "related")
                         messagebox.showinfo("Επιτυχία", "Η σύνδεση δημιουργήθηκε!")
                         dialog.destroy()
@@ -2930,48 +2931,129 @@ class TaskRelationshipsView(ctk.CTkFrame):
                         messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
 
             else:
-                # CHILD:   ΝΕΑ ΛΟΓΙΚΗ - Βρες την ΤΕΛΕΥΤΑΙΑ εργασία της αλυσίδας
+                # ═════════════════════════════════════════════════
+                # CHILD LOGIC - SMART INSERT with chronological check
+                # ═════════════════════════════════════════════════
 
-                # Παίρνουμε ολόκληρη την αλυσίδα
+                from datetime import datetime
+
+                # Get full chain
                 full_chain = self.get_full_chain(self.task_data['id'])
-
-                # Η τελευταία εργασία είναι η last στο chain
                 last_task_in_chain = full_chain[-1]
 
-                # Θα συνδεθεί ΜΕ την τελευταία
-                link_to_task = last_task_in_chain
-                new_position = len(full_chain) + 1
+                # Parse dates
+                try:
+                    selected_date = datetime.strptime(task['created_date'], '%Y-%m-%d')
+                    last_date = datetime.strptime(last_task_in_chain['created_date'], '%Y-%m-%d')
+                except:
+                    # Fallback to string comparison if date parsing fails
+                    selected_date = task['created_date']
+                    last_date = last_task_in_chain['created_date']
 
-                # Enhanced preview showing the new chain
-                confirm_text = (
-                    f"🔗 ΝΕΑ ΑΛΥΣΙΔΑ μετά την προσθήκη:\n\n"
-                    f"[1] ... → [{len(full_chain)}] {link_to_task['task_type_name']}"
-                    f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''} → "
-                    f"[{new_position}] {task['task_type_name']}"
-                    f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''} ✨ ΝΕΟ\n\n"
-                    f"Η νέα εργασία θα μπει στη θέση [{new_position}] (τελευταία).\n\n"
-                    f"Συνέχιση;"
-                )
+                if selected_date >= last_date:
+                    # ═════════════════════════════════════════════════
+                    # NORMAL APPEND (task is AFTER last task)
+                    # ═════════════════════════════════════════════════
+                    link_to_task = last_task_in_chain
+                    new_position = len(full_chain) + 1
 
-                result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
+                    confirm_text = (
+                        f"🔗 ΝΕΑ ΑΛΥΣΙΔΑ μετά την προσθήκη:\n\n"
+                        f"[1] ... → [{len(full_chain)}] {link_to_task['task_type_name']}"
+                        f"{' → ' + link_to_task['task_item_name'] if link_to_task.get('task_item_name') else ''} → "
+                        f"[{new_position}] {task['task_type_name']}"
+                        f"{' → ' + task['task_item_name'] if task.get('task_item_name') else ''} ✨ ΝΕΟ\n\n"
+                        f"Η νέα εργασία θα μπει στη θέση [{new_position}] (τελευταία).\n\n"
+                        f"Συνέχιση;"
+                    )
 
-                if result:
-                    try:
-                        # Σύνδεσε την ΤΕΛΕΥΤΑΙΑ εργασία της αλυσίδας με την νέα
-                        database.add_task_relationship(link_to_task['id'], task['id'], "related")
+                    result = messagebox.askyesno("Επιβεβαίωση Σύνδεσης", confirm_text)
 
-                        # Calculate correct sequence number for success message
-                        # Formula: sequence_num = new_position - current_task_position
-                        current_pos = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
-                        sequence_num = new_position - current_pos
-                        
-                        messagebox.showinfo("Επιτυχία",
-                                            f"Η εργασία προστέθηκε ως Συνέχεια {sequence_num}!")
-                        dialog.destroy()
-                        self.load_relationships()
-                        self.refresh_callback()
-                    except Exception as e:
-                        messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+                    if result:
+                        try:
+                            database.add_task_relationship(link_to_task['id'], task['id'], "related")
+
+                            current_pos = next(
+                                (i for i, t in enumerate(full_chain, 1) if t['id'] == self.task_data['id']), 1)
+                            sequence_num = new_position - current_pos
+
+                            messagebox.showinfo("Επιτυχία", f"Η εργασία προστέθηκε ως Συνέχεια {sequence_num}!")
+                            dialog.destroy()
+                            self.load_relationships()
+                            self.refresh_callback()
+                        except Exception as e:
+                            messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+
+                else:
+                    # ═════════════════════════════════════════════════
+                    # SMART INSERT (task is EARLIER - insert in middle)
+                    # ═════════════════════════════════════════════════
+
+                    # Find insertion point (first task AFTER selected task chronologically)
+                    insert_after_idx = None
+                    for idx, chain_task in enumerate(full_chain):
+                        try:
+                            chain_date = datetime.strptime(chain_task['created_date'], '%Y-%m-%d')
+                        except:
+                            chain_date = chain_task['created_date']
+
+                        if selected_date < chain_date:
+                            insert_after_idx = idx - 1 if idx > 0 else None
+                            break
+
+                    # If still None, task is earlier than all (should be parent, not child)
+                    if insert_after_idx is None:
+                        messagebox.showerror("Σφάλμα",
+                                             "Η επιλεγμένη εργασία είναι ΠΡΙΝ την τρέχουσα αλυσίδα.\n"
+                                             "Χρησιμοποιήστε 'Προσθήκη Αρχικής Εργασίας' αντί για 'Συνέχεια'.")
+                        return
+
+                    # Get tasks for re-link
+                    insert_after_task = full_chain[insert_after_idx]
+                    next_task = full_chain[insert_after_idx + 1] if insert_after_idx + 1 < len(full_chain) else None
+
+                    if not next_task:
+                        messagebox.showerror("Σφάλμα", "Λογικό σφάλμα insertion point.")
+                        return
+
+                    # Preview
+                    confirm_text = (
+                        f"⚡ ΕΙΣΑΓΩΓΗ ΣΤΗΝ ΑΛΥΣΙΔΑ (re-link):\n\n"
+                        f"ΠΡΙΝ:\n"
+                        f"[{insert_after_idx + 1}] {insert_after_task['task_type_name']}"
+                        f"{' → ' + insert_after_task.get('task_item_name', '')} →\n"
+                        f"[{insert_after_idx + 2}] {next_task['task_type_name']}"
+                        f"{' → ' + next_task.get('task_item_name', '')}\n\n"
+                        f"ΜΕΤΑ:\n"
+                        f"[{insert_after_idx + 1}] {insert_after_task['task_type_name']}"
+                        f"{' → ' + insert_after_task.get('task_item_name', '')} →\n"
+                        f"[{insert_after_idx + 2}] {task['task_type_name']}"
+                        f"{' → ' + task.get('task_item_name', '')} ✨ ΝΕΟ →\n"
+                        f"[{insert_after_idx + 3}] {next_task['task_type_name']}"
+                        f"{' → ' + next_task.get('task_item_name', '')}\n\n"
+                        f"Η αλυσίδα θα αναδιαρθρωθεί αυτόματα.\n\n"
+                        f"Συνέχιση;"
+                    )
+
+                    result = messagebox.askyesno("Επιβεβαίωση Smart Insert", confirm_text)
+
+                    if result:
+                        try:
+                            # Step 1: Remove old relationship
+                            database.remove_task_relationship(insert_after_task['id'], next_task['id'])
+
+                            # Step 2: Create new relationships
+                            database.add_task_relationship(insert_after_task['id'], task['id'], "related")
+                            database.add_task_relationship(task['id'], next_task['id'], "related")
+
+                            messagebox.showinfo("Επιτυχία",
+                                                f"Η εργασία εισήχθη στην αλυσίδα!\n"
+                                                f"Νέα θέση: [{insert_after_idx + 2}]")
+                            dialog.destroy()
+                            self.load_relationships()
+                            self.refresh_callback()
+                        except Exception as e:
+                            messagebox.showerror("Σφάλμα", f"Αποτυχία:  {str(e)}")
 
         # Bind filters
         search_var.trace('w', lambda *args: filter_and_display())

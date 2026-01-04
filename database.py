@@ -655,9 +655,32 @@ def update_task(task_id, unit_id, task_type_id, description, status, priority,
 
 
 def delete_task(task_id):
-    """Soft delete - μετακίνηση στον κάδο (κρατάει relationships)"""
+    """Smart delete - reconnects chain automatically"""
     conn = get_connection()
     cursor = conn.cursor()
+
+    # ═════════════════════════════════════════════════
+    # SMART DELETE:  Reconnect chain before deleting
+    # ═════════════════════════════════════════════════
+
+    # Get all parents and children of this task
+    relations = get_related_tasks(task_id)
+    parents = relations['parents']
+    children = relations['children']
+
+    # If task is in the middle of a chain, reconnect parent → child
+    if parents and children:
+        for parent in parents:
+            for child in children:
+                # Create direct link parent → child (bypass deleted task)
+                try:
+                    cursor.execute("""
+                                   INSERT INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+                                   VALUES (?, ?, 'related', 0)
+                                   """, (parent['id'], child['id']))
+                except:
+                    # Relationship already exists, skip
+                    pass
 
     # Mark task as deleted
     cursor.execute("""
@@ -666,9 +689,7 @@ def delete_task(task_id):
                    WHERE id = ?
                    """, (task_id,))
 
-    # ═════════════════════════════════════════════════
-    # Backup relationships (mark as deleted too)
-    # ═════════════════════════════════════════════════
+    # Mark task's relationships as deleted (backup)
     cursor.execute("""
                    UPDATE task_relationships
                    SET is_deleted = 1
