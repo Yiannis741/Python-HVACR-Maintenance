@@ -1495,6 +1495,70 @@ class UnitsManagement(ctk.CTkFrame):
     def edit_group_dialog(self, group):
         """Wrapper για επεξεργασία ομάδας"""
         self.add_group_dialog(group_data=group)
+
+    def manage_unit_ui(unit_id):
+        """
+        Επεξεργασία και διαγραφή Μονάδας UI
+        Εδώ προστίθεται επιλογή διαγραφής μονάδας.
+        """
+        print(f"Επεξεργασία Μονάδας με ID: {unit_id}")
+
+        # Κώδικας για εμφάνιση των στοιχείων της μονάδας
+        # (π.χ. φόρμες, text fields, dropdowns)
+        print("Φόρτωση δεδομένων μονάδας για επεξεργασία...")
+
+        print("\n[UI]: Προσθήκη κουμπιού 'Αποθήκευση αλλαγών μονάδας'")
+        print("[UI]: Προσθήκη κουμπιού 'Διαγραφή μονάδας'")
+
+        print(f"Για το ID μονάδας {unit_id}, εμφανίζεται το UI.")
+
+        def delete_unit_button_handler():
+            """
+            Διαχείριση: Διαγραφή Μονάδας
+            """
+            print(f"[System]: Επιλογή για Διαγραφή Μονάδας με ID {unit_id}")
+            # Προσθήκη λογικής για ερώτηση επιβεβαίωσης
+            confirmation = input(f"Είστε σίγουροι ότι θέλετε να διαγράψετε τη μονάδα {unit_id}; (y/n): ").lower()
+            if confirmation == 'y':
+                print(f"[System]: Η μονάδα {unit_id} διαγράφηκε επιτυχώς.")
+                # Εκτέλεση διαγραφής από τη βάση δεδομένων
+            else:
+                print("[System]: Η διαγραφή ακυρώθηκε.")
+
+        # Κλήση του 'delete_unit_button_handler' αν ο χρήστης διαλέξει "Διαγραφή Μονάδας".
+        delete_unit_button_handler()
+
+    def manage_group_ui(group_id):
+        """
+        Επεξεργασία και διαγραφή Ομάδας UI
+        Εδώ προστίθεται επιλογή διαγραφής ομάδας.
+        """
+        print(f"Επεξεργασία Ομάδας με ID: {group_id}")
+
+        # Κώδικας για εμφάνιση των στοιχείων της ομάδας
+        # (π.χ. φόρμες, text fields, dropdowns)
+        print("Φόρτωση δεδομένων ομάδας για επεξεργασία...")
+
+        print("\n[UI]: Προσθήκη κουμπιού 'Αποθήκευση αλλαγών ομάδας'")
+        print("[UI]: Προσθήκη κουμπιού 'Διαγραφή ομάδας'")
+
+        print(f"Για το ID ομάδας {group_id}, εμφανίζεται το UI.")
+
+        def delete_group_button_handler():
+            """
+            Διαχείριση: Διαγραφή Ομάδας
+            """
+            print(f"[System]: Επιλογή για Διαγραφή Ομάδας με ID {group_id}")
+            # Προσθήκη λογικής για ερώτηση επιβεβαίωσης
+            confirmation = input(f"Είστε σίγουροι ότι θέλετε να διαγράψετε την ομάδα {group_id}; (y/n): ").lower()
+            if confirmation == 'y':
+                print(f"[System]: Η ομάδα {group_id} διαγράφηκε επιτυχώς.")
+                # Εκτέλεση διαγραφής από τη βάση δεδομένων
+            else:
+                print("[System]: Η διαγραφή ακυρώθηκε.")
+
+        # Κλήση του 'delete_group_button_handler' αν ο χρήστης διαλέξει "Διαγραφή Ομάδας".
+        delete_group_button_handler()
     
     def refresh_ui(self):
         """Ανανέωση του UI - Phase 2.3"""

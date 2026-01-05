@@ -159,21 +159,6 @@ class HVACRApp(ctk.CTk):
         )
         subtitle.pack(pady=10)
 
-        # Stats Frame (με frame για να μην rebuild)
-        stats_container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        stats_container.pack(pady=40, padx=40, fill="x")
-
-        stats_frame = ctk.CTkFrame(stats_container, fg_color="transparent")
-        stats_frame.pack(fill="x")
-        stats_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        # Στατιστικά
-        stats = database.get_dashboard_stats()
-
-        self.create_stat_card(stats_frame, "Σύνολο Μονάδων", stats['total_units'], 0)
-        self.create_stat_card(stats_frame, "Εκκρεμείς Εργασίες", stats['pending_tasks'], 1)
-        self.create_stat_card(stats_frame, "Εργασίες Σήμερα", stats['today_tasks'], 2)
-
         # Πρόσφατες εργασίες
         recent_label = ctk.CTkLabel(
             self.main_frame,
@@ -183,10 +168,10 @@ class HVACRApp(ctk.CTk):
         )
         recent_label.pack(pady=(40, 20))
 
-        # Scrollable frame για tasks (ΝΕΟ - με fixed height)
+        # Scrollable frame για tasks (με fixed height)
         self.dashboard_tasks_frame = ctk.CTkScrollableFrame(
             self.main_frame,
-            height=400,  # Fixed height να μην αλλάζει
+            height=600,  # Αυξημένο ύψος για περισσότερες εργασίες
             fg_color="transparent"
         )
         self.dashboard_tasks_frame.pack(fill="both", expand=True, padx=40, pady=10)
@@ -201,7 +186,7 @@ class HVACRApp(ctk.CTk):
             for widget in self.dashboard_tasks_frame.winfo_children():
                 widget.destroy()
 
-        tasks = database.get_recent_tasks(10)  # Αύξησε από 5 σε 10 (επειδή είναι compact)
+        tasks = database.get_recent_tasks(15)  # Αυξήθηκε από 10 σε 15
 
         if not tasks:
             no_tasks = ctk.CTkLabel(
@@ -343,12 +328,12 @@ class HVACRApp(ctk.CTk):
         units_content.pack(fill="x", padx=20, pady=(20,20))
 
         # Label
-        ctk.CTkLabel(
-            units_content,
-            text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
-            font=theme_config.get_font("body", "bold"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 15))
+        #ctk.CTkLabel(
+        #    units_content,
+        #    text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
+        #    font=theme_config.get_font("body", "bold"),
+        #    text_color=self.theme["text_primary"]
+        #).pack(side="left", padx=(0, 15))
 
         # "Όλες" button
         self.all_units_btn = ctk.CTkButton(
@@ -356,7 +341,7 @@ class HVACRApp(ctk.CTk):
             text="Όλες",
             command=lambda: self.filter_by_unit(None),
             width=55,
-            height=35,
+            height=65,
             **theme_config.get_button_style("primary")
         )
         self.all_units_btn.pack(side="left", padx=5)
@@ -1328,6 +1313,17 @@ class HVACRApp(ctk.CTk):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""
         database.load_sample_data()
 
+    def handle_delete_unit(unit_id):
+        """
+        Χειρίζεται τη διαγραφή μιας μονάδας από το UI.
+        """
+        try:
+            delete_unit(unit_id)
+            messagebox.showinfo("Επιτυχία", "Η μονάδα διαγράφηκε επιτυχώς.")
+            refresh_units_list()  # Ανανεώνουμε τη λίστα με τις μονάδες
+            go_to_dashboard()  # Επιστροφή στον πίνακα ελέγχου
+        except Exception as e:
+            messagebox.showerror("Σφάλμα", str(e))
 
 if __name__ == "__main__":
     app = HVACRApp()

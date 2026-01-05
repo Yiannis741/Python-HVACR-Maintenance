@@ -1335,6 +1335,50 @@ def update_group(group_id, name, description):
         conn.close()
         return False
 
+def delete_unit(unit_id):
+    """
+    Διαγράφει μια μονάδα από τη βάση δεδομένων.
+    Εάν υπάρχουν συνδεδεμένες εργασίες με τη μονάδα, η διαγραφή δεν επιτρέπεται.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Έλεγχος για συνδεδεμένες εργασίες
+    cursor.execute("SELECT COUNT(*) as task_count FROM tasks WHERE unit_id = ?", (unit_id,))
+    task_count = cursor.fetchone()['task_count']
+
+    if task_count > 0:
+        conn.close()
+        raise Exception("Η μονάδα δεν μπορεί να διαγραφεί γιατί υπάρχουν συνδεδεμένες εργασίες.")
+
+    # Διαγραφή της μονάδας
+    cursor.execute("DELETE FROM units WHERE id = ?", (unit_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_group(group_id):
+    """Διαγραφή ομάδας από τη βάση δεδομένων"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Διαγραφή όλων των μονάδων που ανήκουν στην ομάδα
+        cursor.execute("SELECT id FROM units WHERE group_id = ?", (group_id,))
+        units = cursor.fetchall()
+        for unit in units:
+            delete_unit(unit['id'])  # Διαγραφή κάθε μονάδας με βάση το ID
+
+        # Διαγραφή της ομάδας
+        cursor.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        conn.close()
+        print(f"Error deleting group: {e}")
+        return False
 
 def add_task_type(name, description):
     """Προσθήκη custom τύπου εργασίας"""
