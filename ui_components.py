@@ -1040,6 +1040,8 @@ class UnitsManagement(ctk.CTkFrame):
         
         self.tab1 = self.tabview.add("Μονάδες")
         self.tab2 = self.tabview.add("Ομάδες")
+        self.tab3 = self.tabview.add("Κάδος")
+        self.create_recycle_tab(self.tab3)
         
         # Tab Μονάδες
         self.create_units_tab(self.tab1)
@@ -1397,13 +1399,30 @@ class UnitsManagement(ctk.CTkFrame):
             serial_entry.insert(0, unit_data.get('serial_number', ''))
             install_entry.delete(0, "end")
             install_entry.insert(0, unit_data.get('installation_date', ''))
-            
+
+            def confirm_soft_delete():
+                from tkinter import messagebox
+                if messagebox.askyesno("Διαγραφή",
+                                       "Θέλετε να διαγράψετε τη μονάδα; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
+                    res = database.soft_delete_unit(unit_data['id'])
+                    if res.get('success'):
+                        messagebox.showinfo("Επιτυχία", "Η μονάδα μεταφέρθηκε στον κάδο!")
+                        dialog.destroy()
+                        self.refresh_callback()
+                        self.refresh_ui()
+                    else:
+                        messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+
+            ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
+                          **theme_config.get_button_style("danger"), height=36).pack(pady=10)
+
             # Set group
             for group_name, group_id in groups_dict.items():
                 if group_id == unit_data['group_id']:
                     group_combo.set(group_name)
                     break
-        
+
+
         def save():
             name = name_entry.get().strip()
             if not name:
@@ -1459,6 +1478,24 @@ class UnitsManagement(ctk.CTkFrame):
         if is_edit_mode:
             name_entry.insert(0, group_data['name'])
             desc_text.insert("1.0", group_data.get('description', ''))
+
+        def confirm_soft_delete():
+            from tkinter import messagebox
+            if messagebox.askyesno("Διαγραφή",
+                                   "Θέλετε να διαγράψετε την ομάδα και τις μονάδες της; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
+                res = database.soft_delete_group(group_data['id'])
+                if res.get('success'):
+                    messagebox.showinfo("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
+                    dialog.destroy()
+                    self.refresh_callback()
+                    self.refresh_ui()
+                else:
+                    messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+
+        ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
+                      **theme_config.get_button_style("danger"), height=36).pack(pady=10)
+
+
         
         def save():
             name = name_entry.get().strip()
@@ -1559,6 +1596,63 @@ class UnitsManagement(ctk.CTkFrame):
 
         # Κλήση του 'delete_group_button_handler' αν ο χρήστης διαλέξει "Διαγραφή Ομάδας".
         delete_group_button_handler()
+
+    def create_recycle_tab(self, parent):
+        """Κάδος διαγραμμένων"""
+        for w in parent.winfo_children():
+            w.destroy()
+        theme = theme_config.get_current_theme()
+        ctk.CTkLabel(parent, text="🗑️ Κάδος Μονάδων & Ομάδων", font=theme_config.get_font("title", "bold"),
+                     text_color=theme["accent_blue"]).pack(pady=20)
+
+        # Ομάδες Κάδου
+        groups = database.get_deleted_groups()
+        if groups:
+            ctk.CTkLabel(parent, text="Διαγραμμένες Ομάδες", font=theme_config.get_font("body", "bold"),
+                         text_color=theme["accent_orange"]).pack(anchor="w", padx=20, pady=(10, 5))
+            for group in groups:
+                frm = ctk.CTkFrame(parent, fg_color=theme["card_bg"], border_color=theme["card_border"], border_width=1)
+                frm.pack(fill="x", padx=20, pady=4)
+                ctk.CTkLabel(frm, text=f"📂 {group['name']}", font=theme_config.get_font("body"),
+                             text_color=theme["text_primary"]).pack(side="left", padx=10, pady=8)
+                restore_btn = ctk.CTkButton(frm, text="🔄 Επαναφορά", width=110, height=30,
+                                            command=lambda gid=group['id']: self.restore_group_ui(gid),
+                                            **theme_config.get_button_style("success"))
+                restore_btn.pack(side="right", padx=14, pady=8)
+        else:
+            ctk.CTkLabel(parent, text="Δεν υπάρχουν διαγραμμένες ομάδες.", font=theme_config.get_font("small"),
+                         text_color=theme["text_disabled"]).pack(anchor="w", padx=26, pady=0)
+
+        # Μονάδες Κάδου
+        units = database.get_deleted_units()
+        if units:
+            ctk.CTkLabel(parent, text="Διαγραμμένες Μονάδες", font=theme_config.get_font("body", "bold"),
+                         text_color=theme["accent_orange"]).pack(anchor="w", padx=20, pady=(26, 7))
+            for unit in units:
+                frm = ctk.CTkFrame(parent, fg_color=theme["card_bg"], border_color=theme["card_border"], border_width=1)
+                frm.pack(fill="x", padx=20, pady=3)
+                label = f"🔧 {unit['name']} ({unit['group_name']})"
+                ctk.CTkLabel(frm, text=label, font=theme_config.get_font("small"),
+                             text_color=theme["text_primary"]).pack(side="left", padx=10, pady=6)
+                restore_btn = ctk.CTkButton(frm, text="🔄 Επαναφορά", width=110, height=30,
+                                            command=lambda uid=unit['id']: self.restore_unit_ui(uid),
+                                            **theme_config.get_button_style("success"))
+                restore_btn.pack(side="right", padx=14, pady=6)
+        else:
+            ctk.CTkLabel(parent, text="Δεν υπάρχουν διαγραμμένες μονάδες.", font=theme_config.get_font("small"),
+                         text_color=theme["text_disabled"]).pack(anchor="w", padx=26, pady=(7, 0))
+
+    def restore_unit_ui(self, unit_id):
+        database.restore_unit(unit_id)
+        from tkinter import messagebox
+        messagebox.showinfo("Επαναφορά", "Η μονάδα επανήλθε από τον κάδο!")
+        self.refresh_ui()
+
+    def restore_group_ui(self, group_id):
+        database.restore_group(group_id)
+        from tkinter import messagebox
+        messagebox.showinfo("Επαναφορά", "Η ομάδα και οι μονάδες της επανήλθαν από τον κάδο!")
+        self.refresh_ui()
     
     def refresh_ui(self):
         """Ανανέωση του UI - Phase 2.3"""
