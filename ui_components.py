@@ -1099,7 +1099,7 @@ class UnitsManagement(ctk.CTkFrame):
 
         # Dictionary για να κρατάμε τα expanded states
         if not hasattr(self, 'expanded_groups'):
-            self.expanded_groups = {group['id']: True for group in groups}  # Όλα expanded by default
+            self.expanded_groups = {group['id']: False for group in groups}  # Όλα κλειστά by default
 
         # Δημιουργία collapsible section για κάθε ομάδα
         for group in groups:
@@ -1353,7 +1353,7 @@ class UnitsManagement(ctk.CTkFrame):
         
         dialog = ctk.CTkToplevel(self)
         dialog.title("Επεξεργασία Μονάδας" if is_edit_mode else "Προσθήκη Νέας Μονάδας")
-        dialog.geometry("500x600")
+        dialog.geometry("500x700")
         dialog.grab_set()
         
         # Όνομα
@@ -1400,6 +1400,33 @@ class UnitsManagement(ctk.CTkFrame):
             install_entry.delete(0, "end")
             install_entry.insert(0, unit_data.get('installation_date', ''))
 
+            def save():
+                name = name_entry.get().strip()
+                if not name:
+                    messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                    return
+
+                group_id = groups_dict.get(group_combo.get())
+                location = location_entry.get().strip()
+                model = model_entry.get().strip()
+                serial = serial_entry.get().strip()
+                install_date = install_entry.get().strip()
+
+                try:
+                    if is_edit_mode:
+                        database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
+                        messagebox.showinfo("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
+                    else:
+                        database.add_unit(name, group_id, location, model, serial, install_date)
+                        messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
+                    dialog.destroy()
+                    self.refresh_callback()
+                    self.refresh_ui()
+                except Exception as e:
+                    messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+
+            ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
+                          height=40).pack(pady=10)
             def confirm_soft_delete():
                 from tkinter import messagebox
                 if messagebox.askyesno("Διαγραφή",
@@ -1423,32 +1450,7 @@ class UnitsManagement(ctk.CTkFrame):
                     break
 
 
-        def save():
-            name = name_entry.get().strip()
-            if not name:
-                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
-                return
-            
-            group_id = groups_dict.get(group_combo.get())
-            location = location_entry.get().strip()
-            model = model_entry.get().strip()
-            serial = serial_entry.get().strip()
-            install_date = install_entry.get().strip()
-            
-            try:
-                if is_edit_mode:
-                    database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
-                    messagebox.showinfo("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
-                else:
-                    database.add_unit(name, group_id, location, model, serial, install_date)
-                    messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
-                dialog.destroy()
-                self.refresh_callback()
-                self.refresh_ui()
-            except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
-        
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
+
     
     def edit_unit_dialog(self, unit):
         """Wrapper για επεξεργασία μονάδας"""
@@ -1461,7 +1463,7 @@ class UnitsManagement(ctk.CTkFrame):
         
         dialog = ctk.CTkToplevel(self)
         dialog.title("Επεξεργασία Ομάδας" if is_edit_mode else "Προσθήκη Νέας Ομάδας")
-        dialog.geometry("500x350")
+        dialog.geometry("500x550")
         dialog.grab_set()
         
         # Όνομα
@@ -1479,32 +1481,14 @@ class UnitsManagement(ctk.CTkFrame):
             name_entry.insert(0, group_data['name'])
             desc_text.insert("1.0", group_data.get('description', ''))
 
-        def confirm_soft_delete():
-            from tkinter import messagebox
-            if messagebox.askyesno("Διαγραφή",
-                                   "Θέλετε να διαγράψετε την ομάδα και τις μονάδες της; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
-                res = database.soft_delete_group(group_data['id'])
-                if res.get('success'):
-                    messagebox.showinfo("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
-                    dialog.destroy()
-                    self.refresh_callback()
-                    self.refresh_ui()
-                else:
-                    messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
-
-        ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
-                      **theme_config.get_button_style("danger"), height=36).pack(pady=10)
-
-
-        
         def save():
             name = name_entry.get().strip()
             if not name:
                 messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
-            
+
             desc = desc_text.get("1.0", "end-1c").strip()
-            
+
             try:
                 if is_edit_mode:
                     result = database.update_group(group_data['id'], name, desc)
@@ -1526,8 +1510,29 @@ class UnitsManagement(ctk.CTkFrame):
                         messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
+                      height=40).pack(pady=10)
+
+        def confirm_soft_delete():
+            from tkinter import messagebox
+            if messagebox.askyesno("Διαγραφή",
+                                   "Θέλετε να διαγράψετε την ομάδα και τις μονάδες της; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
+                res = database.soft_delete_group(group_data['id'])
+                if res.get('success'):
+                    messagebox.showinfo("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
+                    dialog.destroy()
+                    self.refresh_callback()
+                    self.refresh_ui()
+                else:
+                    messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+
+        ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
+                      **theme_config.get_button_style("danger"), height=36).pack(pady=10)
+
+
         
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
+
     
     def edit_group_dialog(self, group):
         """Wrapper για επεξεργασία ομάδας"""
@@ -1653,7 +1658,7 @@ class UnitsManagement(ctk.CTkFrame):
         from tkinter import messagebox
         messagebox.showinfo("Επαναφορά", "Η ομάδα και οι μονάδες της επανήλθαν από τον κάδο!")
         self.refresh_ui()
-    
+
     def refresh_ui(self):
         """Ανανέωση του UI - Phase 2.3"""
         # Clear and recreate tabs
