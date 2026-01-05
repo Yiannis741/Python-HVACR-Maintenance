@@ -1659,6 +1659,7 @@ class UnitsManagement(ctk.CTkFrame):
         # Clear and recreate tabs
         self.create_units_tab(self.tab1)
         self.create_groups_tab(self.tab2)
+        self.create_recycle_tab(self.tab3)
 
 
 # ----- PHASE 2.3: NEW TASK MANAGEMENT COMPONENT -----
