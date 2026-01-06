@@ -279,93 +279,8 @@ def init_database():
         cursor.execute('ALTER TABLE task_relationships ADD COLUMN is_deleted INTEGER DEFAULT 0')
         print("✅ Added is_deleted column to task_relationships")
 
-    # Προσθήκη is_deleted σε groups αν δεν υπάρχει ήδη
-    cursor.execute("PRAGMA table_info(groups)")
-    columns = [column[1] for column in cursor.fetchall()]
-    if 'is_deleted' not in columns:
-        cursor.execute('ALTER TABLE groups ADD COLUMN is_deleted INTEGER DEFAULT 0')
-
-    # Προσθήκη is_deleted σε units αν δεν υπάρχει ήδη
-    cursor.execute("PRAGMA table_info(units)")
-    columns = [column[1] for column in cursor.fetchall()]
-    if 'is_deleted' not in columns:
-        cursor.execute('ALTER TABLE units ADD COLUMN is_deleted INTEGER DEFAULT 0')
-
-    # Add is_deleted to units if not exists (soft delete for units)
-    cursor.execute("PRAGMA table_info(units)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if 'is_deleted' not in columns:
-        cursor.execute('ALTER TABLE units ADD COLUMN is_deleted INTEGER DEFAULT 0')
-        print("✅ Added is_deleted column to units")
-
-    # Add is_deleted to groups if not exists (soft delete for groups)
-    cursor.execute("PRAGMA table_info(groups)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if 'is_deleted' not in columns:
-        cursor.execute('ALTER TABLE groups ADD COLUMN is_deleted INTEGER DEFAULT 0')
-        print("✅ Added is_deleted column to groups")
-
-
     conn.commit()
     conn.close()
-
-# --- SOFT DELETE, RESTORE & Κάδος Μονάδων/Ομάδων ---
-
-def soft_delete_unit(unit_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) as count FROM tasks WHERE unit_id = ? AND is_deleted = 0", (unit_id,))
-    if cursor.fetchone()['count'] > 0:
-        conn.close()
-        return {'success': False, 'error': "Η μονάδα έχει ενεργές εργασίες και δεν μπορεί να διαγραφεί."}
-    cursor.execute("UPDATE units SET is_deleted = 1 WHERE id = ?", (unit_id,))
-    conn.commit()
-    conn.close()
-    return {'success': True}
-
-def restore_unit(unit_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE units SET is_deleted = 0 WHERE id = ?", (unit_id,))
-    conn.commit()
-    conn.close()
-
-def get_deleted_units():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT u.*, g.name as group_name
-        FROM units u JOIN groups g ON u.group_id = g.id
-        WHERE u.is_deleted = 1
-        ORDER BY g.name, u.name""")
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
-
-def soft_delete_group(group_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE units SET is_deleted = 1 WHERE group_id = ?", (group_id,))
-    cursor.execute("UPDATE groups SET is_deleted = 1 WHERE id = ?", (group_id,))
-    conn.commit()
-    conn.close()
-    return {'success': True}
-
-def restore_group(group_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE groups SET is_deleted = 0 WHERE id = ?", (group_id,))
-    cursor.execute("UPDATE units SET is_deleted = 0 WHERE group_id = ?", (group_id,))
-    conn.commit()
-    conn.close()
-
-def get_deleted_groups():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM groups WHERE is_deleted = 1 ORDER BY name")
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
 
 
 def load_default_task_items():
@@ -531,7 +446,7 @@ def get_all_groups():
     """Επιστρέφει όλες τις ομάδες μονάδων"""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM groups WHERE is_deleted = 0 ORDER BY name")
+    cursor.execute("SELECT * FROM groups ORDER BY name")
     groups = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return groups
@@ -541,7 +456,7 @@ def get_units_by_group(group_id):
     """Επιστρέφει τις μονάδες μιας ομάδας"""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM units WHERE group_id = ? AND is_active = 1 AND is_deleted = 0 ORDER BY name", (group_id,))
+    cursor.execute("SELECT * FROM units WHERE group_id = ? AND is_active = 1 ORDER BY name", (group_id,))
     units = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return units
@@ -637,7 +552,6 @@ def get_all_units():
                    FROM units u
                             JOIN groups g ON u.group_id = g.id
                    WHERE u.is_active = 1
-                     AND u.is_deleted = 0
                    ORDER BY g.name, u.name
                    ''')
     units = [dict(row) for row in cursor.fetchall()]
@@ -1421,50 +1335,6 @@ def update_group(group_id, name, description):
         conn.close()
         return False
 
-def delete_unit(unit_id):
-    """
-    Διαγράφει μια μονάδα από τη βάση δεδομένων.
-    Εάν υπάρχουν συνδεδεμένες εργασίες με τη μονάδα, η διαγραφή δεν επιτρέπεται.
-    """
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Έλεγχος για συνδεδεμένες εργασίες
-    cursor.execute("SELECT COUNT(*) as task_count FROM tasks WHERE unit_id = ?", (unit_id,))
-    task_count = cursor.fetchone()['task_count']
-
-    if task_count > 0:
-        conn.close()
-        raise Exception("Η μονάδα δεν μπορεί να διαγραφεί γιατί υπάρχουν συνδεδεμένες εργασίες.")
-
-    # Διαγραφή της μονάδας
-    cursor.execute("DELETE FROM units WHERE id = ?", (unit_id,))
-    conn.commit()
-    conn.close()
-    return True
-
-def delete_group(group_id):
-    """Διαγραφή ομάδας από τη βάση δεδομένων"""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    try:
-        # Διαγραφή όλων των μονάδων που ανήκουν στην ομάδα
-        cursor.execute("SELECT id FROM units WHERE group_id = ?", (group_id,))
-        units = cursor.fetchall()
-        for unit in units:
-            delete_unit(unit['id'])  # Διαγραφή κάθε μονάδας με βάση το ID
-
-        # Διαγραφή της ομάδας
-        cursor.execute("DELETE FROM groups WHERE id = ?", (group_id,))
-
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        conn.close()
-        print(f"Error deleting group: {e}")
-        return False
 
 def add_task_type(name, description):
     """Προσθήκη custom τύπου εργασίας"""

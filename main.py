@@ -55,9 +55,8 @@ class HVACRApp(ctk.CTk):
         # Αρχικό περιεχόμενο
         self.show_dashboard()
 
-    # Replace/create the create_sidebar method in main.py with the version below
     def create_sidebar(self):
-        """Δημιουργία της αριστερής sidebar με κουμπιά και ενεργή κατάσταση"""
+        """Δημιουργία της αριστερής sidebar με κουμπιά"""
 
         # Logo/Τίτλος
         title_label = ctk.CTkLabel(
@@ -68,64 +67,35 @@ class HVACRApp(ctk.CTk):
         )
         title_label.pack(pady=(20, 30))
 
-        # Buttons configuration
+        # Κουμπιά με style types
         buttons_config = [
-            ("home", "🏠 Αρχική", self.show_dashboard, "primary"),
-            ("new", "➕ Νέα Εργασία", self.show_new_task, "success"),
-            ("history", "📋 Ιστορικό", self.show_history, "primary"),
-            # removed the "edit" button per user request
-            ("units", "🏢 Διαχείριση Μονάδων", self.show_units_management, "primary"),
-            ("types", "📋 Διαχείριση Εργασιών", self.show_task_management, "primary"),
-            ("shifts", "📅 Πρόγραμμα Βαρδιών", self.show_shifts, "primary"),
-            ("export", "📤 Εξαγωγή", self.show_export, "primary"),
-            ("recycle", "🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "danger"),
-            ("settings", "⚙️ Ρυθμίσεις", self.show_settings, "secondary"),
+            ("🏠 Αρχική", self.show_dashboard, "primary"),
+            ("➕ Νέα Εργασία", self.show_new_task, "success"),
+            ("📋 Ιστορικό", self.show_history, "primary"),
+            ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "primary"),
+            ("🏢 Διαχείριση Μονάδων", self.show_units_management, "primary"),
+            ("📋 Διαχείριση Εργασιών", self.show_task_management, "primary"),
+            ("📅 Πρόγραμμα Βαρδιών", self.show_shifts, "primary"),
+            ("📤 Εξαγωγή", self.show_export, "primary"),
+            ("🗑️ Κάδος Ανακύκλωσης", self.show_recycle_bin, "danger"),
+            ("⚙️ Ρυθμίσεις", self.show_settings, "secondary"),
         ]
 
         self.sidebar_buttons = {}
-        self.active_sidebar_key = None
 
-        for key, btn_text, command, style_type in buttons_config:
+        for btn_text, command, style_type in buttons_config:
             style = theme_config.get_button_style(style_type)
-
-            # Wrap command to also highlight
-            def make_cmd(cmd, btn_key):
-                def wrapped():
-                    self._set_active_sidebar(btn_key)
-                    return cmd()
-
-                return wrapped
-
             btn = ctk.CTkButton(
                 self.sidebar,
                 text=btn_text,
-                command=make_cmd(command, key),
+                command=command,
                 width=200,
                 height=45,
                 font=theme_config.get_font("body", "bold"),
-                **style
+                **style  # ← 3D effect με border!
             )
             btn.pack(pady=8, padx=10)
-            self.sidebar_buttons[key] = btn
-
-        # Set default active
-        self._set_active_sidebar("home")
-
-    def _set_active_sidebar(self, key):
-        """Highlight active sidebar button"""
-        # Reset all
-        for k, btn in self.sidebar_buttons.items():
-            # standard style
-            btn.configure(fg_color=theme_config.get_current_theme()["bg_secondary"],
-                          border_color=theme_config.get_current_theme()["card_border"],
-                          text_color=theme_config.get_current_theme().get("text_primary", "black"))
-        # Active one
-        active = self.sidebar_buttons.get(key)
-        if active:
-            active.configure(fg_color=theme_config.get_current_theme()["accent_blue"],
-                             border_color=theme_config.get_current_theme()["accent_blue"],
-                             text_color="white")
-        self.active_sidebar_key = key
+            self.sidebar_buttons[btn_text] = btn
 
     def adjust_color(self, hex_color, adjustment):
         """Προσαρμογή χρώματος για hover effect"""
@@ -159,6 +129,21 @@ class HVACRApp(ctk.CTk):
         )
         subtitle.pack(pady=10)
 
+        # Stats Frame (με frame για να μην rebuild)
+        stats_container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        stats_container.pack(pady=40, padx=40, fill="x")
+
+        stats_frame = ctk.CTkFrame(stats_container, fg_color="transparent")
+        stats_frame.pack(fill="x")
+        stats_frame.grid_columnconfigure((0, 1, 2), weight=1)
+
+        # Στατιστικά
+        stats = database.get_dashboard_stats()
+
+        self.create_stat_card(stats_frame, "Σύνολο Μονάδων", stats['total_units'], 0)
+        self.create_stat_card(stats_frame, "Εκκρεμείς Εργασίες", stats['pending_tasks'], 1)
+        self.create_stat_card(stats_frame, "Εργασίες Σήμερα", stats['today_tasks'], 2)
+
         # Πρόσφατες εργασίες
         recent_label = ctk.CTkLabel(
             self.main_frame,
@@ -168,10 +153,10 @@ class HVACRApp(ctk.CTk):
         )
         recent_label.pack(pady=(40, 20))
 
-        # Scrollable frame για tasks (με fixed height)
+        # Scrollable frame για tasks (ΝΕΟ - με fixed height)
         self.dashboard_tasks_frame = ctk.CTkScrollableFrame(
             self.main_frame,
-            height=600,  # Αυξημένο ύψος για περισσότερες εργασίες
+            height=400,  # Fixed height να μην αλλάζει
             fg_color="transparent"
         )
         self.dashboard_tasks_frame.pack(fill="both", expand=True, padx=40, pady=10)
@@ -186,7 +171,7 @@ class HVACRApp(ctk.CTk):
             for widget in self.dashboard_tasks_frame.winfo_children():
                 widget.destroy()
 
-        tasks = database.get_recent_tasks(15)  # Αυξήθηκε από 10 σε 15
+        tasks = database.get_recent_tasks(10)  # Αύξησε από 5 σε 10 (επειδή είναι compact)
 
         if not tasks:
             no_tasks = ctk.CTkLabel(
@@ -312,41 +297,41 @@ class HVACRApp(ctk.CTk):
         title.pack(expand=True)
 
         # ══════════════════════════════════════════════════
-        # UNIT DROPDOWNS ROW (Groups → Units)  -- με labels πάνω από κάθε dropdown
+        # UNIT DROPDOWNS ROW (Groups → Units)
         # ══════════════════════════════════════════════════
         units_filter_frame = ctk.CTkFrame(
             self.main_frame,
             fg_color=self.theme["bg_secondary"],
             corner_radius=10,
-            height=110
+            height=70
         )
-        units_filter_frame.pack(fill="x", padx=30, pady=(0, 10))
+        units_filter_frame.pack(fill="x", padx=40, pady=(0, 10))
         units_filter_frame.pack_propagate(False)
 
         # Content container
         units_content = ctk.CTkFrame(units_filter_frame, fg_color="transparent")
-        units_content.pack(fill="x", padx=20, pady=(20,20))
+        units_content.pack(fill="x", padx=20, pady=15)
 
         # Label
-        #ctk.CTkLabel(
-        #    units_content,
-        #    text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
-        #    font=theme_config.get_font("body", "bold"),
-        #    text_color=self.theme["text_primary"]
-        #).pack(side="left", padx=(0, 15))
+        ctk.CTkLabel(
+            units_content,
+            text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(0, 15))
 
         # "Όλες" button
         self.all_units_btn = ctk.CTkButton(
             units_content,
             text="Όλες",
             command=lambda: self.filter_by_unit(None),
-            width=55,
-            height=65,
+            width=100,
+            height=35,
             **theme_config.get_button_style("primary")
         )
         self.all_units_btn.pack(side="left", padx=5)
 
-        # Get groups and create labeled dropdowns
+        # Get groups and create dropdowns
         groups = database.get_all_groups()
         self.unit_filter_buttons = {}
 
@@ -354,7 +339,7 @@ class HVACRApp(ctk.CTk):
             units = database.get_units_by_group(group['id'])
 
             if units:
-                # Prepare values
+                # Create dropdown per group
                 unit_names = [u['name'] for u in units]
                 unit_ids = {u['name']: u['id'] for u in units}
 
@@ -364,32 +349,19 @@ class HVACRApp(ctk.CTk):
                         unit_id = uid_map.get(selected)
                         if unit_id is not None:
                             self.filter_by_unit(unit_id)
+
                     return handler
 
-                # Create a small vertical column: label (group name) above the combobox
-                group_col = ctk.CTkFrame(units_content, fg_color="transparent")
-                group_col.pack(side="left", padx=5)
-
-                # Group label above combobox
-                ctk.CTkLabel(
-                    group_col,
-                    text=group['name'],
-                    font=theme_config.get_font("small", "bold"),
-                    text_color=self.theme["text_primary"]
-                ).pack(side="top", pady=(0, 4))
-
-                # Combobox with unit names
                 dropdown = ctk.CTkComboBox(
-                    group_col,
+                    units_content,
                     values=unit_names,
                     width=180,
                     height=35,
                     state="readonly",
                     command=make_unit_filter(unit_ids)
                 )
-                # Show first unit by default (does not trigger command)
-                dropdown.set(unit_names[0])
-                dropdown.pack(side="top")
+                dropdown.set(group['name'])
+                dropdown.pack(side="left", padx=5)
 
                 self.unit_filter_buttons[group['id']] = dropdown
 
@@ -599,7 +571,7 @@ class HVACRApp(ctk.CTk):
         back_btn = ctk.CTkButton(
             btn_frame,
             text="↩️ Πίσω",
-            command=self.show_history,
+            command=self.show_edit,
             width=100,
             height=35,
             **theme_config.get_button_style("secondary")
@@ -1313,17 +1285,6 @@ class HVACRApp(ctk.CTk):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""
         database.load_sample_data()
 
-    def handle_delete_unit(unit_id):
-        """
-        Χειρίζεται τη διαγραφή μιας μονάδας από το UI.
-        """
-        try:
-            delete_unit(unit_id)
-            messagebox.showinfo("Επιτυχία", "Η μονάδα διαγράφηκε επιτυχώς.")
-            refresh_units_list()  # Ανανεώνουμε τη λίστα με τις μονάδες
-            go_to_dashboard()  # Επιστροφή στον πίνακα ελέγχου
-        except Exception as e:
-            messagebox.showerror("Σφάλμα", str(e))
 
 if __name__ == "__main__":
     app = HVACRApp()
