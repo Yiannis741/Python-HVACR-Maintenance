@@ -271,12 +271,12 @@ class HVACRApp(ctk.CTk):
             self.show_dashboard()  # Full reload μόνο αν δεν είμαστε στο dashboard
 
     def show_history(self):
-        """Εμφάνιση ιστορικού εργασιών με φίλτρα ανά μονάδα"""
+        """Εμφάνιση ιστορικού εργασιών με φίλτρα ανά μονάδα - FIXED"""
         self.clear_main_frame()
 
-        # ══════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
         # TITLE IN STYLED BOX
-        # ══════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
         title_frame = ctk.CTkFrame(
             self.main_frame,
             corner_radius=12,
@@ -296,9 +296,9 @@ class HVACRApp(ctk.CTk):
         )
         title.pack(expand=True)
 
-        # ══════════════════════════════════════════════════
-        # UNIT DROPDOWNS ROW (Groups → Units)
-        # ══════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
+        # UNIT DROPDOWNS ROW (Groups → Units) - FIXED
+        # ═══════════════════════════════════════════════════════════
         units_filter_frame = ctk.CTkFrame(
             self.main_frame,
             fg_color=self.theme["bg_secondary"],
@@ -331,7 +331,7 @@ class HVACRApp(ctk.CTk):
         )
         self.all_units_btn.pack(side="left", padx=5)
 
-        # Get groups and create dropdowns
+        # ✅ FIX: Get ALL groups and create dropdowns properly
         groups = database.get_all_groups()
         self.unit_filter_buttons = {}
 
@@ -343,7 +343,7 @@ class HVACRApp(ctk.CTk):
                 unit_names = [u['name'] for u in units]
                 unit_ids = {u['name']: u['id'] for u in units}
 
-                # Helper to safely get unit ID
+                # ✅ FIX: Proper closure to capture unit_ids
                 def make_unit_filter(uid_map):
                     def handler(selected):
                         unit_id = uid_map.get(selected)
@@ -360,14 +360,14 @@ class HVACRApp(ctk.CTk):
                     state="readonly",
                     command=make_unit_filter(unit_ids)
                 )
-                dropdown.set(group['name'])
+                dropdown.set(group['name'])  # Show group name as placeholder
                 dropdown.pack(side="left", padx=5)
 
                 self.unit_filter_buttons[group['id']] = dropdown
 
-        # ══════════════════════════════════════════════════
-        # COMPACT SEARCH ROW (NO "Μονάδα" field)
-        # ══════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
+        # COMPACT SEARCH ROW
+        # ═══════════════════════════════════════════════════════════
         search_frame = ctk.CTkFrame(
             self.main_frame,
             fg_color=self.theme["card_bg"],
@@ -390,9 +390,9 @@ class HVACRApp(ctk.CTk):
 
         self.history_search_entry = ctk.CTkEntry(
             search_content,
-            width=220,
+            width=250,  # ✅ FIX: Wider for better UX
             height=32,
-            placeholder_text="Περιγραφή, σημειώσεις..."
+            placeholder_text="ID, Περιγραφή, Μονάδα, Τεχνικός..."
         )
         self.history_search_entry.pack(side="left", padx=5)
         self.history_search_entry.bind("<KeyRelease>", lambda e: self.apply_history_filters())
@@ -439,9 +439,9 @@ class HVACRApp(ctk.CTk):
         self.history_type_combo.set("Όλα")
         self.history_type_combo.pack(side="left", padx=5)
 
-        # ══════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
         # TASKS DISPLAY AREA
-        # ══════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
         self.history_tasks_frame = ctk.CTkScrollableFrame(
             self.main_frame,
             fg_color="transparent"

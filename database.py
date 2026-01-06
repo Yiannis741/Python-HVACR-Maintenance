@@ -963,23 +963,23 @@ def get_deleted_tasks():
 
 
 def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, date_to=None, search_text=None):
-    """Φιλτράρισμα εργασιών με πολλαπλά κριτήρια - Updated Phase 2.3"""
+    """Φιλτράρισμα εργασιών με πολλαπλά κριτήρια - FIXED: Comprehensive Search"""
     conn = get_connection()
     cursor = conn.cursor()
 
     query = '''
-            SELECT t.*, \
-                   u.name  as unit_name, \
-                   tt.name as task_type_name, \
-                   g.name  as group_name,
-                   ti.name as task_item_name
-            FROM tasks t
-                     JOIN units u ON t.unit_id = u.id
-                     JOIN task_types tt ON t.task_type_id = tt.id
-                     JOIN groups g ON u.group_id = g.id
-                     LEFT JOIN task_items ti ON t.task_item_id = ti.id
-            WHERE t.is_deleted = 0 \
-            '''
+        SELECT t.*, 
+               u.name as unit_name, 
+               tt.name as task_type_name, 
+               g.name as group_name,
+               ti.name as task_item_name
+        FROM tasks t
+        JOIN units u ON t.unit_id = u.id
+        JOIN task_types tt ON t.task_type_id = tt.id
+        JOIN groups g ON u.group_id = g.id
+        LEFT JOIN task_items ti ON t.task_item_id = ti.id
+        WHERE t.is_deleted = 0
+    '''
 
     params = []
 
@@ -988,7 +988,7 @@ def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, d
         params.append(status)
 
     if unit_id:
-        query += " AND t. unit_id = ?"
+        query += " AND t.unit_id = ?"
         params.append(unit_id)
 
     if task_type_id:
@@ -996,19 +996,30 @@ def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, d
         params.append(task_type_id)
 
     if date_from:
-        query += " AND t. created_date >= ?"
+        query += " AND t.created_date >= ?"
         params.append(date_from)
 
     if date_to:
         query += " AND t.created_date <= ?"
         params.append(date_to)
 
+    # ✅ FIXED: Comprehensive search across ALL relevant fields
     if search_text:
-        query += " AND (t. description LIKE ? OR t.notes LIKE ? OR u.name LIKE ? )"
+        query += """ AND (
+            LOWER(t.description) LIKE LOWER(?) OR 
+            LOWER(t.notes) LIKE LOWER(?) OR 
+            LOWER(u.name) LIKE LOWER(?) OR
+            LOWER(g.name) LIKE LOWER(?) OR
+            LOWER(tt.name) LIKE LOWER(?) OR
+            LOWER(ti.name) LIKE LOWER(?) OR
+            LOWER(t.technician_name) LIKE LOWER(?) OR
+            CAST(t.id AS TEXT) LIKE ?
+        )"""
         search_param = f"%{search_text}%"
-        params.extend([search_param, search_param, search_param])
+        # Add 8 parameters (one for each field)
+        params.extend([search_param] * 8)
 
-    query += " ORDER BY t. created_date DESC, t.created_at DESC"
+    query += " ORDER BY t.created_date DESC, t.created_at DESC"
 
     cursor.execute(query, params)
     tasks = [dict(row) for row in cursor.fetchall()]
