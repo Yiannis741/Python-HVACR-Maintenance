@@ -1345,52 +1345,60 @@ class UnitsManagement(ctk.CTkFrame):
             )
             edit_btn.pack(pady=(0, 10))
 
-                    
     def add_unit_dialog(self, unit_data=None):
         """Dialog για προσθήκη/επεξεργασία μονάδας"""
-        
+
         is_edit_mode = unit_data is not None
-        
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Επεξεργασία Μονάδας" if is_edit_mode else "Προσθήκη Νέας Μονάδας")
         dialog.geometry("500x700")
         dialog.grab_set()
-        
+
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w",
+                                                                                                     padx=20,
+                                                                                                     pady=(20, 5))
         name_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         name_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Ομάδα
-        ctk.CTkLabel(dialog, text="Ομάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ομάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                             pady=(10, 5))
         groups = database.get_all_groups()
         groups_dict = {g['name']: g['id'] for g in groups}
-        group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly", font=theme_config. get_font("input"))
+        group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly",
+                                      font=theme_config.get_font("input"))
         group_combo.pack(padx=20, pady=(0, 15))
         if groups_dict:
             group_combo.set(list(groups_dict.keys())[0])
-        
+
         # Τοποθεσία
-        ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                                 pady=(10, 5))
         location_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         location_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Μοντέλο
-        ctk.CTkLabel(dialog, text="Μοντέλο:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Μοντέλο:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                               pady=(10, 5))
         model_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         model_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Serial Number
-        ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=theme_config.get_font("body", "bold")).pack(anchor="w",
+                                                                                                         padx=20,
+                                                                                                         pady=(10, 5))
         serial_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         serial_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Ημερομηνία εγκατάστασης
-        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):",
+                     font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         install_entry.pack(padx=20, pady=(0, 20))
-        
+
         # Populate fields if editing
         if is_edit_mode:
             name_entry.insert(0, unit_data['name'])
@@ -1400,54 +1408,59 @@ class UnitsManagement(ctk.CTkFrame):
             install_entry.delete(0, "end")
             install_entry.insert(0, unit_data.get('installation_date', ''))
 
-            def save():
-                name = name_entry.get().strip()
-                if not name:
-                    messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
-                    return
+        # -------- BUTTONS --------
+        buttons_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        buttons_frame.pack(padx=20, pady=10, fill="x", expand=True)
 
-                group_id = groups_dict.get(group_combo.get())
-                location = location_entry.get().strip()
-                model = model_entry.get().strip()
-                serial = serial_entry.get().strip()
-                install_date = install_entry.get().strip()
+        def save():
+            name = name_entry.get().strip()
+            if not name:
+                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                return
 
-                try:
-                    if is_edit_mode:
-                        database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
-                        messagebox.showinfo("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
-                    else:
-                        database.add_unit(name, group_id, location, model, serial, install_date)
-                        messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
-                    dialog.destroy()
-                    self.refresh_callback()
-                    self.refresh_ui()
-                except Exception as e:
-                    messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+            group_id = groups_dict.get(group_combo.get())
+            location = location_entry.get().strip()
+            model = model_entry.get().strip()
+            serial = serial_entry.get().strip()
+            install_date = install_entry.get().strip()
 
-            ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
-                          height=40).pack(pady=10)
-            def confirm_soft_delete():
-                from tkinter import messagebox
-                if messagebox.askyesno("Διαγραφή",
-                                       "Θέλετε να διαγράψετε τη μονάδα; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
-                    res = database.soft_delete_unit(unit_data['id'])
-                    if res.get('success'):
-                        messagebox.showinfo("Επιτυχία", "Η μονάδα μεταφέρθηκε στον κάδο!")
+            try:
+                if is_edit_mode:
+                    database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
+                    messagebox.showinfo("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
+                else:
+                    database.add_unit(name, group_id, location, model, serial, install_date)
+                    messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
+                dialog.destroy()
+                self.refresh_callback()
+                self.refresh_ui()
+            except Exception as e:
+                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+
+        save_btn = ctk.CTkButton(buttons_frame, text="💾 Αποθήκευση", command=save,
+                                 **theme_config.get_button_style("success"), height=40)
+        save_btn.pack(side="left", padx=10)
+
+        if is_edit_mode:
+            def delete():
+                result = messagebox.askyesno("Επιβεβαίωση", "Θέλετε να διαγράψετε αυτή τη μονάδα;")
+                if result:
+                    try:
+                        database.soft_delete_unit(unit_data['id'])
+                        messagebox.showinfo("Επιτυχία", "Η μονάδα διαγράφηκε με επιτυχία.")
                         dialog.destroy()
                         self.refresh_callback()
                         self.refresh_ui()
-                    else:
-                        messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+                    except Exception as e:
+                        messagebox.showerror("Σφάλμα", f"Aποτυχία: {str(e)}")
 
-            ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
-                          **theme_config.get_button_style("danger"), height=36).pack(pady=10)
+            delete_btn = ctk.CTkButton(buttons_frame, text="🗑️ Διαγραφή", command=delete,
+                                       **theme_config.get_button_style("danger"), height=40)
+            delete_btn.pack(side="right", padx=10)
 
-            # Set group
-            for group_name, group_id in groups_dict.items():
-                if group_id == unit_data['group_id']:
-                    group_combo.set(group_name)
-                    break
+        cancel_btn = ctk.CTkButton(buttons_frame, text="✖ Ακύρωση", command=dialog.destroy,
+                                   **theme_config.get_button_style("secondary"), height=40)
+        cancel_btn.pack(side="right", padx=10)
 
 
 
