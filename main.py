@@ -19,7 +19,6 @@ class HVACRApp(ctk.CTk):
 
         # Ρυθμίσεις παραθύρου
         self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
-        self.state('zoomed')  # Maximize window
         
         self.minsize(1200, 700)
         self.configure(fg_color=self.theme["bg_primary"])
@@ -32,6 +31,9 @@ class HVACRApp(ctk.CTk):
 
         # Φόρτωση αρχικών δεδομένων
         self.load_initial_data()
+        
+        # Maximize window (μετά το UI setup)
+        self.after(10, lambda: self.state('zoomed'))
 
     def create_layout(self):
         """Δημιουργία του βασικού layout"""
