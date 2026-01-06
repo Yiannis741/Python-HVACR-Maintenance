@@ -68,9 +68,9 @@ class CustomDialog(ctk.CTkToplevel):
         dialog_width = self.winfo_width()
         dialog_height = self.winfo_height()
         
-        # Calculate center position
+        # Calculate center position (higher up to avoid cut-off)
         x = parent_x + (parent_width - dialog_width) // 2
-        y = parent_y + (parent_height - dialog_height) // 2
+        y = parent_y + (parent_height - dialog_height) // 3  # Higher: //3 instead of //2
         
         self.geometry(f"+{x}+{y}")
     

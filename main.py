@@ -19,7 +19,8 @@ class HVACRApp(ctk.CTk):
 
         # Ρυθμίσεις παραθύρου
         self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
-        self.geometry("1400x800")
+        self.state('zoomed')  # Maximize window
+        
         self.minsize(1200, 700)
         self.configure(fg_color=self.theme["bg_primary"])
 
@@ -538,20 +539,6 @@ class HVACRApp(ctk.CTk):
             )
             card.pack(fill="x", pady=3, padx=5)
 
-    def show_edit(self):
-        """Επεξεργασία εγγραφής - Εμφάνιση λίστας εργασιών"""
-        self.clear_main_frame()
-
-        title = ctk.CTkLabel(
-            self.main_frame,
-            text="✏️ Επεξεργασία Εγγραφής - Επιλέξτε Εργασία",
-            font=theme_config.get_font("title", "bold"),
-            text_color=self.theme["text_primary"]
-        )
-        title.pack(pady=20)
-
-        # Task list για επιλογή
-        ui_components.TaskHistoryView(self.main_frame, on_task_select=self.show_task_edit)
 
     def show_task_edit(self, task):
         """Εμφάνιση φόρμας επεξεργασίας εργασίας"""
@@ -597,7 +584,7 @@ class HVACRApp(ctk.CTk):
         back_btn = ctk.CTkButton(
             btn_frame,
             text="↩️ Πίσω",
-            command=self.show_edit,
+            command=self.show_history,
             width=100,
             height=35,
             **theme_config.get_button_style("secondary")
@@ -630,8 +617,9 @@ class HVACRApp(ctk.CTk):
         chain_length = len(full_chain)
         has_relations = chain_length > 1
 
-        # Title με ΣΩΣΤΟ relationship indicator
-        title_text = f"📋 Λεπτομέρειες Εργασίας #{task['id']}"
+        # Title με unit name και relationship indicator
+        unit_name = task.get('unit_name', 'Άγνωστη Μονάδα')
+        title_text = f"📋 Λεπτομέρειες Εργασίας #{task['id']} - {unit_name}"
         if has_relations:
             title_text += f"  🔗 ({current_position}/{chain_length})"
 
@@ -670,7 +658,7 @@ class HVACRApp(ctk.CTk):
         back_btn = ctk.CTkButton(
             btn_frame,
             text="↩️ Πίσω",
-            command=self.show_dashboard,
+            command=self.show_history,
             width=100,
             height=35,
             **theme_config.get_button_style("secondary")

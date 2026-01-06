@@ -388,6 +388,8 @@ class TaskForm(ctk.CTkFrame):
             font=theme_config.get_font("input")
         )
         self.group_combo.grid(row=1, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
+        
+        # Set default group
         if self.groups_dict:
             self.group_combo.set(list(self.groups_dict.keys())[0])
 
@@ -1372,8 +1374,19 @@ class UnitsManagement(ctk.CTkFrame):
         group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly",
                                       font=theme_config.get_font("input"))
         group_combo.pack(padx=20, pady=(0, 15))
+        
+        # Set default group
         if groups_dict:
-            group_combo.set(list(groups_dict.keys())[0])
+            if is_edit_mode and 'group_id' in unit_data:
+                # EDITING: Find and set current group
+                current_group_id = unit_data['group_id']
+                for group_name, group_id in groups_dict.items():
+                    if group_id == current_group_id:
+                        group_combo.set(group_name)
+                        break
+            else:
+                # NEW: Set first group
+                group_combo.set(list(groups_dict.keys())[0])
 
         # Τοποθεσία
         ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
