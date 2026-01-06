@@ -6,7 +6,8 @@ import customtkinter as ctk
 from datetime import datetime
 import database_refactored as database
 import theme_config
-from tkinter import messagebox
+# from tkinter import messagebox  # ← Replaced with custom dialogs
+import custom_dialogs
 from tkcalendar import Calendar
 from datetime import datetime, timedelta
 import utils_refactored  # Refactored chain utilities
@@ -747,13 +748,13 @@ class TaskForm(ctk.CTkFrame):
         
         # Validation
         if not self.description_text.get("1.0", "end-1c").strip():
-            messagebox.showerror("Σφάλμα", "Η περιγραφή είναι υποχρεωτική!")
+            custom_dialogs.show_error("Σφάλμα", "Η περιγραφή είναι υποχρεωτική!")
             return
         
         # Validation: Είδος Εργασίας (REQUIRED)
         task_item_key = self.task_item_combo.get()
         if not task_item_key or task_item_key == "Κανένα είδος":
-            messagebox.showerror("Σφάλμα", "Το Είδος Εργασίας είναι υποχρεωτικό!")
+            custom_dialogs.show_error("Σφάλμα", "Το Είδος Εργασίας είναι υποχρεωτικό!")
             return
         
         # Παίρνουμε τα δεδομένα
@@ -761,7 +762,7 @@ class TaskForm(ctk.CTkFrame):
         unit_id = self.units_dict.get(unit_key)
         
         if not unit_id or unit_key == "Καμία μονάδα":
-            messagebox.showerror("Σφάλμα", "Η Μονάδα είναι υποχρεωτική!")
+            custom_dialogs.show_error("Σφάλμα", "Η Μονάδα είναι υποχρεωτική!")
             return
         
         task_type_key = self.task_type_combo.get()
@@ -791,7 +792,7 @@ class TaskForm(ctk.CTkFrame):
                     created_date, completed_date, technician if technician else None,
                     notes if notes else None, task_item_id
                 )
-                messagebox.showinfo("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
+                custom_dialogs.show_success("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
             else:
                 # Insert
                 database.add_task(
@@ -799,29 +800,29 @@ class TaskForm(ctk.CTkFrame):
                     created_date, completed_date, technician if technician else None,
                     notes if notes else None, task_item_id
                 )
-                messagebox.showinfo("Επιτυχία", "Η εργασία αποθηκεύτηκε με επιτυχία!")
+                custom_dialogs.show_success("Επιτυχία", "Η εργασία αποθηκεύτηκε με επιτυχία!")
             
             self.on_save_callback()
             
         except Exception as e:
-            messagebox.showerror("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
+            custom_dialogs.show_error("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
 
     def delete_task(self):
         """Διαγραφή εργασίας"""
         if not self.is_edit_mode:
             return
 
-        result = messagebox.askyesno("Επιβεβαίωση",
+        result = custom_dialogs.ask_yes_no("Επιβεβαίωση",
                                      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εργασία?\n\n"
                                      "Η εργασία θα μεταφερθεί στον Κάδο Ανακύκλωσης.")
 
         if result:
             try:
                 database.delete_task(self.task_data['id'])
-                messagebox.showinfo("Επιτυχία", "Η εργασία διαγράφηκε!")
+                custom_dialogs.show_success("Επιτυχία", "Η εργασία διαγράφηκε!")
                 self.on_save_callback()
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
 
     def add_compact_chain_preview(self, parent):
         """Προσθήκη compact chain preview κάτω από τα buttons - Edit mode only"""
@@ -1416,7 +1417,7 @@ class UnitsManagement(ctk.CTkFrame):
         def save():
             name = name_entry.get().strip()
             if not name:
-                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                custom_dialogs.show_error("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
 
             group_id = groups_dict.get(group_combo.get())
@@ -1428,15 +1429,15 @@ class UnitsManagement(ctk.CTkFrame):
             try:
                 if is_edit_mode:
                     database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
-                    messagebox.showinfo("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
+                    custom_dialogs.show_success("Επιτυχία", "Η μονάδα ενημερώθηκε με επιτυχία!")
                 else:
                     database.add_unit(name, group_id, location, model, serial, install_date)
-                    messagebox.showinfo("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
+                    custom_dialogs.show_success("Επιτυχία", "Η μονάδα προστέθηκε με επιτυχία!")
                 dialog.destroy()
                 self.refresh_callback()
                 self.refresh_ui()
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία: {str(e)}")
 
         save_btn = ctk.CTkButton(buttons_frame, text="💾 Αποθήκευση", command=save,
                                  **theme_config.get_button_style("success"), height=40)
@@ -1444,16 +1445,16 @@ class UnitsManagement(ctk.CTkFrame):
 
         if is_edit_mode:
             def delete():
-                result = messagebox.askyesno("Επιβεβαίωση", "Θέλετε να διαγράψετε αυτή τη μονάδα;")
+                result = custom_dialogs.ask_yes_no("Επιβεβαίωση", "Θέλετε να διαγράψετε αυτή τη μονάδα;")
                 if result:
                     try:
                         database.soft_delete_unit(unit_data['id'])
-                        messagebox.showinfo("Επιτυχία", "Η μονάδα διαγράφηκε με επιτυχία.")
+                        custom_dialogs.show_success("Επιτυχία", "Η μονάδα διαγράφηκε με επιτυχία.")
                         dialog.destroy()
                         self.refresh_callback()
                         self.refresh_ui()
                     except Exception as e:
-                        messagebox.showerror("Σφάλμα", f"Aποτυχία: {str(e)}")
+                        custom_dialogs.show_error("Σφάλμα", f"Aποτυχία: {str(e)}")
 
             delete_btn = ctk.CTkButton(buttons_frame, text="🗑️ Διαγραφή", command=delete,
                                        **theme_config.get_button_style("danger"), height=40)
@@ -1498,7 +1499,7 @@ class UnitsManagement(ctk.CTkFrame):
         def save():
             name = name_entry.get().strip()
             if not name:
-                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                custom_dialogs.show_error("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
 
             desc = desc_text.get("1.0", "end-1c").strip()
@@ -1507,39 +1508,40 @@ class UnitsManagement(ctk.CTkFrame):
                 if is_edit_mode:
                     result = database.update_group(group_data['id'], name, desc)
                     if result:
-                        messagebox.showinfo("Επιτυχία", "Η ομάδα ενημερώθηκε με επιτυχία!")
+                        custom_dialogs.show_success("Επιτυχία", "Η ομάδα ενημερώθηκε με επιτυχία!")
                         dialog.destroy()
                         self.refresh_callback()
                         self.refresh_ui()
                     else:
-                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+                        custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη!")
                 else:
                     result = database.add_group(name, desc)
                     if result:
-                        messagebox.showinfo("Επιτυχία", "Η ομάδα προστέθηκε με επιτυχία!")
+                        custom_dialogs.show_success("Επιτυχία", "Η ομάδα προστέθηκε με επιτυχία!")
                         dialog.destroy()
                         self.refresh_callback()
                         self.refresh_ui()
                     else:
-                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+                        custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη!")
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία: {str(e)}")
 
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
                       height=40).pack(pady=10)
 
         def confirm_soft_delete():
-            from tkinter import messagebox
-            if messagebox.askyesno("Διαγραφή",
+            # from tkinter import messagebox  # ← Replaced with custom dialogs
+            import custom_dialogs
+            if custom_dialogs.ask_yes_no("Διαγραφή",
                                    "Θέλετε να διαγράψετε την ομάδα και τις μονάδες της; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
                 res = database.soft_delete_group(group_data['id'])
                 if res.get('success'):
-                    messagebox.showinfo("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
+                    custom_dialogs.show_success("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
                     dialog.destroy()
                     self.refresh_callback()
                     self.refresh_ui()
                 else:
-                    messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+                    custom_dialogs.show_error("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
 
         ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
                       **theme_config.get_button_style("danger"), height=36).pack(pady=10)
@@ -1663,14 +1665,16 @@ class UnitsManagement(ctk.CTkFrame):
 
     def restore_unit_ui(self, unit_id):
         database.restore_unit(unit_id)
-        from tkinter import messagebox
-        messagebox.showinfo("Επαναφορά", "Η μονάδα επανήλθε από τον κάδο!")
+        # from tkinter import messagebox  # ← Replaced with custom dialogs
+        import custom_dialogs
+        custom_dialogs.show_success("Επαναφορά", "Η μονάδα επανήλθε από τον κάδο!")
         self.refresh_ui()
 
     def restore_group_ui(self, group_id):
         database.restore_group(group_id)
-        from tkinter import messagebox
-        messagebox.showinfo("Επαναφορά", "Η ομάδα και οι μονάδες της επανήλθαν από τον κάδο!")
+        # from tkinter import messagebox  # ← Replaced with custom dialogs
+        import custom_dialogs
+        custom_dialogs.show_success("Επαναφορά", "Η ομάδα και οι μονάδες της επανήλθαν από τον κάδο!")
         self.refresh_ui()
 
     def refresh_ui(self):
@@ -1867,18 +1871,18 @@ class TaskManagement(ctk.CTkFrame):
         def save():
             name = name_entry.get().strip()
             if not name:
-                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                custom_dialogs.show_error("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
 
             desc = desc_text.get("1.0", "end-1c").strip()
 
             result = database.add_task_type(name, desc)
             if result:
-                messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας προστέθηκε με επιτυχία!")
+                custom_dialogs.show_success("Επιτυχία", "Ο τύπος εργασίας προστέθηκε με επιτυχία!")
                 dialog.destroy()
                 self.refresh_ui()
             else:
-                messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+                custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη!")
 
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
                       height=40).pack(pady=10)
@@ -1886,7 +1890,7 @@ class TaskManagement(ctk.CTkFrame):
     def delete_task_type(self, task_type):
         """Διαγραφή custom τύπου εργασίας"""
 
-        result = messagebox.askyesno(
+        result = custom_dialogs.ask_yes_no(
             "Επιβεβαίωση Διαγραφής",
             f"Είστε σίγουροι ότι θέλετε να διαγράψετε τον τύπο '{task_type['name']}';"
         )
@@ -1895,10 +1899,10 @@ class TaskManagement(ctk.CTkFrame):
             delete_result = database.delete_task_type(task_type['id'])
 
             if delete_result:
-                messagebox.showinfo("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
+                custom_dialogs.show_success("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
                 self.refresh_ui()
             else:
-                messagebox.showerror("Σφάλμα",
+                custom_dialogs.show_error("Σφάλμα",
                                      "Ο τύπος δεν μπορεί να διαγραφεί (είτε είναι προκαθορισμένος, είτε χρησιμοποιείται σε εργασίες).")
 
     def create_task_items_tab(self, parent):
@@ -2101,7 +2105,7 @@ class TaskManagement(ctk.CTkFrame):
         def save():
             name = name_entry.get().strip()
             if not name:
-                messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
+                custom_dialogs.show_error("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
 
             desc = desc_text.get("1.0", "end-1c").strip()
@@ -2110,21 +2114,21 @@ class TaskManagement(ctk.CTkFrame):
                 if is_edit_mode:
                     result = database.update_task_item(item_data['id'], name, desc)
                     if result:
-                        messagebox.showinfo("Επιτυχία", "Το είδος ενημερώθηκε με επιτυχία!")
+                        custom_dialogs.show_success("Επιτυχία", "Το είδος ενημερώθηκε με επιτυχία!")
                         dialog.destroy()
                         self.load_items_for_selected_type()
                     else:
-                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
+                        custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
                 else:
                     result = database.add_task_item(name, type_id, desc)
                     if result:
-                        messagebox.showinfo("Επιτυχία", "Το είδος προστέθηκε με επιτυχία!")
+                        custom_dialogs.show_success("Επιτυχία", "Το είδος προστέθηκε με επιτυχία!")
                         dialog.destroy()
                         self.load_items_for_selected_type()
                     else:
-                        messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
+                        custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία: {str(e)}")
 
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
                       height=40).pack(pady=10)
@@ -2136,7 +2140,7 @@ class TaskManagement(ctk.CTkFrame):
     def delete_task_item(self, item):
         """Διαγραφή είδους εργασίας - Phase 2.3"""
 
-        result = messagebox.askyesno(
+        result = custom_dialogs.ask_yes_no(
             "Επιβεβαίωση Διαγραφής",
             f"Είστε σίγουροι ότι θέλετε να διαγράψετε το είδος '{item['name']}'?\n\nΑυτή η ενέργεία θα είναι δυνατή μόνο αν δεν χρησιμοποιείται σε υπάρχουσες εργασίες."
         )
@@ -2145,10 +2149,10 @@ class TaskManagement(ctk.CTkFrame):
             delete_result = database.delete_task_item(item['id'])
 
             if delete_result:
-                messagebox.showinfo("Επιτυχία", "Το είδος διαγράφηκε!")
+                custom_dialogs.show_success("Επιτυχία", "Το είδος διαγράφηκε!")
                 self.load_items_for_selected_type()
             else:
-                messagebox.showerror("Σφάλμα",
+                custom_dialogs.show_error("Σφάλμα",
                                      "Το είδος δεν μπορεί να διαγραφεί γιατί χρησιμοποιείται σε υπάρχουσες εργασίες!")
 
 
@@ -2431,15 +2435,16 @@ class RecycleBinView(ctk.CTkFrame):
 
     def _on_restore(self, task):
         """Restore a soft-deleted task."""
-        from tkinter import messagebox
-        result = messagebox.askyesno("Επαναφορά Εργασίας", f"Θέλετε να επαναφέρετε την εργασία #{task['id']};")
+        # from tkinter import messagebox  # ← Replaced with custom dialogs
+        import custom_dialogs
+        result = custom_dialogs.ask_yes_no("Επαναφορά Εργασίας", f"Θέλετε να επαναφέρετε την εργασία #{task['id']};")
         if not result:
             return
 
         try:
             database.restore_task(task['id'])
         except Exception as e:
-            messagebox.showerror("Σφάλμα", f"Σφάλμα κατά την επαναφορά: {e}")
+            custom_dialogs.show_error("Σφάλμα", f"Σφάλμα κατά την επαναφορά: {e}")
             return
 
         # refresh list and notify caller
@@ -2449,8 +2454,9 @@ class RecycleBinView(ctk.CTkFrame):
 
     def _on_permanent_delete(self, task):
         """Permanently delete task after confirmation."""
-        from tkinter import messagebox
-        result = messagebox.askyesno(
+        # from tkinter import messagebox  # ← Replaced with custom dialogs
+        import custom_dialogs
+        result = custom_dialogs.ask_yes_no(
             "Οριστική Διαγραφή",
             f"Η εργασία #{task['id']} θα διαγραφεί οριστικά. Η ενέργεια δεν μπορεί να αναιρεθεί.\n\nΘέλετε να συνεχίσετε?"
         )
@@ -2460,7 +2466,7 @@ class RecycleBinView(ctk.CTkFrame):
         try:
             database.permanent_delete_task(task['id'])
         except Exception as e:
-            messagebox.showerror("Σφάλμα", f"Σφάλμα κατά την οριστική διαγραφή: {e}")
+            custom_dialogs.show_error("Σφάλμα", f"Σφάλμα κατά την οριστική διαγραφή: {e}")
             return
 
         # refresh list and notify caller
@@ -2524,7 +2530,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
     🔗 Αλυσίδα Εργασιών - Πώς λειτουργεί: 
     ... 
         """
-        messagebox.showinfo("Βοήθεια - Αλυσίδα Εργασιών", help_text)
+        custom_dialogs.show_success("Βοήθεια - Αλυσίδα Εργασιών", help_text)
 
     # ← ΕΔΩ προσθέτετε την get_full_chain()
     def get_full_chain(self, task_id):
@@ -2872,7 +2878,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             info_text = "Επιλέξτε την εργασία που ακολούθησε/προέκυψε από την τρέχουσα"
 
         dialog.title(title_text)
-        dialog.geometry("850x750")
+        dialog.geometry("850x850")
         dialog.grab_set()
 
         # Header με visual flow
@@ -3020,16 +3026,16 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
         try:
             database.add_task_relationship(parent_id, child_id, "related")
-            messagebox.showinfo("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+            custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
             dialog.destroy()
             self.load_relationships()
         except Exception as e:
-            messagebox.showerror("Σφάλμα", f"Αποτυχία σύνδεσης: {str(e)}")
+            custom_dialogs.show_error("Σφάλμα", f"Αποτυχία σύνδεσης: {str(e)}")
 
     def remove_relationship(self, task, item_type):
         """Remove current task from chain"""
 
-        result = messagebox.askyesno(
+        result = custom_dialogs.ask_yes_no(
             "Επιβεβαίωση Αφαίρεσης",
             "Είστε σίγουροι ότι θέλετε να αφαιρέσετε αυτή την εργασία από την αλυσίδα?\n\n"
             "Η εργασία θα παραμείνει ενεργή αλλά θα αποσυνδεθεί."
@@ -3042,7 +3048,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
                 # ✅ ΝΕΟ:  Χρήση του remove_task_from_chain με bypass logic!
                 database.remove_task_from_chain(current_id)
 
-                messagebox.showinfo("Επιτυχία", "Η εργασία αφαιρέθηκε από την αλυσίδα!")
+                custom_dialogs.show_success("Επιτυχία", "Η εργασία αφαιρέθηκε από την αλυσίδα!")
                 self.refresh_callback()
             except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία αφαίρεσης: {str(e)}")
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία αφαίρεσης: {str(e)}")
