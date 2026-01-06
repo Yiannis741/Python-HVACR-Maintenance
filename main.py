@@ -47,8 +47,33 @@ class HVACRApp(ctk.CTk):
         self.create_sidebar()
 
         # ----- ΚΕΝΤΡΙΚΗ ΠΕΡΙΟΧΗ -----
+        # Main container for frame swapping (wrapper)
+
+
+        self.main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+
+
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+
+
+        self.main_container.grid_columnconfigure(0, weight=1)
+
+
+        self.main_container.grid_rowconfigure(0, weight=1)
+
+
+        
+
+
+        # Content frame (swappable)
+
+
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        
+
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+
+
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(0, weight=1)
 
@@ -102,9 +127,29 @@ class HVACRApp(ctk.CTk):
         return theme_config.adjust_color(hex_color, adjustment)
 
     def clear_main_frame(self):
-        """Καθαρισμός της κεντρικής περιοχής"""
-        for widget in self.main_frame.winfo_children():
-            widget.destroy()
+        """
+        Καθαρισμός της κεντρικής περιοχής - FRAME SWAPPING (NO FLICKER)
+        
+        Technique: Δημιουργία νέου frame + atomic swap αντί για in-place destroy
+        """
+        # 1. Δημιουργία νέου frame (κρυφό)
+        new_frame = ctk.CTkFrame(self.main_container, corner_radius=0, fg_color="transparent")
+        new_frame.grid_columnconfigure(0, weight=1)
+        new_frame.grid_rowconfigure(0, weight=1)
+        
+        # 2. Reference στο παλιό
+        old_frame = self.main_frame
+        
+        # 3. ATOMIC SWAP
+        self.main_frame = new_frame
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+        
+        # 4. Καταστροφή παλιού (μετά το swap - invisible)
+        self.after(1, lambda: old_frame.destroy() if old_frame.winfo_exists() else None)
+
+    def _finalize_view_render(self):
+        """Helper: Finalize rendering μετά τη δημιουργία UI"""
+        self.main_frame.update_idletasks()
 
     # ----- VIEWS -----
 
