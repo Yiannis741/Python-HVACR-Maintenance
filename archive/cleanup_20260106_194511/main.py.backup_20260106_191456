@@ -72,7 +72,7 @@ class HVACRApp(ctk.CTk):
             ("🏠 Αρχική", self.show_dashboard, "primary"),
             ("➕ Νέα Εργασία", self.show_new_task, "success"),
             ("📋 Ιστορικό", self.show_history, "primary"),
-            # ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "primary"),  # REMOVED - Ο χρήστης μπορεί να επεξεργαστεί από το Ιστορικό
+            ("✏️ Επεξεργασία Εγγραφής", self.show_edit, "primary"),
             ("🏢 Διαχείριση Μονάδων", self.show_units_management, "primary"),
             ("📋 Διαχείριση Εργασιών", self.show_task_management, "primary"),
             ("📅 Πρόγραμμα Βαρδιών", self.show_shifts, "primary"),

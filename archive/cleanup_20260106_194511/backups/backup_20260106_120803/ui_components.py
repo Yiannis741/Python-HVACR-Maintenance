@@ -4,12 +4,11 @@ UI Components - Επαναχρησιμοποιήσιμα components - Phase 2
 
 import customtkinter as ctk
 from datetime import datetime
-import database_refactored as database
+import database
 import theme_config
 from tkinter import messagebox
 from tkcalendar import Calendar
 from datetime import datetime, timedelta
-import utils_refactored  # Refactored chain utilities
 
 class TaskCard(ctk.CTkFrame):
     """Καρτέλα εργασίας για προβολή - Compact Design με Link Indicators"""
@@ -141,7 +140,7 @@ class TaskCard(ctk.CTkFrame):
         # Chain indicator FIRST (if exists) - με ΜΠΛΕ χρώμα
         chain_widget = None
         if self.show_relations:
-            full_chain = utils_refactored.get_full_task_chain(self.task['id'])
+            full_chain = self._get_full_chain_simple(self.task['id'])
             if len(full_chain) > 1:
                 position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
                 chain_length = len(full_chain)
@@ -829,7 +828,7 @@ class TaskForm(ctk.CTkFrame):
         theme = theme_config.get_current_theme()
 
         # Get full chain
-        full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
+        full_chain = self._get_full_chain_simple(self.task_data['id'])
 
         if len(full_chain) <= 1:
             return  # Δεν υπάρχει αλυσίδα, skip

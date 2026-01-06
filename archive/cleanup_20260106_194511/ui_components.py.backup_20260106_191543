@@ -4,7 +4,7 @@ UI Components - Επαναχρησιμοποιήσιμα components - Phase 2
 
 import customtkinter as ctk
 from datetime import datetime
-import database_refactored as database
+import database
 import theme_config
 from tkinter import messagebox
 from tkcalendar import Calendar
