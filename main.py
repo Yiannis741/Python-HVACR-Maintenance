@@ -129,29 +129,16 @@ class HVACRApp(ctk.CTk):
         )
         subtitle.pack(pady=10)
 
-        # Stats Frame (με frame για να μην rebuild)
-        stats_container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        stats_container.pack(pady=40, padx=40, fill="x")
+        # Stats removed για περισσότερο χώρο στις εργασίες
 
-        stats_frame = ctk.CTkFrame(stats_container, fg_color="transparent")
-        stats_frame.pack(fill="x")
-        stats_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        # Στατιστικά
-        stats = database.get_dashboard_stats()
-
-        self.create_stat_card(stats_frame, "Σύνολο Μονάδων", stats['total_units'], 0)
-        self.create_stat_card(stats_frame, "Εκκρεμείς Εργασίες", stats['pending_tasks'], 1)
-        self.create_stat_card(stats_frame, "Εργασίες Σήμερα", stats['today_tasks'], 2)
-
-        # Πρόσφατες εργασίες
+        # Εκκρεμείς εργασίες
         recent_label = ctk.CTkLabel(
             self.main_frame,
-            text="📌 Πρόσφατες Εργασίες (Κλικ για επεξεργασία)",
+            text="⏳ Εκκρεμείς Εργασίες (Κλικ για επεξεργασία)",
             font=theme_config.get_font("title", "bold"),
             text_color=self.theme["text_primary"]
         )
-        recent_label.pack(pady=(40, 20))
+        recent_label.pack(pady=(20, 20))  # Μειωμένο padding επειδή δεν έχουμε stats
 
         # Scrollable frame για tasks (ΝΕΟ - με fixed height)
         self.dashboard_tasks_frame = ctk.CTkScrollableFrame(
@@ -164,14 +151,16 @@ class HVACRApp(ctk.CTk):
         self.load_dashboard_tasks()
 
     def load_dashboard_tasks(self):
-        """Φόρτωση tasks για το dashboard - Separated για performance"""
+        """Φόρτωση ΜΟΝΟ εκκρεμών tasks για το dashboard"""
 
         # Clear existing tasks only
         if hasattr(self, 'dashboard_tasks_frame'):
             for widget in self.dashboard_tasks_frame.winfo_children():
                 widget.destroy()
 
-        tasks = database.get_recent_tasks(10)  # Αύξησε από 5 σε 10 (επειδή είναι compact)
+        # ΑΛΛΑΓΗ: Φέρνουμε ΜΟΝΟ εκκρεμείς εργασίες
+        all_tasks = database.get_recent_tasks(50)  # Φέρνουμε περισσότερα για να φιλτράρουμε
+        tasks = [t for t in all_tasks if t.get('status') == 'pending'][:15]  # Κρατάμε τις 15 πρώτες εκκρεμείς
 
         if not tasks:
             no_tasks = ctk.CTkLabel(
@@ -312,15 +301,7 @@ class HVACRApp(ctk.CTk):
         units_content = ctk.CTkFrame(units_filter_frame, fg_color="transparent")
         units_content.pack(fill="x", padx=20, pady=15)
 
-        # Label
-        ctk.CTkLabel(
-            units_content,
-            text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
-            font=theme_config.get_font("body", "bold"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 15))
-
-        # "Όλες" button
+        # "Όλες" button (Removed "ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ" label για περισσότερο χώρο)
         self.all_units_btn = ctk.CTkButton(
             units_content,
             text="Όλες",
