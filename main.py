@@ -19,7 +19,7 @@ class HVACRApp(ctk.CTk):
 
         # Ρυθμίσεις παραθύρου
         self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
-        self.geometry("1400x800")
+        
         self.minsize(1200, 700)
         self.configure(fg_color=self.theme["bg_primary"])
 
@@ -31,6 +31,9 @@ class HVACRApp(ctk.CTk):
 
         # Φόρτωση αρχικών δεδομένων
         self.load_initial_data()
+        
+        # Maximize window (μετά το UI setup)
+        self.after(10, lambda: self.state('zoomed'))
 
     def create_layout(self):
         """Δημιουργία του βασικού layout"""
@@ -47,8 +50,33 @@ class HVACRApp(ctk.CTk):
         self.create_sidebar()
 
         # ----- ΚΕΝΤΡΙΚΗ ΠΕΡΙΟΧΗ -----
+        # Main container for frame swapping (wrapper)
+
+
+        self.main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+
+
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+
+
+        self.main_container.grid_columnconfigure(0, weight=1)
+
+
+        self.main_container.grid_rowconfigure(0, weight=1)
+
+
+        
+
+
+        # Content frame (swappable)
+
+
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        
+
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+
+
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(0, weight=1)
 
@@ -102,9 +130,29 @@ class HVACRApp(ctk.CTk):
         return theme_config.adjust_color(hex_color, adjustment)
 
     def clear_main_frame(self):
-        """Καθαρισμός της κεντρικής περιοχής"""
-        for widget in self.main_frame.winfo_children():
-            widget.destroy()
+        """
+        Καθαρισμός της κεντρικής περιοχής - FRAME SWAPPING (NO FLICKER)
+        
+        Technique: Δημιουργία νέου frame + atomic swap αντί για in-place destroy
+        """
+        # 1. Δημιουργία νέου frame (κρυφό)
+        new_frame = ctk.CTkFrame(self.main_container, corner_radius=0, fg_color="transparent")
+        new_frame.grid_columnconfigure(0, weight=1)
+        new_frame.grid_rowconfigure(0, weight=1)
+        
+        # 2. Reference στο παλιό
+        old_frame = self.main_frame
+        
+        # 3. ATOMIC SWAP
+        self.main_frame = new_frame
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+        
+        # 4. Καταστροφή παλιού (μετά το swap - invisible)
+        self.after(1, lambda: old_frame.destroy() if old_frame.winfo_exists() else None)
+
+    def _finalize_view_render(self):
+        """Helper: Finalize rendering μετά τη δημιουργία UI"""
+        self.main_frame.update_idletasks()
 
     # ----- VIEWS -----
 
@@ -129,29 +177,16 @@ class HVACRApp(ctk.CTk):
         )
         subtitle.pack(pady=10)
 
-        # Stats Frame (με frame για να μην rebuild)
-        stats_container = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        stats_container.pack(pady=40, padx=40, fill="x")
+        # Stats removed για περισσότερο χώρο στις εργασίες
 
-        stats_frame = ctk.CTkFrame(stats_container, fg_color="transparent")
-        stats_frame.pack(fill="x")
-        stats_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        # Στατιστικά
-        stats = database.get_dashboard_stats()
-
-        self.create_stat_card(stats_frame, "Σύνολο Μονάδων", stats['total_units'], 0)
-        self.create_stat_card(stats_frame, "Εκκρεμείς Εργασίες", stats['pending_tasks'], 1)
-        self.create_stat_card(stats_frame, "Εργασίες Σήμερα", stats['today_tasks'], 2)
-
-        # Πρόσφατες εργασίες
+        # Εκκρεμείς εργασίες
         recent_label = ctk.CTkLabel(
             self.main_frame,
-            text="📌 Πρόσφατες Εργασίες (Κλικ για επεξεργασία)",
+            text="⏳ Εκκρεμείς Εργασίες (Κλικ για επεξεργασία)",
             font=theme_config.get_font("title", "bold"),
             text_color=self.theme["text_primary"]
         )
-        recent_label.pack(pady=(40, 20))
+        recent_label.pack(pady=(20, 20))  # Μειωμένο padding επειδή δεν έχουμε stats
 
         # Scrollable frame για tasks (ΝΕΟ - με fixed height)
         self.dashboard_tasks_frame = ctk.CTkScrollableFrame(
@@ -164,14 +199,16 @@ class HVACRApp(ctk.CTk):
         self.load_dashboard_tasks()
 
     def load_dashboard_tasks(self):
-        """Φόρτωση tasks για το dashboard - Separated για performance"""
+        """Φόρτωση ΜΟΝΟ εκκρεμών tasks για το dashboard"""
 
         # Clear existing tasks only
         if hasattr(self, 'dashboard_tasks_frame'):
             for widget in self.dashboard_tasks_frame.winfo_children():
                 widget.destroy()
 
-        tasks = database.get_recent_tasks(10)  # Αύξησε από 5 σε 10 (επειδή είναι compact)
+        # ΑΛΛΑΓΗ: Φέρνουμε ΜΟΝΟ εκκρεμείς εργασίες
+        all_tasks = database.get_recent_tasks(50)  # Φέρνουμε περισσότερα για να φιλτράρουμε
+        tasks = [t for t in all_tasks if t.get('status') == 'pending'][:15]  # Κρατάμε τις 15 πρώτες εκκρεμείς
 
         if not tasks:
             no_tasks = ctk.CTkLabel(
@@ -312,15 +349,7 @@ class HVACRApp(ctk.CTk):
         units_content = ctk.CTkFrame(units_filter_frame, fg_color="transparent")
         units_content.pack(fill="x", padx=20, pady=15)
 
-        # Label
-        ctk.CTkLabel(
-            units_content,
-            text="ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ:",
-            font=theme_config.get_font("body", "bold"),
-            text_color=self.theme["text_primary"]
-        ).pack(side="left", padx=(0, 15))
-
-        # "Όλες" button
+        # "Όλες" button (Removed "ΟΜΑΔΕΣ ΜΟΝΑΔΩΝ" label για περισσότερο χώρο)
         self.all_units_btn = ctk.CTkButton(
             units_content,
             text="Όλες",
@@ -512,20 +541,6 @@ class HVACRApp(ctk.CTk):
             )
             card.pack(fill="x", pady=3, padx=5)
 
-    def show_edit(self):
-        """Επεξεργασία εγγραφής - Εμφάνιση λίστας εργασιών"""
-        self.clear_main_frame()
-
-        title = ctk.CTkLabel(
-            self.main_frame,
-            text="✏️ Επεξεργασία Εγγραφής - Επιλέξτε Εργασία",
-            font=theme_config.get_font("title", "bold"),
-            text_color=self.theme["text_primary"]
-        )
-        title.pack(pady=20)
-
-        # Task list για επιλογή
-        ui_components.TaskHistoryView(self.main_frame, on_task_select=self.show_task_edit)
 
     def show_task_edit(self, task):
         """Εμφάνιση φόρμας επεξεργασίας εργασίας"""
@@ -571,7 +586,7 @@ class HVACRApp(ctk.CTk):
         back_btn = ctk.CTkButton(
             btn_frame,
             text="↩️ Πίσω",
-            command=self.show_edit,
+            command=self.show_history,
             width=100,
             height=35,
             **theme_config.get_button_style("secondary")
@@ -604,8 +619,9 @@ class HVACRApp(ctk.CTk):
         chain_length = len(full_chain)
         has_relations = chain_length > 1
 
-        # Title με ΣΩΣΤΟ relationship indicator
-        title_text = f"📋 Λεπτομέρειες Εργασίας #{task['id']}"
+        # Title με unit name και relationship indicator
+        unit_name = task.get('unit_name', 'Άγνωστη Μονάδα')
+        title_text = f"📋 Λεπτομέρειες Εργασίας #{task['id']} - {unit_name}"
         if has_relations:
             title_text += f"  🔗 ({current_position}/{chain_length})"
 
@@ -644,7 +660,7 @@ class HVACRApp(ctk.CTk):
         back_btn = ctk.CTkButton(
             btn_frame,
             text="↩️ Πίσω",
-            command=self.show_dashboard,
+            command=self.show_history,
             width=100,
             height=35,
             **theme_config.get_button_style("secondary")
