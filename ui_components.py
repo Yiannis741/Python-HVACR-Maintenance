@@ -4,11 +4,12 @@ UI Components - Επαναχρησιμοποιήσιμα components - Phase 2
 
 import customtkinter as ctk
 from datetime import datetime
-import database
+import database_refactored as database
 import theme_config
 from tkinter import messagebox
 from tkcalendar import Calendar
 from datetime import datetime, timedelta
+import utils_refactored  # Refactored chain utilities
 
 class TaskCard(ctk.CTkFrame):
     """Καρτέλα εργασίας για προβολή - Compact Design με Link Indicators"""
@@ -140,7 +141,7 @@ class TaskCard(ctk.CTkFrame):
         # Chain indicator FIRST (if exists) - με ΜΠΛΕ χρώμα
         chain_widget = None
         if self.show_relations:
-            full_chain = self._get_full_chain_simple(self.task['id'])
+            full_chain = utils_refactored.get_full_task_chain(self.task['id'])
             if len(full_chain) > 1:
                 position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
                 chain_length = len(full_chain)
@@ -828,7 +829,7 @@ class TaskForm(ctk.CTkFrame):
         theme = theme_config.get_current_theme()
 
         # Get full chain
-        full_chain = self._get_full_chain_simple(self.task_data['id'])
+        full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
 
         if len(full_chain) <= 1:
             return  # Δεν υπάρχει αλυσίδα, skip
@@ -1040,6 +1041,8 @@ class UnitsManagement(ctk.CTkFrame):
         
         self.tab1 = self.tabview.add("Μονάδες")
         self.tab2 = self.tabview.add("Ομάδες")
+        self.tab3 = self.tabview.add("Κάδος")
+        self.create_recycle_tab(self.tab3)
         
         # Tab Μονάδες
         self.create_units_tab(self.tab1)
@@ -1097,7 +1100,7 @@ class UnitsManagement(ctk.CTkFrame):
 
         # Dictionary για να κρατάμε τα expanded states
         if not hasattr(self, 'expanded_groups'):
-            self.expanded_groups = {group['id']: True for group in groups}  # Όλα expanded by default
+            self.expanded_groups = {group['id']: False for group in groups}  # Όλα κλειστά by default
 
         # Δημιουργία collapsible section για κάθε ομάδα
         for group in groups:
@@ -1343,52 +1346,60 @@ class UnitsManagement(ctk.CTkFrame):
             )
             edit_btn.pack(pady=(0, 10))
 
-                    
     def add_unit_dialog(self, unit_data=None):
         """Dialog για προσθήκη/επεξεργασία μονάδας"""
-        
+
         is_edit_mode = unit_data is not None
-        
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Επεξεργασία Μονάδας" if is_edit_mode else "Προσθήκη Νέας Μονάδας")
-        dialog.geometry("500x600")
+        dialog.geometry("500x700")
         dialog.grab_set()
-        
+
         # Όνομα
-        ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        ctk.CTkLabel(dialog, text="Όνομα Μονάδας:", font=theme_config.get_font("body", "bold")).pack(anchor="w",
+                                                                                                     padx=20,
+                                                                                                     pady=(20, 5))
         name_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         name_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Ομάδα
-        ctk.CTkLabel(dialog, text="Ομάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ομάδα:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                             pady=(10, 5))
         groups = database.get_all_groups()
         groups_dict = {g['name']: g['id'] for g in groups}
-        group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly", font=theme_config. get_font("input"))
+        group_combo = ctk.CTkComboBox(dialog, values=list(groups_dict.keys()), width=450, state="readonly",
+                                      font=theme_config.get_font("input"))
         group_combo.pack(padx=20, pady=(0, 15))
         if groups_dict:
             group_combo.set(list(groups_dict.keys())[0])
-        
+
         # Τοποθεσία
-        ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Τοποθεσία:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                                 pady=(10, 5))
         location_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         location_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Μοντέλο
-        ctk.CTkLabel(dialog, text="Μοντέλο:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Μοντέλο:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20,
+                                                                                               pady=(10, 5))
         model_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         model_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Serial Number
-        ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Σειριακός Αριθμός:", font=theme_config.get_font("body", "bold")).pack(anchor="w",
+                                                                                                         padx=20,
+                                                                                                         pady=(10, 5))
         serial_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         serial_entry.pack(padx=20, pady=(0, 15))
-        
+
         # Ημερομηνία εγκατάστασης
-        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):", font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):",
+                     font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
         install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         install_entry.pack(padx=20, pady=(0, 20))
-        
+
         # Populate fields if editing
         if is_edit_mode:
             name_entry.insert(0, unit_data['name'])
@@ -1397,25 +1408,23 @@ class UnitsManagement(ctk.CTkFrame):
             serial_entry.insert(0, unit_data.get('serial_number', ''))
             install_entry.delete(0, "end")
             install_entry.insert(0, unit_data.get('installation_date', ''))
-            
-            # Set group
-            for group_name, group_id in groups_dict.items():
-                if group_id == unit_data['group_id']:
-                    group_combo.set(group_name)
-                    break
-        
+
+        # -------- BUTTONS --------
+        buttons_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        buttons_frame.pack(padx=20, pady=10, fill="x", expand=True)
+
         def save():
             name = name_entry.get().strip()
             if not name:
                 messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
-            
+
             group_id = groups_dict.get(group_combo.get())
             location = location_entry.get().strip()
             model = model_entry.get().strip()
             serial = serial_entry.get().strip()
             install_date = install_entry.get().strip()
-            
+
             try:
                 if is_edit_mode:
                     database.update_unit(unit_data['id'], name, group_id, location, model, serial, install_date)
@@ -1428,8 +1437,34 @@ class UnitsManagement(ctk.CTkFrame):
                 self.refresh_ui()
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
-        
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
+
+        save_btn = ctk.CTkButton(buttons_frame, text="💾 Αποθήκευση", command=save,
+                                 **theme_config.get_button_style("success"), height=40)
+        save_btn.pack(side="left", padx=10)
+
+        if is_edit_mode:
+            def delete():
+                result = messagebox.askyesno("Επιβεβαίωση", "Θέλετε να διαγράψετε αυτή τη μονάδα;")
+                if result:
+                    try:
+                        database.soft_delete_unit(unit_data['id'])
+                        messagebox.showinfo("Επιτυχία", "Η μονάδα διαγράφηκε με επιτυχία.")
+                        dialog.destroy()
+                        self.refresh_callback()
+                        self.refresh_ui()
+                    except Exception as e:
+                        messagebox.showerror("Σφάλμα", f"Aποτυχία: {str(e)}")
+
+            delete_btn = ctk.CTkButton(buttons_frame, text="🗑️ Διαγραφή", command=delete,
+                                       **theme_config.get_button_style("danger"), height=40)
+            delete_btn.pack(side="right", padx=10)
+
+        cancel_btn = ctk.CTkButton(buttons_frame, text="✖ Ακύρωση", command=dialog.destroy,
+                                   **theme_config.get_button_style("secondary"), height=40)
+        cancel_btn.pack(side="right", padx=10)
+
+
+
     
     def edit_unit_dialog(self, unit):
         """Wrapper για επεξεργασία μονάδας"""
@@ -1442,7 +1477,7 @@ class UnitsManagement(ctk.CTkFrame):
         
         dialog = ctk.CTkToplevel(self)
         dialog.title("Επεξεργασία Ομάδας" if is_edit_mode else "Προσθήκη Νέας Ομάδας")
-        dialog.geometry("500x350")
+        dialog.geometry("500x550")
         dialog.grab_set()
         
         # Όνομα
@@ -1459,15 +1494,15 @@ class UnitsManagement(ctk.CTkFrame):
         if is_edit_mode:
             name_entry.insert(0, group_data['name'])
             desc_text.insert("1.0", group_data.get('description', ''))
-        
+
         def save():
             name = name_entry.get().strip()
             if not name:
                 messagebox.showerror("Σφάλμα", "Το όνομα είναι υποχρεωτικό!")
                 return
-            
+
             desc = desc_text.get("1.0", "end-1c").strip()
-            
+
             try:
                 if is_edit_mode:
                     result = database.update_group(group_data['id'], name, desc)
@@ -1489,18 +1524,161 @@ class UnitsManagement(ctk.CTkFrame):
                         messagebox.showerror("Σφάλμα", "Το όνομα υπάρχει ήδη!")
             except Exception as e:
                 messagebox.showerror("Σφάλμα", f"Αποτυχία: {str(e)}")
+
+        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
+                      height=40).pack(pady=10)
+
+        def confirm_soft_delete():
+            from tkinter import messagebox
+            if messagebox.askyesno("Διαγραφή",
+                                   "Θέλετε να διαγράψετε την ομάδα και τις μονάδες της; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
+                res = database.soft_delete_group(group_data['id'])
+                if res.get('success'):
+                    messagebox.showinfo("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
+                    dialog.destroy()
+                    self.refresh_callback()
+                    self.refresh_ui()
+                else:
+                    messagebox.showerror("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+
+        ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
+                      **theme_config.get_button_style("danger"), height=36).pack(pady=10)
+
+
         
-        ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"), height=40).pack(pady=10)
+
     
     def edit_group_dialog(self, group):
         """Wrapper για επεξεργασία ομάδας"""
         self.add_group_dialog(group_data=group)
-    
+
+    def manage_unit_ui(unit_id):
+        """
+        Επεξεργασία και διαγραφή Μονάδας UI
+        Εδώ προστίθεται επιλογή διαγραφής μονάδας.
+        """
+        print(f"Επεξεργασία Μονάδας με ID: {unit_id}")
+
+        # Κώδικας για εμφάνιση των στοιχείων της μονάδας
+        # (π.χ. φόρμες, text fields, dropdowns)
+        print("Φόρτωση δεδομένων μονάδας για επεξεργασία...")
+
+        print("\n[UI]: Προσθήκη κουμπιού 'Αποθήκευση αλλαγών μονάδας'")
+        print("[UI]: Προσθήκη κουμπιού 'Διαγραφή μονάδας'")
+
+        print(f"Για το ID μονάδας {unit_id}, εμφανίζεται το UI.")
+
+        def delete_unit_button_handler():
+            """
+            Διαχείριση: Διαγραφή Μονάδας
+            """
+            print(f"[System]: Επιλογή για Διαγραφή Μονάδας με ID {unit_id}")
+            # Προσθήκη λογικής για ερώτηση επιβεβαίωσης
+            confirmation = input(f"Είστε σίγουροι ότι θέλετε να διαγράψετε τη μονάδα {unit_id}; (y/n): ").lower()
+            if confirmation == 'y':
+                print(f"[System]: Η μονάδα {unit_id} διαγράφηκε επιτυχώς.")
+                # Εκτέλεση διαγραφής από τη βάση δεδομένων
+            else:
+                print("[System]: Η διαγραφή ακυρώθηκε.")
+
+        # Κλήση του 'delete_unit_button_handler' αν ο χρήστης διαλέξει "Διαγραφή Μονάδας".
+        delete_unit_button_handler()
+
+    def manage_group_ui(group_id):
+        """
+        Επεξεργασία και διαγραφή Ομάδας UI
+        Εδώ προστίθεται επιλογή διαγραφής ομάδας.
+        """
+        print(f"Επεξεργασία Ομάδας με ID: {group_id}")
+
+        # Κώδικας για εμφάνιση των στοιχείων της ομάδας
+        # (π.χ. φόρμες, text fields, dropdowns)
+        print("Φόρτωση δεδομένων ομάδας για επεξεργασία...")
+
+        print("\n[UI]: Προσθήκη κουμπιού 'Αποθήκευση αλλαγών ομάδας'")
+        print("[UI]: Προσθήκη κουμπιού 'Διαγραφή ομάδας'")
+
+        print(f"Για το ID ομάδας {group_id}, εμφανίζεται το UI.")
+
+        def delete_group_button_handler():
+            """
+            Διαχείριση: Διαγραφή Ομάδας
+            """
+            print(f"[System]: Επιλογή για Διαγραφή Ομάδας με ID {group_id}")
+            # Προσθήκη λογικής για ερώτηση επιβεβαίωσης
+            confirmation = input(f"Είστε σίγουροι ότι θέλετε να διαγράψετε την ομάδα {group_id}; (y/n): ").lower()
+            if confirmation == 'y':
+                print(f"[System]: Η ομάδα {group_id} διαγράφηκε επιτυχώς.")
+                # Εκτέλεση διαγραφής από τη βάση δεδομένων
+            else:
+                print("[System]: Η διαγραφή ακυρώθηκε.")
+
+        # Κλήση του 'delete_group_button_handler' αν ο χρήστης διαλέξει "Διαγραφή Ομάδας".
+        delete_group_button_handler()
+
+    def create_recycle_tab(self, parent):
+        """Κάδος διαγραμμένων"""
+        for w in parent.winfo_children():
+            w.destroy()
+        theme = theme_config.get_current_theme()
+        ctk.CTkLabel(parent, text="🗑️ Κάδος Μονάδων & Ομάδων", font=theme_config.get_font("title", "bold"),
+                     text_color=theme["accent_blue"]).pack(pady=20)
+
+        # Ομάδες Κάδου
+        groups = database.get_deleted_groups()
+        if groups:
+            ctk.CTkLabel(parent, text="Διαγραμμένες Ομάδες", font=theme_config.get_font("body", "bold"),
+                         text_color=theme["accent_orange"]).pack(anchor="w", padx=20, pady=(10, 5))
+            for group in groups:
+                frm = ctk.CTkFrame(parent, fg_color=theme["card_bg"], border_color=theme["card_border"], border_width=1)
+                frm.pack(fill="x", padx=20, pady=4)
+                ctk.CTkLabel(frm, text=f"📂 {group['name']}", font=theme_config.get_font("body"),
+                             text_color=theme["text_primary"]).pack(side="left", padx=10, pady=8)
+                restore_btn = ctk.CTkButton(frm, text="🔄 Επαναφορά", width=110, height=30,
+                                            command=lambda gid=group['id']: self.restore_group_ui(gid),
+                                            **theme_config.get_button_style("success"))
+                restore_btn.pack(side="right", padx=14, pady=8)
+        else:
+            ctk.CTkLabel(parent, text="Δεν υπάρχουν διαγραμμένες ομάδες.", font=theme_config.get_font("small"),
+                         text_color=theme["text_disabled"]).pack(anchor="w", padx=26, pady=0)
+
+        # Μονάδες Κάδου
+        units = database.get_deleted_units()
+        if units:
+            ctk.CTkLabel(parent, text="Διαγραμμένες Μονάδες", font=theme_config.get_font("body", "bold"),
+                         text_color=theme["accent_orange"]).pack(anchor="w", padx=20, pady=(26, 7))
+            for unit in units:
+                frm = ctk.CTkFrame(parent, fg_color=theme["card_bg"], border_color=theme["card_border"], border_width=1)
+                frm.pack(fill="x", padx=20, pady=3)
+                label = f"🔧 {unit['name']} ({unit['group_name']})"
+                ctk.CTkLabel(frm, text=label, font=theme_config.get_font("small"),
+                             text_color=theme["text_primary"]).pack(side="left", padx=10, pady=6)
+                restore_btn = ctk.CTkButton(frm, text="🔄 Επαναφορά", width=110, height=30,
+                                            command=lambda uid=unit['id']: self.restore_unit_ui(uid),
+                                            **theme_config.get_button_style("success"))
+                restore_btn.pack(side="right", padx=14, pady=6)
+        else:
+            ctk.CTkLabel(parent, text="Δεν υπάρχουν διαγραμμένες μονάδες.", font=theme_config.get_font("small"),
+                         text_color=theme["text_disabled"]).pack(anchor="w", padx=26, pady=(7, 0))
+
+    def restore_unit_ui(self, unit_id):
+        database.restore_unit(unit_id)
+        from tkinter import messagebox
+        messagebox.showinfo("Επαναφορά", "Η μονάδα επανήλθε από τον κάδο!")
+        self.refresh_ui()
+
+    def restore_group_ui(self, group_id):
+        database.restore_group(group_id)
+        from tkinter import messagebox
+        messagebox.showinfo("Επαναφορά", "Η ομάδα και οι μονάδες της επανήλθαν από τον κάδο!")
+        self.refresh_ui()
+
     def refresh_ui(self):
         """Ανανέωση του UI - Phase 2.3"""
         # Clear and recreate tabs
         self.create_units_tab(self.tab1)
         self.create_groups_tab(self.tab2)
+        self.create_recycle_tab(self.tab3)
 
 
 # ----- PHASE 2.3: NEW TASK MANAGEMENT COMPONENT -----
@@ -2133,143 +2311,164 @@ class TaskHistoryView(ctk.CTkFrame):
         self.type_combo. set("Όλα")
         self.load_tasks()
 
-
 class RecycleBinView(ctk.CTkFrame):
-    """Κάδος Ανακύκλωσης"""
-    
-    def __init__(self, parent, refresh_callback):
+    """
+    Recycle Bin view - lists soft-deleted tasks with options to Restore or Permanently Delete.
+    Uses compact, less-dangerous Delete button (small, with confirmation).
+    """
+
+    def __init__(self, parent, on_change_callback=None):
         super().__init__(parent, fg_color="transparent")
-        
-        self. refresh_callback = refresh_callback
-        self.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        self.create_ui()
-        self.load_deleted_tasks()
-        
-    def create_ui(self):
-        """Δημιουργία UI"""
-        
+        self.parent = parent
+        self.on_change_callback = on_change_callback
+        self.theme = theme_config.get_current_theme()
+
+        self.pack(fill="both", expand=True, padx=40, pady=10)
+
         # Header
-        header_frame = ctk.CTkFrame(self, height=60, fg_color="transparent")
-        header_frame.pack(fill="x", pady=(0, 10))
-        
-        ctk.CTkLabel(
+        header_frame = ctk.CTkFrame(self, corner_radius=10, fg_color=self.theme["bg_secondary"])
+        header_frame.pack(fill="x", pady=(0, 12))
+        header_frame.pack_propagate(False)
+        header_frame.configure(height=60)
+
+        title = ctk.CTkLabel(
             header_frame,
-            text="🗑️ Διαγραμμένες Εργασίες",
-            font=theme_config.get_font("title", "bold")
-        ).pack(side="left", padx=10)
-        
-        ctk.CTkButton(
+            text="🗑️ Κάδος Ανακύκλωσης - Διαγραμμένες Εργασίες",
+            font=theme_config.get_font("title", "bold"),
+            text_color=self.theme["accent_blue"]
+        )
+        title.pack(side="left", padx=15)
+
+        info = ctk.CTkLabel(
             header_frame,
-            text="🔄 Ανανέωση",
-            command=self.load_deleted_tasks,
-            width=120,
-            **theme_config.get_button_style("primary")
-        ).pack(side="right", padx=10)
-        
-        # Tasks List
-        self.tasks_frame = ctk.CTkScrollableFrame(self)
-        self.tasks_frame.pack(fill="both", expand=True)
+            text="Εδώ μπορείτε να επαναφέρετε ή να διαγράψετε οριστικά εργασίες.",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_secondary"]
+        )
+        info.pack(side="right", padx=15)
+
+        # Scrollable list container
+        self.list_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.list_frame.pack(fill="both", expand=True, pady=(8, 0))
+
+        # Load content
+        self.load_deleted_tasks()
+
+    def _make_button(self, parent, text, command, style_type="primary", width=100, height=32):
+        """
+        Small helper to create buttons using theme_config.get_button_style safely.
+        Avoids passing duplicate keyword args that cause CTkButton TypeError.
+        """
+        style = theme_config.get_button_style(style_type) or {}
+        # Ensure we don't accidentally pass duplicates of common args
+        # We'll pass style dict entirely and also provide width/height/text/command explicitly.
+        btn = ctk.CTkButton(parent, text=text, command=command, width=width, height=height, **style)
+        return btn
 
     def load_deleted_tasks(self):
-        """Φόρτωση διαγραμμένων εργασιών"""
+        """Load soft-deleted tasks from DB and render them."""
+        # Clear list
+        for w in self.list_frame.winfo_children():
+            w.destroy()
 
-        # Clear existing
-        for widget in self.tasks_frame.winfo_children():
-            widget.destroy()
+        deleted = database.get_deleted_tasks()
 
-        tasks = database.get_deleted_tasks()
-
-        if not tasks:
-            no_tasks = ctk.CTkLabel(
-                self.tasks_frame,
-                text="🎉 Ο Κάδος Ανακύκλωσης είναι άδειος",
+        if not deleted:
+            empty_lbl = ctk.CTkLabel(
+                self.list_frame,
+                text="Δεν υπάρχουν διαγραμμένες εργασίες στον κάδο.",
                 font=theme_config.get_font("body"),
-                text_color=theme_config.get_current_theme()["text_secondary"]
+                text_color=self.theme["text_secondary"]
             )
-            no_tasks.pack(pady=50)
+            empty_lbl.pack(pady=40)
             return
 
-        # Count label
-        theme = theme_config.get_current_theme()
-        count_label = ctk.CTkLabel(
-            self.tasks_frame,
-            text=f"🗑️ {len(tasks)} διαγραμμένες εργασίες",
+        # Count header
+        count_lbl = ctk.CTkLabel(
+            self.list_frame,
+            text=f"Βρέθηκαν {len(deleted)} εργασίες στον κάδο",
             font=theme_config.get_font("body", "bold"),
-            text_color=theme["accent_red"]
+            text_color=self.theme["accent_blue"]
         )
-        count_label.pack(anchor="w", padx=10, pady=10)
+        count_lbl.pack(anchor="w", padx=8, pady=(8, 12))
 
-        # Task cards με action buttons
-        for task in tasks:
-            # Container για card + buttons
-            container = ctk.CTkFrame(self.tasks_frame, fg_color="transparent")
-            container.pack(fill="x", pady=5, padx=10)
+        for task in deleted:
+            self._render_deleted_task(task)
 
-            # Task card (αριστερά) - χρήση της compact TaskCard!
-            card_container = ctk.CTkFrame(container, fg_color="transparent")
-            card_container.pack(side="left", fill="both", expand=True, padx=(0, 10))
+    def _render_deleted_task(self, task):
+        """Render a single deleted task row with Restore + Delete buttons."""
+        row = ctk.CTkFrame(self.list_frame, fg_color=self.theme["card_bg"],
+                           border_color=self.theme["card_border"], border_width=1, corner_radius=8)
+        row.pack(fill="x", padx=8, pady=6)
 
-            # Create TaskCard με red border για "deleted" look
-            task_card = TaskCard(card_container, task, on_click=None)  # No click για deleted
-            task_card.pack(fill="x")
+        # Left info: basic summary
+        left = ctk.CTkFrame(row, fg_color="transparent")
+        left.pack(side="left", fill="x", expand=True, padx=(12, 8), pady=8)
 
-            # Override border color to red για deleted indicator
-            task_card.configure(
-                border_color=theme["accent_red"],
-                border_width=2
-            )
+        title_text = f"#{task['id']}  •  {task['task_type_name']} — {task['unit_name']}"
+        lbl_title = ctk.CTkLabel(left, text=title_text, font=theme_config.get_font("body", "bold"),
+                                 text_color=self.theme["text_primary"], anchor="w")
+        lbl_title.pack(fill="x")
 
-            # Action buttons (δεξιά)
-            actions_frame = ctk.CTkFrame(container, fg_color="transparent")
-            actions_frame.pack(side="right")
+        subtitle = task.get('task_item_name') or task.get('description') or ""
+        lbl_sub = ctk.CTkLabel(left, text=f"{task.get('created_date')}  •  {subtitle}",
+                               font=theme_config.get_font("small"), text_color=self.theme["text_secondary"], anchor="w")
+        lbl_sub.pack(fill="x", pady=(3, 0))
 
-            restore_btn = ctk.CTkButton(
-                actions_frame,
-                text="↩️ Επαναφορά",
-                command=lambda t=task: self.restore_task(t['id']),
-                width=120,
-                height=32,
-                **theme_config.get_button_style("success")
-            )
-            restore_btn.pack(pady=2)
+        # Right actions: Restore + Permanent Delete (compact)
+        actions = ctk.CTkFrame(row, fg_color="transparent")
+        actions.pack(side="right", padx=12, pady=8)
 
-            delete_btn = ctk.CTkButton(
-                actions_frame,
-                text="🗑️ Οριστική Διαγραφή",
-                command=lambda t=task: self.permanent_delete_task(t['id']),
-                width=120,
-                height=32,
-                **theme_config.get_button_style("danger")
-            )
-            delete_btn.pack(pady=2)
-    
-    def restore_task(self, task_id):
-        """Επαναφορά εργασίας"""
-        result = messagebox.askyesno("Επιβεβαίωση", "Επαναφορά αυτής της εργασίας;")
-        
-        if result:
-            try: 
-                database.restore_task(task_id)
-                messagebox.showinfo("Επιτυχία", "Η εργασία επαναφέρθηκε!")
-                self.load_deleted_tasks()
-                self.refresh_callback()
-            except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία επαναφοράς: {str(e)}")
-    
-    def permanent_delete_task(self, task_id):
-        """Οριστική διαγραφή εργασίας"""
-        result = messagebox.askyesno("ΠΡΟΣΟΧΗ!", 
-                                     "Είστε ΣΙΓΟΥΡΟΙ ότι θέλετε να διαγράψετε ΟΡΙΣΤΙΚΑ αυτή την εργασία?\n\n"
-                                     "Αυτή η ενέργεια ΔΕΝ μπορεί να αναιρεθεί!")
-        
-        if result: 
-            try:
-                database.permanent_delete_task(task_id)
-                messagebox.showinfo("Επιτυχία", "Η εργασία διαγράφηκε οριστικά!")
-                self.load_deleted_tasks()
-            except Exception as e:
-                messagebox.showerror("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
+        # Restore button (green/success)
+        restore_cmd = lambda t=task: self._on_restore(t)
+        restore_btn = self._make_button(actions, "Επαναφορά", restore_cmd, style_type="success", width=110, height=30)
+        restore_btn.pack(side="right", padx=(6, 0))
+
+        # Permanent delete button (small, danger). Confirm before deleting.
+        delete_cmd = lambda t=task: self._on_permanent_delete(t)
+        delete_btn = self._make_button(actions, "Διάγρ. Οριστικά", delete_cmd, style_type="danger", width=120, height=30)
+        delete_btn.pack(side="right", padx=(0, 6))
+
+    def _on_restore(self, task):
+        """Restore a soft-deleted task."""
+        from tkinter import messagebox
+        result = messagebox.askyesno("Επαναφορά Εργασίας", f"Θέλετε να επαναφέρετε την εργασία #{task['id']};")
+        if not result:
+            return
+
+        try:
+            database.restore_task(task['id'])
+        except Exception as e:
+            messagebox.showerror("Σφάλμα", f"Σφάλμα κατά την επαναφορά: {e}")
+            return
+
+        # refresh list and notify caller
+        self.load_deleted_tasks()
+        if callable(self.on_change_callback):
+            self.on_change_callback()
+
+    def _on_permanent_delete(self, task):
+        """Permanently delete task after confirmation."""
+        from tkinter import messagebox
+        result = messagebox.askyesno(
+            "Οριστική Διαγραφή",
+            f"Η εργασία #{task['id']} θα διαγραφεί οριστικά. Η ενέργεια δεν μπορεί να αναιρεθεί.\n\nΘέλετε να συνεχίσετε?"
+        )
+        if not result:
+            return
+
+        try:
+            database.permanent_delete_task(task['id'])
+        except Exception as e:
+            messagebox.showerror("Σφάλμα", f"Σφάλμα κατά την οριστική διαγραφή: {e}")
+            return
+
+        # refresh list and notify caller
+        self.load_deleted_tasks()
+        if callable(self.on_change_callback):
+            self.on_change_callback()
+
+
 
 
 class TaskRelationshipsView(ctk.CTkFrame):
