@@ -504,7 +504,7 @@ def load_sample_data():
     ]
 
     for name, group_id, location, model, serial, install_date in units:
-        cursor.execute('''INSERT INTO units (name, group_id, location, model, serial_number, installation_date)
+        cursor.execute('''INSERT INTO units (name, group_id, location, model, notes, installation_date)
                           VALUES (?, ?, ?, ?, ?, ?)''',
                        (name, group_id, location, model, serial, install_date))
 
@@ -654,15 +654,15 @@ def get_all_units():
     return units
 
 
-def add_unit(name, group_id, location, model, serial_number, installation_date):
+def add_unit(name, group_id, location, model, notes, installation_date):
     """Προσθήκη νέας μονάδας"""
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute('''
-                   INSERT INTO units (name, group_id, location, model, serial_number, installation_date)
+                   INSERT INTO units (name, group_id, location, model, notes, installation_date)
                    VALUES (?, ?, ?, ?, ?, ?)
-                   ''', (name, group_id, location, model, serial_number, installation_date))
+                   ''', (name, group_id, location, model, notes, installation_date))
 
     unit_id = cursor.lastrowid
     conn.commit()
@@ -1400,7 +1400,7 @@ def get_group_by_id(group_id):
     return dict(group) if group else None
 
 
-def update_unit(unit_id, name, group_id, location, model, serial_number, installation_date):
+def update_unit(unit_id, name, group_id, location, model, notes, installation_date):
     """Ενημέρωση υπάρχουσας μονάδας"""
     conn = get_connection()
     cursor = conn.cursor()
@@ -1414,7 +1414,7 @@ def update_unit(unit_id, name, group_id, location, model, serial_number, install
                        serial_number     = ?,
                        installation_date = ?
                    WHERE id = ?
-                   ''', (name, group_id, location, model, serial_number, installation_date, unit_id))
+                   ''', (name, group_id, location, model, notes, installation_date, unit_id))
 
     conn.commit()
     conn.close()
@@ -1724,6 +1724,58 @@ def permanent_delete_unit(unit_id):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+
+def permanent_delete_group(group_id):
+    """Οριστική διαγραφή ομάδας από τη βάση"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Check if group has units
+    cursor.execute("""
+        SELECT COUNT(*) as count
+        FROM units
+        WHERE group_id = ?
+    """, (group_id,))
+    
+    count = cursor.fetchone()['count']
+    
+    if count > 0:
+        conn.close()
+        raise ValidationError(f'Η ομάδα έχει {count} μονάδες. Διαγράψτε πρώτα τις μονάδες.')
+    
+    # Permanent delete
+    cursor.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def permanent_delete_location(location_id):
+    """Οριστική διαγραφή τοποθεσίας από τη βάση"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Check if location is used
+    cursor.execute("""
+        SELECT COUNT(*) as count
+        FROM units
+        WHERE location = (SELECT name FROM locations WHERE id = ?)
+    """, (location_id,))
+    
+    count = cursor.fetchone()['count']
+    
+    if count > 0:
+        conn.close()
+        raise ValidationError(f'Η τοποθεσία χρησιμοποιείται από {count} μονάδες.')
+    
+    # Permanent delete
+    cursor.execute("DELETE FROM locations WHERE id = ?", (location_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
 def delete_group(group_id):
     """
     Διαγραφή ομάδας με έλεγχο dependencies
@@ -1790,3 +1842,133 @@ def soft_delete_group(group_id):
     except Exception as e:
         conn.close()
         raise DatabaseError(f'Αποτυχία διαγραφής ομάδας: {str(e)}')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LOCATIONS MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_all_locations():
+    """Retrieve all active locations"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT id, name, description, created_at
+        FROM locations
+        WHERE is_deleted = 0
+        ORDER BY name
+    """)
+    
+    locations = []
+    for row in cursor.fetchall():
+        locations.append(dict(row))
+    
+    conn.close()
+    return locations
+
+def add_location(name, description=''):
+    """Add new location"""
+    name = name.strip()
+    
+    if not name:
+        raise ValidationError("Location name is required")
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            INSERT INTO locations (name, description)
+            VALUES (?, ?)
+        """, (name, description))
+        
+        conn.commit()
+        location_id = cursor.lastrowid
+        conn.close()
+        return location_id
+        
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValidationError(f"Location '{name}' already exists")
+
+def update_location(location_id, name, description=''):
+    """Update location"""
+    name = name.strip()
+    
+    if not name:
+        raise ValidationError("Location name is required")
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            UPDATE locations
+            SET name = ?, description = ?
+            WHERE id = ?
+        """, (name, description, location_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+        
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValidationError(f"Location '{name}' already exists")
+
+def soft_delete_location(location_id):
+    """Soft delete location"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Check if used
+    cursor.execute("""
+        SELECT COUNT(*) as count
+        FROM units
+        WHERE location = (SELECT name FROM locations WHERE id = ?)
+        AND is_active = 1
+    """, (location_id,))
+    
+    count = cursor.fetchone()['count']
+    
+    if count > 0:
+        conn.close()
+        raise ValidationError(f'Location is used by {count} units')
+    
+    cursor.execute("UPDATE locations SET is_deleted = 1 WHERE id = ?", (location_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_deleted_locations():
+    """Επιστρέφει όλες τις διαγραμμένες τοποθεσίες"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT id, name, description, created_at
+        FROM locations
+        WHERE is_deleted = 1
+        ORDER BY name
+    """)
+    
+    locations = []
+    for row in cursor.fetchall():
+        locations.append(dict(row))
+    
+    conn.close()
+    return locations
+
+def restore_location(location_id):
+    """Επαναφορά διαγραμμένης τοποθεσίας"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("UPDATE locations SET is_deleted = 0 WHERE id = ?", (location_id,))
+    
+    conn.commit()
+    conn.close()
+    return True
