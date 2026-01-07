@@ -1300,6 +1300,9 @@ class HVACRApp(ctk.CTk):
     def load_initial_data(self):
         """Φόρτωση αρχικών δεδομένων δοκιμών"""
         database.load_sample_data()
+        
+        # Maximize window μετά από rendering (100ms delay)
+        self.after(100, lambda: self.state('zoomed'))
 
 
 if __name__ == "__main__":
