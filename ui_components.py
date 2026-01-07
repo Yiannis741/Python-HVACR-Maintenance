@@ -1227,7 +1227,8 @@ class UnitsManagement(ctk.CTkFrame):
 
         # Toggle function - LOCAL UPDATE ΜΟΝΟ!
         def toggle_group(event=None):
-            current_state = self.expanded_groups[group['id']]
+            # Get current state (with default False for new groups)
+            current_state = self.expanded_groups.get(group['id'], False)
             new_state = not current_state
             self.expanded_groups[group['id']] = new_state
 
@@ -1543,18 +1544,21 @@ class UnitsManagement(ctk.CTkFrame):
                       height=40).pack(pady=10)
 
         def confirm_soft_delete():
-            # from tkinter import messagebox  # ← Replaced with custom dialogs
             import custom_dialogs
             if custom_dialogs.ask_yes_no("Διαγραφή",
                                    "Θέλετε να διαγράψετε την ομάδα και τις μονάδες της; Η ενέργεια είναι αναστρέψιμη από τον κάδο."):
-                res = database.soft_delete_group(group_data['id'])
-                if res.get('success'):
-                    custom_dialogs.show_success("Επιτυχία", "Η ομάδα μεταφέρθηκε στον κάδο!")
-                    dialog.destroy()
-                    self.refresh_callback()
-                    self.refresh_ui()
-                else:
-                    custom_dialogs.show_error("Σφάλμα", res.get('error', 'Αποτυχία διαγραφής.'))
+                try:
+                    res = database.soft_delete_group(group_data['id'])
+                    # soft_delete_group returns True on success
+                    if res:
+                        custom_dialogs.show_success("Επιτυχία", "Η ομάδα διαγράφηκε!")
+                        dialog.destroy()
+                        self.refresh_callback()
+                        self.refresh_ui()
+                    else:
+                        custom_dialogs.show_error("Σφάλμα", "Αποτυχία διαγραφής.")
+                except Exception as e:
+                    custom_dialogs.show_error("Σφάλμα", str(e))
 
         ctk.CTkButton(dialog, text="🗑️ Διαγραφή", command=confirm_soft_delete,
                       **theme_config.get_button_style("danger"), height=36).pack(pady=10)
