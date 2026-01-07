@@ -513,7 +513,7 @@ class HVACRApp(ctk.CTk):
             task_type_id=task_type_id,
             search_text=search_text
         )
-
+        #
         if not filtered_tasks:
             ctk.CTkLabel(
                 self.history_tasks_frame,
