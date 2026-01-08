@@ -369,12 +369,45 @@ class TaskForm(ctk.CTkFrame):
 
         # ===== ROW 0:  Ομάδα Μονάδων | Τύπος Εργασίας =====
 
+
+        ctk.CTkLabel(
+            scrollable,
+            text="Τοποθεσία:",
+            font=theme_config.get_font("body", "bold")
+        ).grid(row=0, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+
+        # Get locations from database
+        try:
+            locations = database.get_all_locations()
+            location_names = [loc['name'] for loc in locations]
+            if not location_names:
+                location_names = ["Δεν υπάρχουν τοποθεσίες"]
+        except:
+            location_names = ["Σφάλμα φόρτωσης"]
+
+        self.location_combo = ctk.CTkComboBox(
+            scrollable,
+            values=location_names,
+            width=300,
+            state="readonly",
+            font=theme_config.get_font("input")
+        )
+        self.location_combo.grid(row=1, column=0, sticky="ew", padx=(10, 10), pady=(0, 15))
+
+        if location_names and location_names[0] not in ["Δεν υπάρχουν τοποθεσίες", "Σφάλμα φόρτωσης"]:
+            self.location_combo.set(location_names[0])
+
+                # ===== ROW 2:  Ομάδα Μονάδων | Τύπος Εργασίας =====
+
+
+
+
         # LEFT:  Ομάδα Μονάδων
         ctk.CTkLabel(
             scrollable,
             text="Ομάδα Μονάδων:",
             font=theme_config.get_font("body", "bold")
-        ).grid(row=0, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+        ).grid(row=2, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
 
         groups = database.get_all_groups()
         self.groups_dict = {g['name']: g['id'] for g in groups}
@@ -387,7 +420,7 @@ class TaskForm(ctk.CTkFrame):
             command=self.on_group_change,
             font=theme_config.get_font("input")
         )
-        self.group_combo.grid(row=1, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
+        self.group_combo.grid(row=3, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
         
         # Set default group
         if self.groups_dict:
@@ -422,7 +455,7 @@ class TaskForm(ctk.CTkFrame):
             scrollable,
             text="Μονάδα:",
             font=theme_config.get_font("body", "bold")
-        ).grid(row=2, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+        ).grid(row=4, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
 
         self.units_dict = {}
         self.unit_combo = ctk.CTkComboBox(
@@ -432,7 +465,7 @@ class TaskForm(ctk.CTkFrame):
             state="readonly",
             font=theme_config.get_font("input")
         )
-        self.unit_combo.grid(row=3, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
+        self.unit_combo.grid(row=5, column=0, sticky="ew", padx=(10, 5), pady=(0, 15))
 
         # RIGHT: Είδος Εργασίας
         ctk.CTkLabel(
@@ -458,12 +491,12 @@ class TaskForm(ctk.CTkFrame):
             scrollable,
             text="Κατάσταση:",
             font=theme_config.get_font("body", "bold")
-        ).grid(row=4, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+        ).grid(row=6, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
 
         self.status_var = ctk.StringVar(value="pending")
 
         status_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        status_frame.grid(row=5, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
+        status_frame.grid(row=7, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
 
         ctk.CTkRadioButton(
             status_frame,
@@ -496,11 +529,11 @@ class TaskForm(ctk.CTkFrame):
         self.priority_combo.grid(row=5, column=1, sticky="ew", padx=(5, 10), pady=(0, 15))
         self.priority_combo.set("Μεσαία (medium)")
 
-        # ===== ROW 6: Ημερομηνία | Τεχνικός =====
+        # ===== ROW 6: Ημερομηνία
 
-        # LEFT:  Ημερομηνία με Calendar
+        # RIGHT:  Ημερομηνία με Calendar
         date_label_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        date_label_frame.grid(row=6, column=0, sticky="w", padx=(10, 5), pady=(10, 5))
+        date_label_frame.grid(row=6, column=1, sticky="w", padx=(10, 5), pady=(10, 5))
 
         ctk.CTkLabel(
             date_label_frame,
@@ -516,7 +549,7 @@ class TaskForm(ctk.CTkFrame):
         ).pack(side="left", padx=5)
 
         date_entry_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        date_entry_frame.grid(row=7, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
+        date_entry_frame.grid(row=7, column=1, sticky="w", padx=(10, 5), pady=(0, 15))
 
         self.created_date_entry = ctk.CTkEntry(
             date_entry_frame,
@@ -538,7 +571,7 @@ class TaskForm(ctk.CTkFrame):
 
         # RIGHT:  Ημερομηνία Ολοκλήρωσης
         date_completed_label_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        date_completed_label_frame.grid(row=6, column=1, sticky="w", padx=(5, 10), pady=(10, 5))
+        date_completed_label_frame.grid(row=6, column=1, sticky="e", padx=(5, 10), pady=(10, 5))
         
         ctk.CTkLabel(
             date_completed_label_frame,
@@ -554,7 +587,7 @@ class TaskForm(ctk.CTkFrame):
         ).pack(side="left", padx=5)
         
         date_completed_entry_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
-        date_completed_entry_frame.grid(row=7, column=1, sticky="w", padx=(5, 10), pady=(0, 15))
+        date_completed_entry_frame.grid(row=7, column=1, sticky="e", padx=(5, 10), pady=(0, 15))
         
         self.completed_date_entry = ctk.CTkEntry(
             date_completed_entry_frame,
@@ -574,20 +607,7 @@ class TaskForm(ctk.CTkFrame):
         )
         completed_calendar_btn.pack(side="left")
         
-        # ===== ROW 8: Τεχνικός (FULL WIDTH) =====
-        
-        ctk.CTkLabel(
-            scrollable,
-            text="Όνομα Τεχνικού:",
-            font=theme_config.get_font("body", "bold")
-        ).grid(row=8, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 5))
 
-        self.technician_entry = ctk.CTkEntry(
-            scrollable,
-            width=300,
-            font=theme_config.get_font("input")
-        )
-        self.technician_entry.grid(row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 15))
 
         # ===== ROW 8: Περιγραφή (FULL WIDTH) =====
 
@@ -799,7 +819,12 @@ class TaskForm(ctk.CTkFrame):
                 if unit_id == self.task_data['unit_id']:
                     self.unit_combo.set(unit_name)
                     break
-        
+            # Set location if exists
+            if self.task_data.get('location'):
+                try:
+                    self.location_combo.set(self.task_data['location'])
+                except:
+                    pass
         # Βρίσκουμε και ορίζουμε τον τύπο εργασίας (θα trigger-άρει το cascade)
         for type_name, type_id in self.task_types_dict.items():
             if type_id == self.task_data['task_type_id']:
@@ -829,10 +854,7 @@ class TaskForm(ctk.CTkFrame):
         self.created_date_entry.delete(0, "end")
         self.created_date_entry.insert(0, self.task_data['created_date'])
         
-        # Τεχνικός
-        if self.task_data.get('technician_name'):
-            self.technician_entry.delete(0, "end")
-            self.technician_entry.insert(0, self.task_data['technician_name'])
+
         
         # Σημειώσεις
         if self.task_data.get('notes'):
@@ -863,7 +885,7 @@ class TaskForm(ctk.CTkFrame):
         
         task_type_key = self.task_type_combo.get()
         task_type_id = self.task_types_dict.get(task_type_key)
-        
+        location = self.location_combo.get()
         task_item_id = self.task_items_dict.get(task_item_key)
         
         description = self.description_text.get("1.0", "end-1c").strip()
@@ -872,7 +894,7 @@ class TaskForm(ctk.CTkFrame):
         priority_map = {"Χαμηλή (low)": "low", "Μεσαία (medium)": "medium", "Υψηλή (high)": "high"}
         priority = priority_map.get(self.priority_combo.get(), "medium")
         
-        technician = self.technician_entry.get().strip()
+
         notes = self.notes_text.get("1.0", "end-1c").strip()
         
         created_date = self.created_date_entry.get().strip()
@@ -885,16 +907,16 @@ class TaskForm(ctk.CTkFrame):
                 database.update_task(
                     self.task_data['id'],
                     unit_id, task_type_id, description, status, priority,
-                    created_date, completed_date, technician if technician else None,
-                    notes if notes else None, task_item_id
+                    created_date, completed_date, None,
+                    notes if notes else None, task_item_id, location
                 )
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
             else:
                 # Insert
                 database.add_task(
                     unit_id, task_type_id, description, status, priority,
-                    created_date, completed_date, technician if technician else None,
-                    notes if notes else None, task_item_id
+                    created_date, completed_date, None,
+                    notes if notes else None, task_item_id, location
                 )
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία αποθηκεύτηκε με επιτυχία!")
             
