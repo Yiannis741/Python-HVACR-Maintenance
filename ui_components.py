@@ -967,18 +967,40 @@ class TaskForm(ctk.CTkFrame):
         
         # Αποθήκευση
         try:
-            # ═══ CHAIN SYNC ═══
-            # If we're in a chain AND we're the last task, sync all
-            if self.chain_info and self.is_last_in_chain:
-                full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
-
-                # Update ALL other tasks in chain to same status
-                for task in full_chain:
-                    if task['id'] != self.task_data['id']:  # Skip current (already updated)
-                        database.update_task(task['id'], status=status)
+            if self.is_edit_mode:
+                # Update existing task
+                database.update_task(
+                    self.task_data['id'],
+                    unit_id, task_type_id, description, status, priority,
+                    created_date, completed_date, None,
+                    notes if notes else None, task_item_id, location
+                )
+                
+                # ═══ CHAIN SYNC ═══
+                # If we're in a chain AND we're the last task, sync ALL
+                if self.chain_info and self.is_last_in_chain:
+                    try:
+                        full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
+                        
+                        # Update ALL other tasks in chain to same status
+                        conn = database.get_connection()
+                        cursor = conn.cursor()
+                        
+                        for task in full_chain:
+                            if task['id'] != self.task_data['id']:  # Skip current
+                                cursor.execute(
+                                    "UPDATE tasks SET status = ?, completed_date = ? WHERE id = ?",
+                                    (status, completed_date, task['id'])
+                                )
+                        
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"Chain sync warning: {e}")
+                
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
             else:
-                # Insert
+                # Insert new task
                 database.add_task(
                     unit_id, task_type_id, description, status, priority,
                     created_date, completed_date, None,
@@ -989,7 +1011,13 @@ class TaskForm(ctk.CTkFrame):
             self.on_save_callback()
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"=== SAVE ERROR ===")
+            print(error_details)
+            print("==================")
             custom_dialogs.show_error("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
+
 
     def delete_task(self):
         """Διαγραφή εργασίας"""
@@ -3671,9 +3699,52 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
         try:
             database.add_task_relationship(parent_id, child_id, "related")
-            custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+            
+            # ═══ CHAIN SYNC ═══
+            # After adding relationship, sync entire chain to last task's status
+            try:
+                # Get full chain starting from either parent or child
+                full_chain = utils_refactored.get_full_task_chain(parent_id)
+                
+                if len(full_chain) > 1:
+                    # Get the LAST task's status
+                    last_task = full_chain[-1]
+                    target_status = last_task['status']
+                    target_completed_date = last_task.get('completed_date')
+                    
+                    # Update ALL tasks in chain to match last task
+                    conn = database.get_connection()
+                    cursor = conn.cursor()
+                    
+                    for task in full_chain:
+                        cursor.execute(
+                            "UPDATE tasks SET status = ?, completed_date = ? WHERE id = ?",
+                            (target_status, target_completed_date, task['id'])
+                        )
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    # Inform user if chain status changed
+                    if target_status == 'pending':
+                        custom_dialogs.show_success(
+                            "Επιτυχία", 
+                            f"Η σύνδεση προστέθηκε!\n\n"
+                            f"ℹ️ Η αλυσίδα ({len(full_chain)} εργασίες) επανανοίγει αυτόματα\n"
+                            f"επειδή η τελευταία εργασία είναι εκκρεμής."
+                        )
+                    else:
+                        custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+                else:
+                    custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+                    
+            except Exception as e:
+                print(f"Chain sync warning after relationship add: {e}")
+                custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+            
             dialog.destroy()
             self.load_relationships()
+            
         except Exception as e:
             custom_dialogs.show_error("Σφάλμα", f"Αποτυχία σύνδεσης: {str(e)}")
 
