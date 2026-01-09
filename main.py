@@ -353,7 +353,7 @@ class HVACRApp(ctk.CTk):
         self.all_units_btn = ctk.CTkButton(
             units_content,
             text="Όλες",
-            command=lambda: self.filter_by_unit(None),
+            command=self.reset_all_filters,
             width=100,
             height=35,
             **theme_config.get_button_style("primary")
@@ -368,16 +368,23 @@ class HVACRApp(ctk.CTk):
             units = database.get_units_by_group(group['id'])
 
             if units:
-                # Create dropdown per group
-                unit_names = [u['name'] for u in units]
+                # Add "All [Group]" option at the top
+                all_group_option = f"Όλες {group['name']}"
+                unit_names = [all_group_option] + [u['name'] for u in units]
                 unit_ids = {u['name']: u['id'] for u in units}
 
-                # ✅ FIX: Proper closure to capture unit_ids
-                def make_unit_filter(uid_map):
+                # Capture group_id for closure
+                def make_unit_filter(uid_map, gid):
                     def handler(selected):
-                        unit_id = uid_map.get(selected)
-                        if unit_id is not None:
-                            self.filter_by_unit(unit_id)
+                        # Check if "Όλες [Group]" was selected
+                        if selected.startswith("Όλες "):
+                            # Filter by group
+                            self.filter_by_unit(unit_id=None, group_id=gid)
+                        else:
+                            # Filter by specific unit
+                            unit_id = uid_map.get(selected)
+                            if unit_id is not None:
+                                self.filter_by_unit(unit_id=unit_id, group_id=None)
 
                     return handler
 
@@ -387,10 +394,21 @@ class HVACRApp(ctk.CTk):
                     width=180,
                     height=35,
                     state="readonly",
-                    command=make_unit_filter(unit_ids)
+                    command=make_unit_filter(unit_ids, group['id'])
                 )
                 dropdown.set(group['name'])  # Show group name as placeholder
                 dropdown.pack(side="left", padx=5)
+
+                def make_reset_handler(dd, gname):
+                    def reset(event):
+                        dd.set(gname)
+                        self.filter_by_unit(unit_id=None, group_id=None)
+
+                    return reset
+
+                dropdown.bind("<Button-3>", make_reset_handler(dropdown, group['name']))  # ← ΝΕΟ!
+
+                self.unit_filter_buttons[group['id']] = dropdown
 
                 self.unit_filter_buttons[group['id']] = dropdown
 
@@ -417,14 +435,35 @@ class HVACRApp(ctk.CTk):
             text_color=self.theme["text_primary"]
         ).pack(side="left", padx=(0, 5))
 
+        # Container for entry + clear button
+        search_entry_container = ctk.CTkFrame(search_content, fg_color="transparent")
+        search_entry_container.pack(side="left", padx=5)
+
+        # Entry field
         self.history_search_entry = ctk.CTkEntry(
-            search_content,
-            width=250,  # ✅ FIX: Wider for better UX
+            search_entry_container,
+            width=250,
             height=32,
             placeholder_text="ID, Περιγραφή, Μονάδα, Τεχνικός..."
         )
-        self.history_search_entry.pack(side="left", padx=5)
-        self.history_search_entry.bind("<KeyRelease>", lambda e: self.apply_history_filters())
+        self.history_search_entry.pack(side="left")
+        self.history_search_entry.bind("<KeyRelease>", lambda e: self.on_search_change())
+
+        # Clear button (✕) - initially hidden
+        self.search_clear_btn = ctk.CTkButton(
+            search_entry_container,
+            text="✕",
+            width=25,
+            height=25,
+            command=self.clear_search,
+            fg_color="transparent",
+            hover_color=self.theme["accent_red"],
+            text_color=self.theme["text_secondary"],
+            font=theme_config.get_font("small", "bold")
+        )
+        # Position it OVER the entry field (right side)
+        self.search_clear_btn.place(in_=self.history_search_entry, relx=0.95, rely=0.5, anchor="center")
+        self.search_clear_btn.place_forget()  # Hide initially
 
         # Status
         ctk.CTkLabel(
@@ -444,6 +483,7 @@ class HVACRApp(ctk.CTk):
         )
         self.history_status_combo.set("Όλες")
         self.history_status_combo.pack(side="left", padx=5)
+        self.history_status_combo.bind("<Button-3>", lambda e: self.reset_status_filter())
 
         # Task Type
         ctk.CTkLabel(
@@ -467,6 +507,7 @@ class HVACRApp(ctk.CTk):
         )
         self.history_type_combo.set("Όλα")
         self.history_type_combo.pack(side="left", padx=5)
+        self.history_type_combo.bind("<Button-3>", lambda e: self.reset_type_filter())
 
         # Location Filter
         ctk.CTkLabel(
@@ -489,6 +530,7 @@ class HVACRApp(ctk.CTk):
         )
         self.history_location_combo.set("Όλες")
         self.history_location_combo.pack(side="left", padx=5)
+        self.history_location_combo.bind("<Button-3>", lambda e: self.reset_location_filter())
 
 
 
@@ -503,15 +545,160 @@ class HVACRApp(ctk.CTk):
 
         # Initial load - Show ALL tasks
         self.current_unit_filter = None
+        self.current_group_filter = None
+        self.load_history_tasks()
+        self.update_filter_visuals()
+
+    def filter_by_unit(self, unit_id=None, group_id=None):
+        """Filter tasks by unit or group"""
+        self.current_unit_filter = unit_id
+        self.current_group_filter = group_id
+        self.update_filter_visuals()  # ← ΝΕΟ!
         self.load_history_tasks()
 
-    def filter_by_unit(self, unit_id):
-        """Filter tasks by selected unit"""
-        self.current_unit_filter = unit_id
+    def update_filter_visuals(self):
+        """Update visual indicators for active filters"""
+
+        active_color = self.theme["accent_green"]  # Πράσινο
+        inactive_color = self.theme["card_border"]  # Default
+
+        # 1. Search Entry
+        if hasattr(self, 'history_search_entry'):
+            has_text = bool(self.history_search_entry.get().strip())
+            self.history_search_entry.configure(
+                border_color=active_color if has_text else inactive_color,
+                border_width=2 if has_text else 1
+            )
+
+        # 2. Status Combo
+        if hasattr(self, 'history_status_combo'):
+            is_active = self.history_status_combo.get() != "Όλες"
+            self.history_status_combo.configure(
+                border_color=active_color if is_active else inactive_color,
+                border_width=2 if is_active else 1
+            )
+
+        # 3. Type Combo
+        if hasattr(self, 'history_type_combo'):
+            is_active = self.history_type_combo.get() != "Όλα"
+            self.history_type_combo.configure(
+                border_color=active_color if is_active else inactive_color,
+                border_width=2 if is_active else 1
+            )
+
+        # 4. Location Combo
+        if hasattr(self, 'history_location_combo'):
+            is_active = self.history_location_combo.get() != "Όλες"
+            self.history_location_combo.configure(
+                border_color=active_color if is_active else inactive_color,
+                border_width=2 if is_active else 1
+            )
+
+        # 5. Unit/Group Dropdowns
+        if hasattr(self, 'unit_filter_buttons'):
+            for group_id, dropdown in self.unit_filter_buttons.items():
+                current = dropdown.get()
+                groups = database.get_all_groups()
+                group_names = [g['name'] for g in groups]
+
+                is_active = current not in group_names
+
+                dropdown.configure(
+                    border_color=active_color if is_active else inactive_color,
+                    border_width=2 if is_active else 1
+                )
+
+        # 6. "Όλες" Button
+        if hasattr(self, 'all_units_btn'):
+            all_filters_off = (
+                                      not hasattr(self, 'current_unit_filter') or self.current_unit_filter is None
+                              ) and (
+                                      not hasattr(self, 'current_group_filter') or self.current_group_filter is None
+                              )
+
+            if all_filters_off:
+                self.all_units_btn.configure(
+                    border_color=active_color,
+                    border_width=2
+                )
+            else:
+                self.all_units_btn.configure(
+                    border_color=theme_config.get_button_style("primary")["border_color"],
+                    border_width=theme_config.get_button_style("primary")["border_width"]
+                )
+
+    def reset_all_filters(self):
+        """Reset ALL filters to default state"""
+
+        # 1. Clear search
+        if hasattr(self, 'history_search_entry'):
+            self.history_search_entry.delete(0, "end")
+
+        # 2. Reset Status
+        if hasattr(self, 'history_status_combo'):
+            self.history_status_combo.set("Όλες")
+
+        # 3. Reset Type
+        if hasattr(self, 'history_type_combo'):
+            self.history_type_combo.set("Όλα")
+
+        # 4. Reset Location
+        if hasattr(self, 'history_location_combo'):
+            self.history_location_combo.set("Όλες")
+
+        # 5. Reset Unit/Group dropdowns to group name
+        if hasattr(self, 'unit_filter_buttons'):
+            groups = database.get_all_groups()
+            group_map = {g['id']: g['name'] for g in groups}
+
+            for group_id, dropdown in self.unit_filter_buttons.items():
+                group_name = group_map.get(group_id, "")
+                if group_name:
+                    dropdown.set(group_name)
+
+        # 6. Clear internal filters
+        self.current_unit_filter = None
+        self.current_group_filter = None
+
+        # 7. Update visuals and reload
+        self.update_filter_visuals()
         self.load_history_tasks()
+
+    def on_search_change(self):
+        """Handle search text changes"""
+        # Show/hide clear button
+        if self.history_search_entry.get().strip():
+            self.search_clear_btn.place(in_=self.history_search_entry, relx=0.95, rely=0.5, anchor="center")
+        else:
+            self.search_clear_btn.place_forget()
+
+        # Apply filters
+        self.apply_history_filters()
+
+    def clear_search(self):
+        """Clear search entry"""
+        self.history_search_entry.delete(0, "end")
+        self.search_clear_btn.place_forget()
+        self.apply_history_filters()
+
+    def reset_status_filter(self):
+        """Reset status filter to default"""
+        self.history_status_combo.set("Όλες")
+        self.apply_history_filters()
+
+    def reset_type_filter(self):
+        """Reset type filter to default"""
+        self.history_type_combo.set("Όλα")
+        self.apply_history_filters()
+
+    def reset_location_filter(self):
+        """Reset location filter to default"""
+        self.history_location_combo.set("Όλες")
+        self.apply_history_filters()
 
     def apply_history_filters(self):
         """Apply search filters to history view"""
+        self.update_filter_visuals()  # ← ΝΕΟ!
         self.load_history_tasks()
 
     def load_history_tasks(self):
@@ -538,6 +725,12 @@ class HVACRApp(ctk.CTk):
             task_type_id=task_type_id,
             search_text=search_text
         )
+
+        # Filter by group (client-side) if group selected
+        if hasattr(self, 'current_group_filter') and self.current_group_filter:
+            filtered_tasks = [t for t in filtered_tasks if t.get('group_id') == self.current_group_filter]
+
+
 
         # Filter by location (client-side since DB doesn't support it yet)
         if location_filter != "Όλες":
