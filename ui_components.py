@@ -820,7 +820,8 @@ class TaskForm(ctk.CTkFrame):
         current_date = self.completed_date_entry.get().strip()
         if current_date:
             try:
-                date_obj = datetime.strptime(current_date, "%Y-%m-%d")
+                db_date = utils_refactored.format_date_for_db(current_date)
+                date_obj = datetime.strptime(db_date, "%Y-%m-%d")
                 year, month, day = date_obj.year, date_obj.month, date_obj.day
             except:
                 year, month, day = datetime.now().year, datetime.now().month, datetime.now().day
@@ -836,11 +837,13 @@ class TaskForm(ctk.CTkFrame):
             date_pattern='yyyy-mm-dd'
         )
         cal.pack(padx=20, pady=20, expand=True, fill="both")
-        
+
         def select_date():
-            selected = cal.get_date()
+            calendar_date = cal.get_date()
+            date_obj = datetime.strptime(calendar_date, '%Y-%m-%d')
+            display_date = date_obj.strftime('%d/%m/%y')
             self.completed_date_entry.delete(0, 'end')
-            self.completed_date_entry.insert(0, selected)
+            self.completed_date_entry.insert(0, display_date)
             cal_window.destroy()
         
         ctk.CTkButton(
@@ -1164,7 +1167,7 @@ class TaskForm(ctk.CTkFrame):
             info_section.pack(side="left", fill="x", expand=True, padx=8)
 
             # Build info text
-            task_info = f"📅 {chain_task['created_date']}  •  {chain_task['task_type_name']}"
+            task_info = f"📅 {utils_refactored.format_date_for_display(chain_task['created_date'])}  •  {chain_task['task_type_name']}"
             if chain_task.get('task_item_name'):
                 task_info += f" → {chain_task['task_item_name']}"
 
@@ -2039,7 +2042,8 @@ class UnitsManagement(ctk.CTkFrame):
         ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):",
                      font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
-        install_entry.insert(0, utils_refactored.get_today_display())
+        display_date = utils_refactored.format_date_for_display(unit_data.get('installation_date', ''))
+        install_entry.insert(0, display_date)
         install_entry.pack(padx=20, pady=(0, 20))
 
         # Populate fields if editing
@@ -3106,7 +3110,7 @@ class RecycleBinView(ctk.CTkFrame):
         lbl_title.pack(fill="x")
 
         subtitle = task.get('task_item_name') or task.get('description') or ""
-        lbl_sub = ctk.CTkLabel(left, text=f"{task.get('created_date')}  •  {subtitle}",
+        lbl_sub = ctk.CTkLabel(left, text=f"{utils_refactored.format_date_for_display(task.get('created_date'))}  •  {subtitle}",
                                font=theme_config.get_font("small"), text_color=self.theme["text_secondary"], anchor="w")
         lbl_sub.pack(fill="x", pady=(3, 0))
 
@@ -3439,7 +3443,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         # Date badge (prominent)
         date_badge = ctk.CTkLabel(
             card,
-            text=f"📅 {task['created_date']}",
+            text=f"📅 {utils_refactored.format_date_for_display(task['created_date'])}",
             font=theme_config.get_font("small", "bold"),
             text_color=self.theme["accent_blue"],
             fg_color=self.theme["bg_secondary"],
@@ -3656,7 +3660,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             # Date badge
             ctk.CTkLabel(
                 info_frame,
-                text=f"📅 {task['created_date']}",
+                text=f"📅 {utils_refactored.format_date_for_display(task['created_date'])}",
                 font=theme_config.get_font("tiny", "bold"),
                 text_color=self.theme["accent_blue"]
             ).pack(anchor="w")
