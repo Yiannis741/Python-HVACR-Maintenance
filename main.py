@@ -171,7 +171,7 @@ class HVACRApp(ctk.CTk):
 
         subtitle = ctk.CTkLabel(
             self.main_frame,
-            text=f"Σήμερα: {datetime.now().strftime('%d/%m/%Y')} | Phase 2 - Ενημερωμένη Έκδοση",
+            text=f"Σήμερα: {datetime.now().strftime('%d/%m/%y')} | Phase 2 - Ενημερωμένη Έκδοση",
             font=theme_config.get_font("heading"),
             text_color=self.theme["text_secondary"]
         )

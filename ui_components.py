@@ -102,7 +102,7 @@ class TaskCard(ctk.CTkFrame):
         if self.task.get('location'):
             row0_parts.append(f"🏢 {self.task['location']}")
 
-        row0_parts.append(f"📅 {self.task['created_date']}")
+        row0_parts.append(f"📅 {utils_refactored.format_date_for_display(self.task['created_date'])}")
 
         row0_text = " - ".join(row0_parts)
 
@@ -226,7 +226,8 @@ class DatePickerDialog(ctk.CTkToplevel):
         # Parse current date
         if current_date:
             try:
-                self.current_date = datetime.strptime(current_date, "%Y-%m-%d")
+                db_date = utils_refactored.format_date_for_db(current_date)
+                self.current_date = datetime.strptime(db_date, "%Y-%m-%d")
             except:
                 self.current_date = datetime.now()
         else:
@@ -334,10 +335,17 @@ class DatePickerDialog(ctk.CTkToplevel):
 
     def confirm_selection(self):
         """Επιβεβαίωση επιλογής"""
-        self.selected_date = self.calendar.get_date()
+        # Get date from calendar (yyyy-mm-dd format)
+        calendar_date = self.calendar.get_date()
+        # Convert to display format (DD/MM/YY)
+        date_obj = datetime.strptime(calendar_date, '%Y-%m-%d')
+        display_date = date_obj.strftime('%d/%m/%y')
+
         if self.callback:
-            self.callback(self.selected_date)
+            self.callback(display_date)
         self.destroy()
+
+
 
 class TaskForm(ctk.CTkFrame):
     """Φόρμα για προσθήκη/επεξεργασία εργασίας - Phase 2.3 Updated"""
@@ -621,7 +629,7 @@ class TaskForm(ctk.CTkFrame):
             width=220,
             font=theme_config.get_font("input")
         )
-        self.created_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        self.created_date_entry.insert(0, utils_refactored.get_today_display())
         self.created_date_entry.pack(side="left", padx=(0, 5))
 
         calendar_btn = ctk.CTkButton(
@@ -914,10 +922,11 @@ class TaskForm(ctk.CTkFrame):
         # Προτεραιότητα
         priority_map = {"low": "Χαμηλή (low)", "medium": "Μεσαία (medium)", "high": "Υψηλή (high)"}
         self.priority_combo.set(priority_map. get(self.task_data. get('priority', 'medium'), "Μεσαία (medium)"))
-        
-        # Ημερομηνία
+
+        # Ημερομηνία - Convert from DB format to display format
         self.created_date_entry.delete(0, "end")
-        self.created_date_entry.insert(0, self.task_data['created_date'])
+        display_date = utils_refactored.format_date_for_display(self.task_data['created_date'])
+        self.created_date_entry.insert(0, display_date)
         
 
         
@@ -961,8 +970,16 @@ class TaskForm(ctk.CTkFrame):
         
 
         notes = self.notes_text.get("1.0", "end-1c").strip()
-        
-        created_date = self.created_date_entry.get().strip()
+
+        # Convert date from display format (DD/MM/YY) to DB format (YYYY-MM-DD)
+        created_date_display = self.created_date_entry.get().strip()
+        created_date = utils_refactored.format_date_for_db(created_date_display)
+
+        # Validation
+        if not created_date:
+            custom_dialogs.show_error("Σφάλμα", "Μη έγκυρη ημερομηνία! Χρησιμοποιήστε DD/MM/YY")
+            return
+
         completed_date = created_date if status == "completed" else None
         
         # Αποθήκευση
@@ -2022,7 +2039,7 @@ class UnitsManagement(ctk.CTkFrame):
         ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):",
                      font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
-        install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        install_entry.insert(0, utils_refactored.get_today_display())
         install_entry.pack(padx=20, pady=(0, 20))
 
         # Populate fields if editing
@@ -2032,7 +2049,8 @@ class UnitsManagement(ctk.CTkFrame):
             model_entry.insert(0, unit_data.get('model') or '')
             notes_entry.insert('1.0', unit_data.get('notes') or '')
             install_entry.delete(0, "end")
-            install_entry.insert(0, unit_data.get('installation_date', ''))
+            display_date = utils_refactored.format_date_for_display(unit_data.get('installation_date', ''))
+            install_entry.insert(0, display_date)
 
         # -------- BUTTONS --------
         buttons_frame = ctk.CTkFrame(dialog, fg_color="transparent")
