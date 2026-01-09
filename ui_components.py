@@ -23,7 +23,7 @@ class TaskCard(ctk.CTkFrame):
             fg_color=theme["card_bg"],
             border_color=theme["card_border"],
             border_width=1,
-            height=65
+            height=100
         )
 
         self.task = task_data
@@ -76,7 +76,7 @@ class TaskCard(ctk.CTkFrame):
         return chain
 
     def create_card(self):
-        """Δημιουργία της καρτέλας - Compact Layout"""
+        """Δημιουργία της καρτέλας - 3 Row Layout με Location - Theme Aware"""
 
         # Status & Priority colors
         status_color = self.theme["accent_green"] if self.task['status'] == 'completed' else self.theme["accent_orange"]
@@ -92,19 +92,40 @@ class TaskCard(ctk.CTkFrame):
         priority_icons = {"low": "🟢", "medium": "🟡", "high": "🔴"}
         priority_icon = priority_icons.get(self.task.get('priority', 'medium'), "🟡")
 
-        # ===== ROW 1: Header Line =====
-        header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.pack(fill="x", padx=12, pady=(8, 4))
+        # ===== ROW 0: Μονάδα - Τοποθεσία - Ημερ/νία =====
+        row0_frame = ctk.CTkFrame(self, fg_color="transparent")
+        row0_frame.pack(fill="x", padx=12, pady=(8, 2))
 
-        # LEFT SECTION: Task Type → Task Item → Unit
-        left_section = ctk.CTkFrame(header_frame, fg_color="transparent")
+        # Build text parts
+        row0_parts = [f"📍 {self.task['unit_name']}"]
+
+        if self.task.get('location'):
+            row0_parts.append(f"🏢 {self.task['location']}")
+
+        row0_parts.append(f"📅 {self.task['created_date']}")
+
+        row0_text = " - ".join(row0_parts)
+
+        row0_label = ctk.CTkLabel(
+            row0_frame,
+            text=row0_text,
+            font=theme_config.get_font("body", "bold"),
+            text_color=self.theme["text_primary"],
+            anchor="w"
+        )
+        row0_label.pack(side="left", fill="x", expand=True)
+
+        # ===== ROW 1: Τύπος Εργασίας - Είδος Εργασίας | Status | Priority =====
+        row1_frame = ctk.CTkFrame(self, fg_color="transparent")
+        row1_frame.pack(fill="x", padx=12, pady=2)
+
+        # LEFT: Type and Item
+        left_section = ctk.CTkFrame(row1_frame, fg_color="transparent")
         left_section.pack(side="left", fill="x", expand=True)
 
-        # Task Type → Task Item → Unit
         type_text = f"🔧 {self.task['task_type_name']}"
         if self.task.get('task_item_name'):
-            type_text += f" → {self.task['task_item_name']}"
-        type_text += f" → 📍 {self.task['unit_name']}"
+            type_text += f" - {self.task['task_item_name']}"
 
         type_label = ctk.CTkLabel(
             left_section,
@@ -115,32 +136,28 @@ class TaskCard(ctk.CTkFrame):
         )
         type_label.pack(side="left")
 
-        # RIGHT SECTION:  Priority + Status (pack από δεξιά)
-
-        # Priority (pack first = farthest right)
+        # RIGHT: Priority + Status
         priority_label = ctk.CTkLabel(
-            header_frame,
+            row1_frame,
             text=f"{priority_icon} {self.task.get('priority', 'medium').upper()}",
             font=theme_config.get_font("small", "bold"),
             text_color=priority_color
         )
         priority_label.pack(side="right", padx=(10, 0))
 
-        # Status (pack second = left of priority)
         status_label = ctk.CTkLabel(
-            header_frame,
+            row1_frame,
             text=f"{status_icon} {status_text}",
             font=theme_config.get_font("small", "bold"),
             text_color=status_color
         )
         status_label.pack(side="right", padx=(0, 10))
 
-        # ===== ROW 2: Info Line (Chain + Description + Date + Technician) =====
-        info_frame = ctk.CTkFrame(self, fg_color="transparent")
-        info_frame.pack(fill="x", padx=12, pady=(2, 8))
+        # ===== ROW 2: Chain • Περιγραφή =====
+        row2_frame = ctk.CTkFrame(self, fg_color="transparent")
+        row2_frame.pack(fill="x", padx=12, pady=(2, 8))
 
-        # Chain indicator FIRST (if exists) - με ΜΠΛΕ χρώμα
-        chain_widget = None
+        # Chain indicator FIRST (if exists)
         if self.show_relations:
             full_chain = utils_refactored.get_full_task_chain(self.task['id'])
             if len(full_chain) > 1:
@@ -148,64 +165,48 @@ class TaskCard(ctk.CTkFrame):
                 chain_length = len(full_chain)
 
                 chain_widget = ctk.CTkLabel(
-                    info_frame,
+                    row2_frame,
                     text=f"🔗 {position}/{chain_length}",
                     font=theme_config.get_font("small", "bold"),
-                    text_color="#3B8ED0",  # ← Hardcoded ΜΠΛΕ!
+                    text_color=self.theme["accent_blue"],  # ✅ Theme-aware!
                     anchor="w"
                 )
                 chain_widget.pack(side="left", padx=(0, 5))
 
                 # Separator
                 ctk.CTkLabel(
-                    info_frame,
+                    row2_frame,
                     text="•",
                     font=theme_config.get_font("small"),
                     text_color=self.theme["text_disabled"]
                 ).pack(side="left", padx=(0, 5))
 
-        # Rest of info (Description + Date + Technician)
-        info_parts = []
-
         # Description
-        desc_text = self.task['description'][:45] + "..." if len(self.task['description']) > 45 else self.task[
+        desc_text = self.task['description'][:60] + "..." if len(self.task['description']) > 60 else self.task[
             'description']
-        info_parts.append(desc_text)
 
-        # Date
-        info_parts.append(f"📅 {self.task['created_date']}")
-
-        # Technician
-        if self.task.get('technician_name'):
-            info_parts.append(f"👤 {self.task['technician_name']}")
-
-        info_text = " • ".join(info_parts)
-
-        info_label = ctk.CTkLabel(
-            info_frame,
-            text=info_text,
+        desc_label = ctk.CTkLabel(
+            row2_frame,
+            text=desc_text,
             font=theme_config.get_font("small"),
             text_color=self.theme["text_secondary"],
             anchor="w"
         )
-        info_label.pack(side="left", fill="x", expand=True)
+        desc_label.pack(side="left", fill="x", expand=True)
 
         # Bind click to all widgets
-        # Bind click to all widgets
         if self.on_click:
-            # Capture self.task EARLY to avoid reference issues
             task_ref = self.task
 
             widgets = [
-                self, header_frame, left_section, type_label,
-                status_label, priority_label,
-                info_frame, info_label
+                self, row0_frame, row0_label,
+                row1_frame, left_section, type_label, priority_label, status_label,
+                row2_frame, desc_label
             ]
 
             for widget in widgets:
-                # Use task_ref instead of self.task in lambda
-                widget.bind("<Button-1>", lambda e, t=task_ref: self.on_click(t))
                 widget.configure(cursor="hand2")
+                widget.bind("<Button-1>", lambda e, t=task_ref: self.on_click(t))
 
 
 class DatePickerDialog(ctk.CTkToplevel):
