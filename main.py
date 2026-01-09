@@ -468,6 +468,30 @@ class HVACRApp(ctk.CTk):
         self.history_type_combo.set("Όλα")
         self.history_type_combo.pack(side="left", padx=5)
 
+        # Location Filter
+        ctk.CTkLabel(
+            search_content,
+            text="Τοποθεσία:",
+            font=theme_config.get_font("small", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(side="left", padx=(15, 5))
+
+        locations = database.get_all_locations()
+        location_names = ["Όλες"] + [loc['name'] for loc in locations]
+
+        self.history_location_combo = ctk.CTkComboBox(
+            search_content,
+            values=location_names,
+            width=150,
+            height=32,
+            state="readonly",
+            command=lambda e: self.apply_history_filters()
+        )
+        self.history_location_combo.set("Όλες")
+        self.history_location_combo.pack(side="left", padx=5)
+
+
+
         # ═══════════════════════════════════════════════════════════
         # TASKS DISPLAY AREA
         # ═══════════════════════════════════════════════════════════
@@ -505,6 +529,7 @@ class HVACRApp(ctk.CTk):
 
         type_key = self.history_type_combo.get() if hasattr(self, 'history_type_combo') else "Όλα"
         task_type_id = self.history_types_dict.get(type_key) if type_key != "Όλα" else None
+        location_filter = self.history_location_combo.get() if hasattr(self, 'history_location_combo') else "Όλες"
 
         # Apply filters
         filtered_tasks = database.filter_tasks(
@@ -513,7 +538,10 @@ class HVACRApp(ctk.CTk):
             task_type_id=task_type_id,
             search_text=search_text
         )
-        #
+
+        # Filter by location (client-side since DB doesn't support it yet)
+        if location_filter != "Όλες":
+            filtered_tasks = [t for t in filtered_tasks if t.get('location') == location_filter]
         if not filtered_tasks:
             ctk.CTkLabel(
                 self.history_tasks_frame,
@@ -709,6 +737,13 @@ class HVACRApp(ctk.CTk):
 
         details.extend([
             ("📍 Μονάδα:", f"{task['unit_name']} ({task['group_name']})"),
+        ])
+        
+        # Add location if available
+        if task.get('location'):
+            details.append(("🏢 Τοποθεσία:", task['location']))
+        
+        details.extend([
             ("📝 Περιγραφή:", task['description']),
             ("📊 Κατάσταση:", "✅ Ολοκληρωμένη" if task['status'] == 'completed' else "⏳ Εκκρεμής"),
             ("⚠️ Προτεραιότητα:", task.get('priority', 'medium').upper()),

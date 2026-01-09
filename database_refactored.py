@@ -323,6 +323,9 @@ def init_database():
     columns = [column[1] for column in cursor.fetchall()]
     if 'task_item_id' not in columns:
         cursor.execute('ALTER TABLE tasks ADD COLUMN task_item_id INTEGER REFERENCES task_items(id)')
+        # Migration: Add location column if it doesn't exist
+    if 'location' not in columns:
+        cursor.execute('ALTER TABLE tasks ADD COLUMN location TEXT')
 
     # Πίνακας Συνδέσεων Εργασιών (π.χ.  Βλάβη → Επισκευή)
     cursor.execute('''
@@ -620,17 +623,17 @@ def get_recent_tasks(limit=5):
 
 
 def add_task(unit_id, task_type_id, description, status, priority, created_date,
-             completed_date, technician_name, notes, task_item_id=None):
+             completed_date, technician_name, notes, task_item_id=None, location=None):
     """Προσθήκη νέας εργασίας - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute('''
                    INSERT INTO tasks (unit_id, task_type_id, task_item_id, description, status, priority,
-                                      created_date, completed_date, technician_name, notes)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                      created_date, completed_date, technician_name, notes, location)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
-                         completed_date, technician_name, notes))
+                         completed_date, technician_name, notes, location))
 
     task_id = cursor.lastrowid
     conn.commit()
@@ -737,7 +740,7 @@ def get_task_by_id(task_id):
 
 
 def update_task(task_id, unit_id, task_type_id, description, status, priority,
-                created_date, completed_date, technician_name, notes, task_item_id=None):
+                created_date, completed_date, technician_name, notes, task_item_id=None, location=None):
     """Ενημέρωση υπάρχουσας εργασίας - Updated Phase 2.3"""
     conn = get_connection()
     cursor = conn.cursor()
@@ -753,10 +756,11 @@ def update_task(task_id, unit_id, task_type_id, description, status, priority,
                        created_date    = ?,
                        completed_date  = ?,
                        technician_name = ?,
-                       notes           = ?
+                       notes           = ?,
+                       location        = ?
                    WHERE id = ?
                    ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
-                         completed_date, technician_name, notes, task_id))
+                         completed_date, technician_name, notes, location, task_id))
 
     conn.commit()
     conn.close()
