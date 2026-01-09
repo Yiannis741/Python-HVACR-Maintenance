@@ -341,22 +341,64 @@ class DatePickerDialog(ctk.CTkToplevel):
 
 class TaskForm(ctk.CTkFrame):
     """Φόρμα για προσθήκη/επεξεργασία εργασίας - Phase 2.3 Updated"""
-    
+
     def __init__(self, parent, on_save_callback, task_data=None):
         super().__init__(parent, fg_color="transparent")
-        
+
         self.on_save_callback = on_save_callback
         self.task_data = task_data
         self.is_edit_mode = task_data is not None
-        
+
+        # ═══ CHAIN STATUS LOGIC ═══
+        self.is_last_in_chain = True  # Default: allow editing
+        self.chain_info = None
+
+        if self.is_edit_mode and task_data:
+            # Get chain info
+            full_chain = utils_refactored.get_full_task_chain(task_data['id'])
+            if len(full_chain) > 1:
+                # We're in a chain
+                self.chain_info = {
+                    'position': next((i for i, t in enumerate(full_chain, 1) if t['id'] == task_data['id']), 1),
+                    'length': len(full_chain),
+                    'is_last': full_chain[-1]['id'] == task_data['id']
+                }
+                self.is_last_in_chain = self.chain_info['is_last']
+
         self.pack(fill="both", expand=True, padx=20, pady=20)
         self.create_form()
-        
+
         if self.is_edit_mode:
             self.populate_form()
 
     def create_form(self):
         """Δημιουργία της φόρμας - Phase 2. 3 - Compact 2-Column Layout"""
+
+        # ═══ CHAIN WARNING BANNER ═══
+        if self.chain_info and not self.is_last_in_chain:
+            theme = theme_config.get_current_theme()
+
+            # Show warning at top
+            warning_frame = ctk.CTkFrame(
+                self,
+                fg_color=theme["accent_orange"],
+                corner_radius=8
+            )
+            warning_frame.pack(fill="x", pady=(0, 15))
+
+            warning_text = (
+                f"🔗 Αυτή είναι η εργασία {self.chain_info['position']}/{self.chain_info['length']} στην αλυσίδα.\n"
+                f"🔒 Μόνο ο τελευταίος κρίκος (#{self.chain_info['length']}) μπορεί να αλλάξει την κατάσταση.\n"
+                f"✅ Η κατάσταση συγχρονίζεται αυτόματα σε όλη την αλυσίδα."
+            )
+
+            ctk.CTkLabel(
+                warning_frame,
+                text=warning_text,
+                font=theme_config.get_font("body", "bold"),
+                text_color="white",
+                justify="left"
+            ).pack(padx=15, pady=10)
 
         # Scrollable frame
         scrollable = ctk.CTkScrollableFrame(self)
@@ -499,19 +541,41 @@ class TaskForm(ctk.CTkFrame):
         status_frame = ctk.CTkFrame(scrollable, fg_color="transparent")
         status_frame.grid(row=7, column=0, sticky="w", padx=(10, 5), pady=(0, 15))
 
-        ctk.CTkRadioButton(
+        # ΣΗΜΑΝΤΙΚΟ: Αποθηκεύουμε σε μεταβλητές!
+        self.status_pending_radio = ctk.CTkRadioButton(
             status_frame,
-            text="Εκκρεμής",
+            text="⏳ Εκκρεμής",
             variable=self.status_var,
-            value="pending"
-        ).pack(side="left", padx=(0, 15))
+            value="pending",
+            font=theme_config.get_font("body")
+        )
+        self.status_pending_radio.pack(side="left", padx=(0, 20))
 
-        ctk.CTkRadioButton(
+        self.status_completed_radio = ctk.CTkRadioButton(
             status_frame,
-            text="Ολοκληρωμένη",
+            text="✅ Ολοκληρωμένη",
             variable=self.status_var,
-            value="completed"
-        ).pack(side="left")
+            value="completed",
+            font=theme_config.get_font("body")
+        )
+        self.status_completed_radio.pack(side="left")
+
+        # ═══ CHAIN LOCK LOGIC ═══
+        # ΤΩΡΑ που τα δημιουργήσαμε, μπορούμε να τα disable!
+        if not self.is_last_in_chain:
+            theme = theme_config.get_current_theme()
+
+            self.status_pending_radio.configure(state="disabled")
+            self.status_completed_radio.configure(state="disabled")
+
+            # Add warning label
+            warning_label = ctk.CTkLabel(
+                status_frame,
+                text="🔒",
+                font=theme_config.get_font("small"),
+                text_color=theme["accent_orange"]
+            )
+            warning_label.pack(side="left", padx=(20, 0))
 
         # RIGHT:  Προτεραιότητα
         ctk.CTkLabel(
@@ -903,14 +967,15 @@ class TaskForm(ctk.CTkFrame):
         
         # Αποθήκευση
         try:
-            if self.is_edit_mode:
-                # Update
-                database.update_task(
-                    self.task_data['id'],
-                    unit_id, task_type_id, description, status, priority,
-                    created_date, completed_date, None,
-                    notes if notes else None, task_item_id, location
-                )
+            # ═══ CHAIN SYNC ═══
+            # If we're in a chain AND we're the last task, sync all
+            if self.chain_info and self.is_last_in_chain:
+                full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
+
+                # Update ALL other tasks in chain to same status
+                for task in full_chain:
+                    if task['id'] != self.task_data['id']:  # Skip current (already updated)
+                        database.update_task(task['id'], status=status)
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
             else:
                 # Insert

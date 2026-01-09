@@ -1067,12 +1067,13 @@ def filter_tasks(status=None, unit_id=None, task_type_id=None, date_from=None, d
     cursor = conn.cursor()
 
     query = '''
-        SELECT t.*, 
-               u.name as unit_name, 
-               tt.name as task_type_name, 
-               g.name as group_name,
-               ti.name as task_item_name
-        FROM tasks t
+            SELECT t.*,
+                   u.name  as unit_name,
+                   tt.name as task_type_name,
+                   g.name  as group_name,
+                   g.id    as group_id,
+                   ti.name as task_item_name
+            FROM tasks t
         JOIN units u ON t.unit_id = u.id
         JOIN task_types tt ON t.task_type_id = tt.id
         JOIN groups g ON u.group_id = g.id
