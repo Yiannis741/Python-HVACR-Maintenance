@@ -8,6 +8,7 @@ from datetime import datetime
 import database_refactored as database
 import ui_components
 import theme_config
+import utils_refactored
 
 
 class HVACRApp(ctk.CTk):
@@ -171,7 +172,7 @@ class HVACRApp(ctk.CTk):
 
         subtitle = ctk.CTkLabel(
             self.main_frame,
-            text=f"Σήμερα: {datetime.now().strftime('%d/%m/%Y')} | Phase 2 - Ενημερωμένη Έκδοση",
+            text=f"Σήμερα: {datetime.now().strftime('%d/%m/%y')} | Phase 2 - Ενημερωμένη Έκδοση",
             font=theme_config.get_font("heading"),
             text_color=self.theme["text_secondary"]
         )
@@ -940,8 +941,10 @@ class HVACRApp(ctk.CTk):
             ("📝 Περιγραφή:", task['description']),
             ("📊 Κατάσταση:", "✅ Ολοκληρωμένη" if task['status'] == 'completed' else "⏳ Εκκρεμής"),
             ("⚠️ Προτεραιότητα:", task.get('priority', 'medium').upper()),
-            ("📅 Ημερομηνία Δημιουργίας:", task['created_date']),
-            ("✔️ Ημερομηνία Ολοκλήρωσης:", task.get('completed_date', 'N/A')),
+            ("📅 Ημερομηνία Δημιουργίας:", utils_refactored.format_date_for_display(task['created_date'])),
+            ("✔️ Ημερομηνία Ολοκλήρωσης:",
+             utils_refactored.format_date_for_display(task.get('completed_date', ''))
+             if task.get('completed_date') else 'N/A'),
             ("👤 Τεχνικός:", task.get('technician_name', 'N/A')),
             ("📝 Σημειώσεις:", task.get('notes', 'Καμία')),
         ])
@@ -1085,7 +1088,7 @@ class HVACRApp(ctk.CTk):
             info_section.pack(side="left", fill="x", expand=True, padx=8)
 
             # Build compact one-liner
-            task_info = f"📅 {chain_task['created_date']}  •  {chain_task['task_type_name']}"
+            task_info = f"📅 {utils_refactored.format_date_for_display(chain_task['created_date'])}  •  {chain_task['task_type_name']}"
             if chain_task.get('task_item_name'):
                 task_info += f" → {chain_task['task_item_name']}"
 

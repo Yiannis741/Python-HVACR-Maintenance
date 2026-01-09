@@ -102,7 +102,7 @@ class TaskCard(ctk.CTkFrame):
         if self.task.get('location'):
             row0_parts.append(f"🏢 {self.task['location']}")
 
-        row0_parts.append(f"📅 {self.task['created_date']}")
+        row0_parts.append(f"📅 {utils_refactored.format_date_for_display(self.task['created_date'])}")
 
         row0_text = " - ".join(row0_parts)
 
@@ -226,7 +226,8 @@ class DatePickerDialog(ctk.CTkToplevel):
         # Parse current date
         if current_date:
             try:
-                self.current_date = datetime.strptime(current_date, "%Y-%m-%d")
+                db_date = utils_refactored.format_date_for_db(current_date)
+                self.current_date = datetime.strptime(db_date, "%Y-%m-%d")
             except:
                 self.current_date = datetime.now()
         else:
@@ -334,10 +335,17 @@ class DatePickerDialog(ctk.CTkToplevel):
 
     def confirm_selection(self):
         """Επιβεβαίωση επιλογής"""
-        self.selected_date = self.calendar.get_date()
+        # Get date from calendar (yyyy-mm-dd format)
+        calendar_date = self.calendar.get_date()
+        # Convert to display format (DD/MM/YY)
+        date_obj = datetime.strptime(calendar_date, '%Y-%m-%d')
+        display_date = date_obj.strftime('%d/%m/%y')
+
         if self.callback:
-            self.callback(self.selected_date)
+            self.callback(display_date)
         self.destroy()
+
+
 
 class TaskForm(ctk.CTkFrame):
     """Φόρμα για προσθήκη/επεξεργασία εργασίας - Phase 2.3 Updated"""
@@ -621,7 +629,7 @@ class TaskForm(ctk.CTkFrame):
             width=220,
             font=theme_config.get_font("input")
         )
-        self.created_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        self.created_date_entry.insert(0, utils_refactored.get_today_display())
         self.created_date_entry.pack(side="left", padx=(0, 5))
 
         calendar_btn = ctk.CTkButton(
@@ -751,9 +759,9 @@ class TaskForm(ctk.CTkFrame):
         self.on_group_change(self.group_combo.get() if self.groups_dict else None)
         self.on_task_type_change(self.task_type_combo.get() if self.task_types_dict else None)
 
-        # ═══════════════════════════════════════════════════════
+
         # COMPACT CHAIN PREVIEW (μόνο σε edit mode) - ΣΤΟ ΤΕΛΟΣ!
-        # ═══════════════════════════════════════════════════════
+
         if self.is_edit_mode:
             self.add_compact_chain_preview(scrollable)
 
@@ -812,7 +820,8 @@ class TaskForm(ctk.CTkFrame):
         current_date = self.completed_date_entry.get().strip()
         if current_date:
             try:
-                date_obj = datetime.strptime(current_date, "%Y-%m-%d")
+                db_date = utils_refactored.format_date_for_db(current_date)
+                date_obj = datetime.strptime(db_date, "%Y-%m-%d")
                 year, month, day = date_obj.year, date_obj.month, date_obj.day
             except:
                 year, month, day = datetime.now().year, datetime.now().month, datetime.now().day
@@ -828,11 +837,13 @@ class TaskForm(ctk.CTkFrame):
             date_pattern='yyyy-mm-dd'
         )
         cal.pack(padx=20, pady=20, expand=True, fill="both")
-        
+
         def select_date():
-            selected = cal.get_date()
+            calendar_date = cal.get_date()
+            date_obj = datetime.strptime(calendar_date, '%Y-%m-%d')
+            display_date = date_obj.strftime('%d/%m/%y')
             self.completed_date_entry.delete(0, 'end')
-            self.completed_date_entry.insert(0, selected)
+            self.completed_date_entry.insert(0, display_date)
             cal_window.destroy()
         
         ctk.CTkButton(
@@ -914,10 +925,11 @@ class TaskForm(ctk.CTkFrame):
         # Προτεραιότητα
         priority_map = {"low": "Χαμηλή (low)", "medium": "Μεσαία (medium)", "high": "Υψηλή (high)"}
         self.priority_combo.set(priority_map. get(self.task_data. get('priority', 'medium'), "Μεσαία (medium)"))
-        
-        # Ημερομηνία
+
+        # Ημερομηνία - Convert from DB format to display format
         self.created_date_entry.delete(0, "end")
-        self.created_date_entry.insert(0, self.task_data['created_date'])
+        display_date = utils_refactored.format_date_for_display(self.task_data['created_date'])
+        self.created_date_entry.insert(0, display_date)
         
 
         
@@ -961,24 +973,54 @@ class TaskForm(ctk.CTkFrame):
         
 
         notes = self.notes_text.get("1.0", "end-1c").strip()
-        
-        created_date = self.created_date_entry.get().strip()
+
+        # Convert date from display format (DD/MM/YY) to DB format (YYYY-MM-DD)
+        created_date_display = self.created_date_entry.get().strip()
+        created_date = utils_refactored.format_date_for_db(created_date_display)
+
+        # Validation
+        if not created_date:
+            custom_dialogs.show_error("Σφάλμα", "Μη έγκυρη ημερομηνία! Χρησιμοποιήστε DD/MM/YY")
+            return
+
         completed_date = created_date if status == "completed" else None
         
         # Αποθήκευση
         try:
-            # ═══ CHAIN SYNC ═══
-            # If we're in a chain AND we're the last task, sync all
-            if self.chain_info and self.is_last_in_chain:
-                full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
-
-                # Update ALL other tasks in chain to same status
-                for task in full_chain:
-                    if task['id'] != self.task_data['id']:  # Skip current (already updated)
-                        database.update_task(task['id'], status=status)
+            if self.is_edit_mode:
+                # Update existing task
+                database.update_task(
+                    self.task_data['id'],
+                    unit_id, task_type_id, description, status, priority,
+                    created_date, completed_date, None,
+                    notes if notes else None, task_item_id, location
+                )
+                
+                # ═══ CHAIN SYNC ═══
+                # If we're in a chain AND we're the last task, sync ALL
+                if self.chain_info and self.is_last_in_chain:
+                    try:
+                        full_chain = utils_refactored.get_full_task_chain(self.task_data['id'])
+                        
+                        # Update ALL other tasks in chain to same status
+                        conn = database.get_connection()
+                        cursor = conn.cursor()
+                        
+                        for task in full_chain:
+                            if task['id'] != self.task_data['id']:  # Skip current
+                                cursor.execute(
+                                    "UPDATE tasks SET status = ?, completed_date = ? WHERE id = ?",
+                                    (status, completed_date, task['id'])
+                                )
+                        
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"Chain sync warning: {e}")
+                
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία ενημερώθηκε με επιτυχία!")
             else:
-                # Insert
+                # Insert new task
                 database.add_task(
                     unit_id, task_type_id, description, status, priority,
                     created_date, completed_date, None,
@@ -989,7 +1031,13 @@ class TaskForm(ctk.CTkFrame):
             self.on_save_callback()
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"=== SAVE ERROR ===")
+            print(error_details)
+            print("==================")
             custom_dialogs.show_error("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
+
 
     def delete_task(self):
         """Διαγραφή εργασίας"""
@@ -1119,7 +1167,7 @@ class TaskForm(ctk.CTkFrame):
             info_section.pack(side="left", fill="x", expand=True, padx=8)
 
             # Build info text
-            task_info = f"📅 {chain_task['created_date']}  •  {chain_task['task_type_name']}"
+            task_info = f"📅 {utils_refactored.format_date_for_display(chain_task['created_date'])}  •  {chain_task['task_type_name']}"
             if chain_task.get('task_item_name'):
                 task_info += f" → {chain_task['task_item_name']}"
 
@@ -1994,7 +2042,8 @@ class UnitsManagement(ctk.CTkFrame):
         ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (YYYY-MM-DD):",
                      font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
         install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
-        install_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        display_date = utils_refactored.format_date_for_display(unit_data.get('installation_date', ''))
+        install_entry.insert(0, display_date)
         install_entry.pack(padx=20, pady=(0, 20))
 
         # Populate fields if editing
@@ -2004,7 +2053,8 @@ class UnitsManagement(ctk.CTkFrame):
             model_entry.insert(0, unit_data.get('model') or '')
             notes_entry.insert('1.0', unit_data.get('notes') or '')
             install_entry.delete(0, "end")
-            install_entry.insert(0, unit_data.get('installation_date', ''))
+            display_date = utils_refactored.format_date_for_display(unit_data.get('installation_date', ''))
+            install_entry.insert(0, display_date)
 
         # -------- BUTTONS --------
         buttons_frame = ctk.CTkFrame(dialog, fg_color="transparent")
@@ -3060,7 +3110,7 @@ class RecycleBinView(ctk.CTkFrame):
         lbl_title.pack(fill="x")
 
         subtitle = task.get('task_item_name') or task.get('description') or ""
-        lbl_sub = ctk.CTkLabel(left, text=f"{task.get('created_date')}  •  {subtitle}",
+        lbl_sub = ctk.CTkLabel(left, text=f"{utils_refactored.format_date_for_display(task.get('created_date'))}  •  {subtitle}",
                                font=theme_config.get_font("small"), text_color=self.theme["text_secondary"], anchor="w")
         lbl_sub.pack(fill="x", pady=(3, 0))
 
@@ -3393,7 +3443,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         # Date badge (prominent)
         date_badge = ctk.CTkLabel(
             card,
-            text=f"📅 {task['created_date']}",
+            text=f"📅 {utils_refactored.format_date_for_display(task['created_date'])}",
             font=theme_config.get_font("small", "bold"),
             text_color=self.theme["accent_blue"],
             fg_color=self.theme["bg_secondary"],
@@ -3610,7 +3660,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
             # Date badge
             ctk.CTkLabel(
                 info_frame,
-                text=f"📅 {task['created_date']}",
+                text=f"📅 {utils_refactored.format_date_for_display(task['created_date'])}",
                 font=theme_config.get_font("tiny", "bold"),
                 text_color=self.theme["accent_blue"]
             ).pack(anchor="w")
@@ -3671,9 +3721,52 @@ class TaskRelationshipsView(ctk.CTkFrame):
 
         try:
             database.add_task_relationship(parent_id, child_id, "related")
-            custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+            
+            # ═══ CHAIN SYNC ═══
+            # After adding relationship, sync entire chain to last task's status
+            try:
+                # Get full chain starting from either parent or child
+                full_chain = utils_refactored.get_full_task_chain(parent_id)
+                
+                if len(full_chain) > 1:
+                    # Get the LAST task's status
+                    last_task = full_chain[-1]
+                    target_status = last_task['status']
+                    target_completed_date = last_task.get('completed_date')
+                    
+                    # Update ALL tasks in chain to match last task
+                    conn = database.get_connection()
+                    cursor = conn.cursor()
+                    
+                    for task in full_chain:
+                        cursor.execute(
+                            "UPDATE tasks SET status = ?, completed_date = ? WHERE id = ?",
+                            (target_status, target_completed_date, task['id'])
+                        )
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    # Inform user if chain status changed
+                    if target_status == 'pending':
+                        custom_dialogs.show_success(
+                            "Επιτυχία", 
+                            f"Η σύνδεση προστέθηκε!\n\n"
+                            f"ℹ️ Η αλυσίδα ({len(full_chain)} εργασίες) επανανοίγει αυτόματα\n"
+                            f"επειδή η τελευταία εργασία είναι εκκρεμής."
+                        )
+                    else:
+                        custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+                else:
+                    custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+                    
+            except Exception as e:
+                print(f"Chain sync warning after relationship add: {e}")
+                custom_dialogs.show_success("Επιτυχία", f"Η σύνδεση προστέθηκε με επιτυχία!")
+            
             dialog.destroy()
             self.load_relationships()
+            
         except Exception as e:
             custom_dialogs.show_error("Σφάλμα", f"Αποτυχία σύνδεσης: {str(e)}")
 
