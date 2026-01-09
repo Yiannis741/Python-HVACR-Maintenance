@@ -751,9 +751,9 @@ class TaskForm(ctk.CTkFrame):
         self.on_group_change(self.group_combo.get() if self.groups_dict else None)
         self.on_task_type_change(self.task_type_combo.get() if self.task_types_dict else None)
 
-        # ═══════════════════════════════════════════════════════
+
         # COMPACT CHAIN PREVIEW (μόνο σε edit mode) - ΣΤΟ ΤΕΛΟΣ!
-        # ═══════════════════════════════════════════════════════
+
         if self.is_edit_mode:
             self.add_compact_chain_preview(scrollable)
 
