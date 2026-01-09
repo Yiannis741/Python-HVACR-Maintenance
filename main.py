@@ -18,6 +18,12 @@ class HVACRApp(ctk.CTk):
         # Φόρτωση theme
         self.theme = theme_config.get_current_theme()
 
+        # ✨ NEW: Debounce timer για search (για FIX 2.1)
+        self.search_timer = None
+        # ✨ NEW: Tab tracking
+        self.current_tab = None
+
+
         # Ρυθμίσεις παραθύρου
         self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
         
@@ -208,7 +214,7 @@ class HVACRApp(ctk.CTk):
                 widget.destroy()
 
         # ΑΛΛΑΓΗ: Φέρνουμε ΜΟΝΟ εκκρεμείς εργασίες
-        all_tasks = database.get_recent_tasks(50)  # Φέρνουμε περισσότερα για να φιλτράρουμε
+        all_tasks = database.get_recent_tasks(20)  # Φέρνουμε περισσότερα για να φιλτράρουμε
         tasks = [t for t in all_tasks if t.get('status') == 'pending'][:15]  # Κρατάμε τις 15 πρώτες εκκρεμείς
 
         if not tasks:
@@ -270,7 +276,7 @@ class HVACRApp(ctk.CTk):
             return
 
         # Scrollable frame
-        scrollable = ctk.CTkScrollableFrame(self.main_frame, height=250)
+        scrollable = ctk.CTkScrollableFrame(self.main_frame, height=600)
         scrollable.pack(fill="both", expand=True, padx=40, pady=10)
 
         for task in tasks:
@@ -448,7 +454,7 @@ class HVACRApp(ctk.CTk):
             placeholder_text="ID, Περιγραφή, Μονάδα, Τεχνικός..."
         )
         self.history_search_entry.pack(side="left")
-        self.history_search_entry.bind("<KeyRelease>", lambda e: self.on_search_change())
+        self.history_search_entry.bind("<KeyRelease>", self.on_search_keypress)
 
         # Clear button (✕) - initially hidden
         self.search_clear_btn = ctk.CTkButton(
@@ -540,6 +546,7 @@ class HVACRApp(ctk.CTk):
         # ═══════════════════════════════════════════════════════════
         self.history_tasks_frame = ctk.CTkScrollableFrame(
             self.main_frame,
+            height=600,
             fg_color="transparent"
         )
         self.history_tasks_frame.pack(fill="both", expand=True, padx=40, pady=10)
@@ -665,15 +672,25 @@ class HVACRApp(ctk.CTk):
         self.update_filter_visuals()
         self.load_history_tasks()
 
-    def on_search_change(self):
-        """Handle search text changes"""
-        # Show/hide clear button
+    def on_search_keypress(self, event):
+        """Debounced search handler - Περιμένει 500ms μετά το τελευταίο keystroke"""
+
+        # Cancel previous timer
+        if self.search_timer is not None:
+            self.after_cancel(self.search_timer)
+
+        # Show/hide clear button (instant feedback)
         if self.history_search_entry.get().strip():
             self.search_clear_btn.place(in_=self.history_search_entry, relx=0.95, rely=0.5, anchor="center")
         else:
             self.search_clear_btn.place_forget()
 
-        # Apply filters
+        # Start new timer (500ms delay)
+        self.search_timer = self.after(500, self.on_search_change)
+
+    def on_search_change(self):
+        """Actual search execution (called after 500ms delay)"""
+        self.search_timer = None
         self.apply_history_filters()
 
     def clear_search(self):
@@ -900,7 +917,7 @@ class HVACRApp(ctk.CTk):
         details_frame.pack(fill="both", expand=True, padx=40, pady=20)
 
         # Details content (scrollable)
-        scrollable = ctk.CTkScrollableFrame(details_frame)
+        scrollable = ctk.CTkScrollableFrame(details_frame, height=500)
         scrollable.pack(fill="both", expand=True, padx=20, pady=20)
 
         # Relationship indicator at top (if exists) - FIX: Σωστό position
@@ -1276,9 +1293,9 @@ class HVACRApp(ctk.CTk):
         )
         title.pack(expand=True)
 
-        # Settings container
         settings_container = ctk.CTkScrollableFrame(
             self.main_frame,
+            height=600,  # ← ΠΡΟΣΘΕΣΕ αυτό!
             fg_color="transparent"
         )
         settings_container.pack(fill="both", expand=True, padx=40, pady=10)

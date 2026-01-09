@@ -22,7 +22,7 @@ class TaskManagement(ctk.CTkFrame):
 
         self.theme = theme_config.get_current_theme()
         self.pack(fill="both", expand=True, padx=20, pady=20)
-
+        self.search_timer = None
         self.create_ui()
 
     def create_ui(self):
