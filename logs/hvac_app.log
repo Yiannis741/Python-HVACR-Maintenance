@@ -281,3 +281,30 @@
 2026-01-10 11:32:40 | INFO     | __main__ | __init__:76 | ======================================================================
 2026-01-10 11:32:40 | INFO     | __main__ | __init__:77 | HVAC Maintenance App is READY!
 2026-01-10 11:32:40 | INFO     | __main__ | __init__:78 | ======================================================================
+2026-01-10 11:37:20 | INFO     | root | setup_logging:127 | ======================================================================
+2026-01-10 11:37:20 | INFO     | root | setup_logging:128 | HVAC Maintenance System - Logging Started
+2026-01-10 11:37:20 | INFO     | root | setup_logging:129 | Log directory: C:\Users\Yiannis\PycharmProjects\Python-HVACR-Maintenance\logs
+2026-01-10 11:37:20 | INFO     | root | setup_logging:130 | Main log: hvac_app.log
+2026-01-10 11:37:20 | INFO     | root | setup_logging:131 | Error log: hvac_errors.log
+2026-01-10 11:37:20 | INFO     | root | setup_logging:132 | ======================================================================
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:26 | ======================================================================
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:27 | HVAC Maintenance App Starting...
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:28 | ======================================================================
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:45 | Initializing database...
+2026-01-10 11:37:20 | INFO     | database_refactored | init_database:121 | Initializing database tables...
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:48 | Database initialized successfully
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:54 | Creating automatic backup...
+2026-01-10 11:37:20 | INFO     | backup_manager | create_backup:80 | Creating backup: hvacr_backup_20260110_113720.db
+2026-01-10 11:37:20 | INFO     | backup_manager | create_backup:85 | ✅ Backup created successfully: hvacr_backup_20260110_113720.db (84.0 KB)
+2026-01-10 11:37:20 | DEBUG    | backup_manager | list_backups:175 | Found 8 backup(s)
+2026-01-10 11:37:20 | INFO     | backup_manager | cleanup_old_backups:201 | Cleaning up 1 old backup(s)...
+2026-01-10 11:37:20 | DEBUG    | backup_manager | cleanup_old_backups:206 | Deleted old backup: hvacr_backup_20260110_102207.db
+2026-01-10 11:37:20 | INFO     | backup_manager | cleanup_old_backups:210 | ✅ Cleanup complete. Kept 7 most recent backups.
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:57 | ✅ Backup created: backups\hvacr_backup_20260110_113720.db
+2026-01-10 11:37:20 | INFO     | __main__ | __init__:63 | Creating UI layout...
+2026-01-10 11:37:21 | INFO     | __main__ | __init__:65 | UI layout created successfully
+2026-01-10 11:37:21 | INFO     | __main__ | __init__:68 | Loading initial data...
+2026-01-10 11:37:21 | INFO     | __main__ | __init__:70 | Initial data loaded successfully
+2026-01-10 11:37:21 | INFO     | __main__ | __init__:76 | ======================================================================
+2026-01-10 11:37:21 | INFO     | __main__ | __init__:77 | HVAC Maintenance App is READY!
+2026-01-10 11:37:21 | INFO     | __main__ | __init__:78 | ======================================================================

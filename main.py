@@ -3,7 +3,7 @@ HVACR Maintenance System - Phase 2
 Σύστημα Διαχείρισης Συντηρήσεων HVACR για Νοσοκομείο
 """
 import os
-import sys
+
 import customtkinter as ctk
 from datetime import datetime
 import database_refactored as database
