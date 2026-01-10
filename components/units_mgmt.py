@@ -425,10 +425,64 @@ class UnitsManagement(ctk.CTkFrame):
         notes_entry.pack(padx=20, pady=(0, 15))
 
         # Ημερομηνία εγκατάστασης
-        ctk.CTkLabel(dialog, text="Ημερομηνία Εγκατάστασης (DD/MM/YY):",
-                     font=theme_config.get_font("body", "bold")).pack(anchor="w", padx=20, pady=(10, 5))
-        install_entry = ctk.CTkEntry(dialog, width=450, font=theme_config.get_font("input"))
-        install_entry.pack(padx=20, pady=(0, 20))
+        install_label_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        install_label_frame.pack(anchor="w", padx=20, pady=(10, 5))
+
+        ctk.CTkLabel(
+            install_label_frame,
+            text="Ημερομηνία Εγκατάστασης:",
+            font=theme_config.get_font("body", "bold")
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            install_label_frame,
+            text="(📅 για calendar)",
+            font=theme_config.get_font("tiny"),
+            text_color=theme_config.get_current_theme()["text_disabled"]
+        ).pack(side="left", padx=5)
+
+        # Entry field + Calendar button
+        install_entry_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        install_entry_frame.pack(anchor="w", padx=20, pady=(0, 15))
+
+        install_entry = ctk.CTkEntry(
+            install_entry_frame,
+            width=365,
+            font=theme_config.get_font("input"),
+            state="readonly"  # ← Read-only!
+        )
+        install_entry.pack(side="left", padx=(0, 5))
+
+        # Calendar button
+        def open_install_date_picker():
+            """Άνοιγμα calendar picker για installation date"""
+            current_date = install_entry.get()
+
+            def on_date_selected(selected_date):
+                # Unlock temporarily to update
+                install_entry.configure(state="normal")
+                install_entry.delete(0, "end")
+                install_entry.insert(0, selected_date)
+                install_entry.configure(state="readonly")
+
+            from components.date_picker import DatePickerDialog
+            DatePickerDialog(dialog, current_date, on_date_selected)
+
+        calendar_btn = ctk.CTkButton(
+            install_entry_frame,
+            text="📅",
+            command=open_install_date_picker,
+            width=80,
+            font=theme_config.get_font("heading")
+        )
+        calendar_btn.pack(side="left")
+
+        if not is_edit_mode:
+            import utils_refactored
+            today = utils_refactored.get_today_display()
+            install_entry.configure(state="normal")
+            install_entry.insert(0, today)
+            install_entry.configure(state="readonly")
 
         # Populate fields if editing
         if is_edit_mode:
@@ -436,9 +490,13 @@ class UnitsManagement(ctk.CTkFrame):
             location_entry.set(unit_data.get('location', ''))
             model_entry.insert(0, unit_data.get('model') or '')
             notes_entry.insert('1.0', unit_data.get('notes') or '')
-            # Set installation date
+
+            # Set installation date (unlock → set → lock)
             display_date = utils_refactored.format_date_for_display(unit_data.get('installation_date', ''))
+            install_entry.configure(state="normal")  # Unlock
             install_entry.insert(0, display_date)
+            install_entry.configure(state="readonly")  # Lock again
+
 
         # -------- BUTTONS --------
         buttons_frame = ctk.CTkFrame(dialog, fg_color="transparent")

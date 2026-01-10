@@ -1192,7 +1192,7 @@ def permanent_delete_task(task_id):
                            OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
                 VALUES (?, ?, 'related', 0)
                            """, (parent_id, child_id))
-            logger.debug(f"Created bypass relationship: parent {parent['id']} -> child {child['id']}")
+            logger.debug(f"Created bypass relationship: parent {parent_id} -> child {child_id}")
         except sqlite3.IntegrityError as e:
             # Expected: Relationship already exists (OR IGNORE handles it)
             logger.debug(f"Bypass relationship already exists or constraint violation: {e}")

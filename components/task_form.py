@@ -13,6 +13,8 @@ import database_refactored as database
 import theme_config
 import custom_dialogs
 import utils_refactored
+from components.date_picker import DatePickerDialog
+
 class TaskForm(ctk.CTkFrame):
     """Φόρμα για προσθήκη/επεξεργασία εργασίας - Phase 2.3 Updated"""
 
@@ -293,8 +295,14 @@ class TaskForm(ctk.CTkFrame):
         self.created_date_entry = ctk.CTkEntry(
             date_entry_frame,
             width=220,
-            font=theme_config.get_font("input")
+            font=theme_config.get_font("input"),
+            state="readonly"
         )
+        # Set initial (unlock → set → lock)
+        self.created_date_entry.configure(state="normal")
+        self.created_date_entry.insert(0, utils_refactored.get_today_display())
+        self.created_date_entry.configure(state="readonly")
+
         self.created_date_entry.insert(0, utils_refactored.get_today_display())
         self.created_date_entry.pack(side="left", padx=(0, 5))
 
@@ -332,6 +340,7 @@ class TaskForm(ctk.CTkFrame):
             date_completed_entry_frame,
             width=220,
             font=theme_config.get_font("input"),
+            state="readonly",
             placeholder_text="Προαιρετικό"
         )
         self.completed_date_entry.pack(side="left", padx=(0, 5))
@@ -436,10 +445,19 @@ class TaskForm(ctk.CTkFrame):
         current_date = self.created_date_entry.get()
 
         def on_date_selected(selected_date):
+            # Unlock field temporarily
+            self.created_date_entry.configure(state="normal")
+
+            # Update value
             self.created_date_entry.delete(0, "end")
             self.created_date_entry.insert(0, selected_date)
 
-            DatePickerDialog(self, current_date, on_date_selected)
+            # Lock again
+            self.created_date_entry.configure(state="readonly")
+
+        # ← ΕΔΩ! Έξω από το callback!
+        DatePickerDialog(self, current_date, on_date_selected)
+
     def on_group_change(self, selected_group):
         """Callback όταν αλλάζει η ομάδα - φιλτράρει τις μονάδες - Phase 2.3"""
         if not selected_group:
