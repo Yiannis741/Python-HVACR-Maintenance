@@ -401,18 +401,18 @@ class TaskRelationshipsView(ctk.CTkFrame):
         add_btn.pack(side="left", fill="x", expand=True, padx=(10, 0))
 
     def add_relationship_dialog(self, relation_type):
-        """Dialog για προσθήκη σύνδεσης - Grouped by Unit"""
+        """Dialog για προσθήκη σύνδεσης - Date-filtered by relation type"""
 
         dialog = ctk.CTkToplevel(self)
 
         if relation_type == "parent":
             title_text = "Προσθήκη Αρχικής Εργασίας"
             icon = "🔵"
-            info_text = "Επιλέξτε την εργασία που προηγήθηκε/προκάλεσε την τρέχουσα"
+            info_text = "Επιλέξτε την εργασία που προηγήθηκε/προκάλεσε την τρέχουσα (μόνο παλιότερες εργασίες)"
         else:
             title_text = "Προσθήκη Συνέχειας Εργασίας"
             icon = "🟢"
-            info_text = "Επιλέξτε την εργασία που ακολούθησε/προέκυψε από την τρέχουσα"
+            info_text = "Επιλέξτε την εργασία που ακολούθησε/προέκυψε από την τρέχουσα (μόνο νεότερες εργασίες)"
 
         dialog.title(title_text)
         dialog.geometry("850x850")
@@ -447,7 +447,7 @@ class TaskRelationshipsView(ctk.CTkFrame):
         if relation_type == "parent":
             flow_text = "[ Επιλογή ] → προκάλεσε → [ Τρέχουσα Εργασία ]"
         else:
-            flow_text = "[ Τρέχουσα Εργασία ] → ακολούθησε → [ Επιλογή ]"  # ← FIX:  Κλείσιμο string
+            flow_text = "[ Τρέχουσα Εργασία ] → ακολούθησε → [ Επιλογή ]"
 
         ctk.CTkLabel(
             flow_frame,
@@ -459,6 +459,10 @@ class TaskRelationshipsView(ctk.CTkFrame):
         # Scrollable task list
         scrollable = ctk.CTkScrollableFrame(dialog, height=500)
         scrollable.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # ═══════════════════════════════════════════════════════════════
+        # ✨ NEW: DATE-FILTERED TASK SELECTION
+        # ═══════════════════════════════════════════════════════════════
 
         # Get available tasks (exclude current task and already linked)
         all_tasks = database.get_all_tasks()
@@ -472,17 +476,52 @@ class TaskRelationshipsView(ctk.CTkFrame):
         linked_ids.update([t['id'] for t in relations['parents']])
         linked_ids.update([t['id'] for t in relations['children']])
 
-        available_tasks = [t for t in all_tasks if
-                           t['id'] not in linked_ids and t['unit_id'] == self.task_data['unit_id']]
+        # ✨ Get current task's date for comparison
+        current_date = self.task_data['created_date']
+
+        # ✨ Filter tasks based on relation type and date
+        available_tasks = []
+        for t in all_tasks:
+            # Basic filters (not already linked, same unit)
+            if t['id'] in linked_ids or t['unit_id'] != self.task_data['unit_id']:
+                continue
+
+            # ✨ Date filter based on relation type
+            if relation_type == "parent":
+                # For parent: only OLDER tasks (before current)
+                if t['created_date'] < current_date:
+                    available_tasks.append(t)
+            else:
+                # For child: only NEWER tasks (after current)
+                if t['created_date'] > current_date:
+                    available_tasks.append(t)
+
+        # ✨ Sort by date (chronological for better UX)
+        if relation_type == "parent":
+            # Parents: newest first (closest to current task)
+            available_tasks.sort(key=lambda x: x['created_date'], reverse=True)
+        else:
+            # Children: oldest first (closest to current task)
+            available_tasks.sort(key=lambda x: x['created_date'])
+
+        # ═══════════════════════════════════════════════════════════════
 
         if not available_tasks:
+            # ✨ Updated message
+            if relation_type == "parent":
+                message = "Δεν υπάρχουν παλιότερες εργασίες για σύνδεση."
+            else:
+                message = "Δεν υπάρχουν νεότερες εργασίες για σύνδεση."
+
             ctk.CTkLabel(
                 scrollable,
-                text="Δεν υπάρχουν διαθέσιμες εργασίες για σύνδεση.",
+                text=message,
                 font=theme_config.get_font("body"),
                 text_color=self.theme["text_secondary"]
             ).pack(pady=50)
             return
+
+
 
         # Display tasks
         for task in available_tasks:
