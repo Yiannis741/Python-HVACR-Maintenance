@@ -26,7 +26,8 @@ THEMES = {
         "bg_secondary": "#2b2b2b",
         "bg_tertiary": "#3a3a3a",
         "card_bg": "#2b2b2b",
-        "card_border": "#404040",
+        "card_border": "#454545",
+        "card_border2": "#404040",
         "text_primary": "#ffffff",
         "text_secondary": "#b0b0b0",
         "text_disabled": "#666666",
@@ -36,6 +37,7 @@ THEMES = {
         "accent_red": "#dc3545",
         "sidebar_bg": "#1e1e1e",
         "sidebar_hover": "#2d2d2d",
+        "royal_purple": "#947AD2"
     },
     "light": {
         "bg_primary": "#f0f0f0",
@@ -177,6 +179,14 @@ def get_button_style(button_type):
 
     styles = {
         "primary": {
+            "fg_color": "#454545",
+            "hover_color": "#606060",
+            "text_color": "#DCDCDC",
+            "corner_radius": 8,
+            "border_width": 1,
+            "border_color": "#555555"
+        },
+        "primary2": {
             "fg_color": theme["accent_blue"],
             "hover_color": "#2d6ca3",
             "text_color": "white",
@@ -215,6 +225,86 @@ def get_button_style(button_type):
             "corner_radius": 10,
             "border_width": 2,
             "border_color": "#9B93FF"
+        },
+        "amber_warning": {
+            "fg_color": "#C87E2F",
+            "hover_color": "#A46626",
+            "text_color": "white",
+            "corner_radius": 10,
+            "border_width": 1,
+            "border_color": "#E19A4C"
+        },
+        "royal_purple": {
+            "fg_color": "#7B5EC0",
+            "hover_color": "#6349A1",
+            "text_color": "white",
+            "corner_radius": 10,
+            "border_width": 1,
+            "border_color": "#947AD2"
+        },
+        "graphite_box": {
+            "fg_color": "#2B2B2B",
+            "hover_color": "#353535",
+            "text_color": "#E0E0E0",
+            "corner_radius": 8,
+            "border_width": 1,
+            "border_color": "#404040"
+        },
+        "emerald_success": {
+            "fg_color": "#2D8A57",
+            "hover_color": "#236942",
+            "text_color": "white",
+            "corner_radius": 10,
+            "border_width": 1,
+            "border_color": "#3EB489"
+        },
+        "electric_blue": {
+            "fg_color": "#1F6AA5",
+            "hover_color": "#144870",
+            "text_color": "white",
+            "corner_radius": 10,
+            "border_width": 1,
+            "border_color": "#307EBA"
+        },
+        "blender_orange": {
+            "fg_color": "#E59530",
+            "hover_color": "#F5A642",
+            "text_color": "#FFFFFF",
+            "corner_radius": 4,
+            "border_width": 1,
+            "border_color": "#B37021"
+        },
+        "blender_selection": {
+            "fg_color": "#ED9D32",
+            "hover_color": "#FFB652",
+            "text_color": "#1A1A1A",
+            "corner_radius": 6,
+            "border_width": 2,
+            "border_color": "#FFFFFF"
+        },
+        "soft_white": {
+            "fg_color": "5#E5E5E",  # Ένα απαλό, "σπασμένο" λευκό
+            "hover_color": "#F2F2F2",  # Σχεδόν λευκό κατά το πέρασμα του ποντικιού
+            "text_color": "#1A1A1A",  # Πολύ σκούρο γκρι (όχι μαύρο) για το κείμενο
+            "corner_radius": 10,  # Μεγαλύτερη καμπύλη για πιο μοντέρνο look
+            "border_width": 1,
+            "border_color": "#D1D1D1"  # Διακριτικό περίγραμμα για να μην "χάνεται"
+        },
+        "muted_white": {
+            "fg_color": "#A0A0A0",
+            "hover_color": "#C0C0C0",
+            "text_color": "#121212",
+            "corner_radius": 8,
+            "border_width": 1,
+            "border_color": "#707070"
+        },
+        "ghost_style": {
+            "fg_color": "#454545",
+            "hover_color": "#606060",
+            "text_color": "#DCDCDC",
+            "corner_radius": 8,
+            "border_width": 1,
+            "border_color": "#555555"
         }
     }
 

@@ -39,7 +39,7 @@ class TaskHistoryView(ctk.CTkFrame):
             fg_color=self.theme["bg_secondary"],
             corner_radius=10,
             border_width=2,
-            border_color=self.theme.get("border_color", "#333333")
+            border_color=self.theme["card_border"],
         )
 
         filters_frame.pack(fill="x", pady=(0, 10))
@@ -52,7 +52,7 @@ class TaskHistoryView(ctk.CTkFrame):
         row2 = ctk.CTkFrame(filters_frame, fg_color="transparent")
         row2.pack(fill="x", padx=15, pady=(10, 8))
 
-        ctk.CTkLabel(row2, text="Κατάσταση:", font=theme_config.get_font("small", "bold")).pack(side="left",
+        ctk.CTkLabel(row2, text="Εξέλιξη Εργασίας:", font=theme_config.get_font("small", "bold")).pack(side="left",
                                                                                                 padx=(20, 5))
         self.status_combo = ctk.CTkComboBox(row2, values=["Όλες", "Εκκρεμείς", "Ολοκληρωμένες"], width=150,
                                             state="readonly", font=theme_config.get_font("input"),
@@ -60,7 +60,7 @@ class TaskHistoryView(ctk.CTkFrame):
         self.status_combo.set("Όλες")
         self.status_combo.pack(side="left", padx=5)
 
-        ctk.CTkLabel(row2, text="Είδος:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(row2, text="Είδος Εργασίας:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(20, 5))
         task_types = database.get_all_task_types()
         type_names = ["Όλα"] + [tt['name'] for tt in task_types]
         self.types_dict = {tt['name']: tt['id'] for tt in task_types}
@@ -69,7 +69,7 @@ class TaskHistoryView(ctk.CTkFrame):
         self.type_combo.set("Όλα")
         self.type_combo.pack(side="left", padx=5)
 
-        ctk.CTkLabel(row2, text="🔍 Αναζήτηση:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(0, 5))
+        ctk.CTkLabel(row2, text="🔍 Αναζήτηση:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(20, 5))
         self.search_entry = ctk.CTkEntry(row2, width=250, placeholder_text="Περιγραφή, σημειώσεις...", font=theme_config.get_font("input"))
         self.search_entry.pack(side="left", padx=5)
         self.search_entry.bind("<KeyRelease>", lambda e: self.apply_filters())
@@ -77,36 +77,48 @@ class TaskHistoryView(ctk.CTkFrame):
                       **theme_config.get_button_style("primary")).pack(side="left", padx=5)
         ctk.CTkButton(row2, text="🔄 Καθαρισμός", command=self.clear_filters, width=120,
                       **theme_config.get_button_style("secondary")).pack(side="left", padx=5)
-        
 
-        
         # ROW 3: Groups + Locations
-        row3 = ctk.CTkFrame(filters_frame, fg_color="transparent")
-        row3.pack(fill="x", padx=15, pady=(0, 8))
+        row3 = ctk.CTkFrame(filters_frame,
+                            # 2. Εσωτερικό χρώμα (π.χ. λίγο πιο σκούρο ή ανοιχτό από το κύριο background)
+                            fg_color=self.theme.get("input_bg", "#2b2b2b"),
+                            border_width=1,
+                            border_color=self.theme["royal_purple"],
+                            corner_radius=8)
 
+        # 1. Με το fill="none" και anchor="w", το πλαίσιο σταματάει ακριβώς μετά το δεξιότερο στοιχείο
+        row3.pack(side="top", anchor="w", padx=15, pady=(5, 5), ipady=10)
+
+        # --- Τοποθεσίες ---
         ctk.CTkLabel(row3, text="Τοποθεσίες:", font=theme_config.get_font("small", "bold")).pack(side="left",
-                                                                                                 padx=(20, 5))
-        self.locations_button = ctk.CTkButton(row3, text="Επιλογή τοποθεσιών...", width=180,
+                                                                                                 padx=(15, 5))
+        self.locations_button = ctk.CTkButton(row3, text="Επιλογή τοποθεσιών...", width=160,
                                               command=self.show_locations_selector,
-                                              **theme_config.get_button_style("secondary"))
+                                              **theme_config.get_button_style("royal_purple"))
         self.locations_button.pack(side="left", padx=5)
         self.locations_label = ctk.CTkLabel(row3, text="(Όλες)", font=theme_config.get_font("small"),
                                             text_color=self.theme["text_secondary"])
-        self.locations_label.pack(side="left", padx=5)
+        self.locations_label.pack(side="left", padx=(2, 20))  # Αυξημένο padx για να αναπνέουν οι ενότητες
 
-        ctk.CTkLabel(row3, text="Ομάδες:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(0, 5))
-        self.groups_button = ctk.CTkButton(row3, text="Επιλογή ομάδων...", width=180, command=self.show_groups_selector, **theme_config.get_button_style("secondary"))
+        # --- Ομάδες ---
+        ctk.CTkLabel(row3, text="Ομάδες:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(5, 5))
+        self.groups_button = ctk.CTkButton(row3, text="Επιλογή ομάδων...", width=160,
+                                           command=self.show_groups_selector,
+                                           **theme_config.get_button_style("royal_purple"))
         self.groups_button.pack(side="left", padx=5)
-        self.groups_label = ctk.CTkLabel(row3, text="(Όλες)", font=theme_config.get_font("small"), text_color=self.theme["text_secondary"])
-        self.groups_label.pack(side="left", padx=5)
+        self.groups_label = ctk.CTkLabel(row3, text="(Όλες)", font=theme_config.get_font("small"),
+                                         text_color=self.theme["text_secondary"])
+        self.groups_label.pack(side="left", padx=(2, 20))
 
-        ctk.CTkLabel(row3, text="Μονάδες:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(0, 5))
-        self.units_button = ctk.CTkButton(row3, text="Επιλογή μονάδων...", width=180, command=self.show_units_selector,
-                                          **theme_config.get_button_style("secondary"))
+        # --- Μονάδες ---
+        ctk.CTkLabel(row3, text="Μονάδες:", font=theme_config.get_font("small", "bold")).pack(side="left", padx=(5, 5))
+        self.units_button = ctk.CTkButton(row3, text="Επιλογή μονάδων...", width=160,
+                                          command=self.show_units_selector,
+                                          **theme_config.get_button_style("royal_purple"))
         self.units_button.pack(side="left", padx=5)
         self.units_label = ctk.CTkLabel(row3, text="(Όλες)", font=theme_config.get_font("small"),
                                         text_color=self.theme["text_secondary"])
-        self.units_label.pack(side="left", padx=5)
+        self.units_label.pack(side="left", padx=(2, 15))
         
         # ROW 3: Units
         ##row3.pack(fill="x", padx=15, pady=(0, 8))

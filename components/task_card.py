@@ -46,7 +46,7 @@ class TaskCard(ctk.CTkFrame):
         # Status & Priority colors
         status_color = self.theme["accent_green"] if self.task['status'] == 'completed' else self.theme["accent_orange"]
         status_icon = "✓" if self.task['status'] == 'completed' else "⏳"
-        status_text = "Ολοκληρωμένη" if self.task['status'] == 'completed' else "Εκκρεμής"
+        status_text = "Ολοκληρώθηκε" if self.task['status'] == 'completed' else "Εκκρεμής"
 
         priority_colors = {
             "low": self.theme["accent_green"],
