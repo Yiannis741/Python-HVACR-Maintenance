@@ -526,8 +526,13 @@ class TaskForm(ctk.CTkFrame):
             calendar_date = cal.get_date()
             date_obj = datetime.strptime(calendar_date, '%Y-%m-%d')
             display_date = date_obj.strftime('%d/%m/%y')
+
+            # UNLOCK → WRITE → LOCK
+            self.completed_date_entry.configure(state="normal")
             self.completed_date_entry.delete(0, 'end')
             self.completed_date_entry.insert(0, display_date)
+            self.completed_date_entry.configure(state="readonly")
+
             cal_window.destroy()
         
         ctk.CTkButton(
@@ -610,10 +615,22 @@ class TaskForm(ctk.CTkFrame):
         priority_map = {"low": "Χαμηλή (low)", "medium": "Μεσαία (medium)", "high": "Υψηλή (high)"}
         self.priority_combo.set(priority_map. get(self.task_data. get('priority', 'medium'), "Μεσαία (medium)"))
 
-        # Ημερομηνία - Convert from DB format to display format
+        # Ημερομηνία Δημιουργίας - Convert from DB format to display format
+        self.created_date_entry.configure(state="normal")
         self.created_date_entry.delete(0, "end")
         display_date = utils_refactored.format_date_for_display(self.task_data['created_date'])
         self.created_date_entry.insert(0, display_date)
+        self.created_date_entry.configure(state="readonly")
+
+        # Ημερομηνία Ολοκλήρωσης
+        if self.task_data.get('completion_date'):
+            self.completed_date_entry.configure(state="normal")
+            self.completed_date_entry.delete(0, "end")
+            display_completion = utils_refactored.format_date_for_display(self.task_data['completion_date'])
+            self.completed_date_entry.insert(0, display_completion)
+            self.completed_date_entry.configure(state="readonly")
+
+
         
 
         
@@ -667,7 +684,17 @@ class TaskForm(ctk.CTkFrame):
             custom_dialogs.show_error("Σφάλμα", "Μη έγκυρη ημερομηνία! Χρησιμοποιήστε DD/MM/YY")
             return
 
-        completed_date = created_date if status == "completed" else None
+        if status == "completed":
+            completed_date_display = self.completed_date_entry.get().strip()
+            if completed_date_display:
+                # User selected a date from calendar
+                completed_date = utils_refactored.format_date_for_db(completed_date_display)
+            else:
+                # No date selected, use created_date as default
+                completed_date = created_date
+        else:
+            # Task not completed
+            completed_date = None
         
         # Αποθήκευση
         try:

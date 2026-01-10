@@ -23,7 +23,7 @@ class TaskCard(ctk.CTkFrame):
             fg_color=theme["card_bg"],
             border_color=theme["card_border"],
             border_width=1,
-            height=100
+            height=75
         )
 
         self.task = task_data
@@ -46,7 +46,7 @@ class TaskCard(ctk.CTkFrame):
         # Status & Priority colors
         status_color = self.theme["accent_green"] if self.task['status'] == 'completed' else self.theme["accent_orange"]
         status_icon = "✓" if self.task['status'] == 'completed' else "⏳"
-        status_text = "Ολοκληρωμένη" if self.task['status'] == 'completed' else "Εκκρεμής"
+        status_text = "Ολοκληρώθηκε" if self.task['status'] == 'completed' else "Εκκρεμής"
 
         priority_colors = {
             "low": self.theme["accent_green"],
@@ -84,9 +84,33 @@ class TaskCard(ctk.CTkFrame):
         row1_frame = ctk.CTkFrame(self, fg_color="transparent")
         row1_frame.pack(fill="x", padx=12, pady=2)
 
+
+        if self.show_relations:
+            full_chain = utils_refactored.get_full_task_chain(self.task['id'])
+            if len(full_chain) > 1:
+                position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
+                chain_length = len(full_chain)
+
+                chain_widget = ctk.CTkLabel(
+                    row1_frame,
+                    text=f"🔗 {position}/{chain_length}",
+                    font=theme_config.get_font("small", "bold"),
+                    text_color=self.theme["accent_blue"],
+                    anchor="w"
+                )
+                chain_widget.pack(side="left", padx=(10, 10))
+
+                # Separator
+                ctk.CTkLabel(
+                    row1_frame,
+                    text="•",
+                    font=theme_config.get_font("small"),
+                    text_color=self.theme["text_disabled"]
+                ).pack(side="left", padx=(10, 10))
+
         # LEFT: Type and Item
         left_section = ctk.CTkFrame(row1_frame, fg_color="transparent")
-        left_section.pack(side="left", fill="x", expand=True)
+        left_section.pack(side="left", fill="x")
 
         type_text = f"🔧 {self.task['task_type_name']}"
         if self.task.get('task_item_name'):
@@ -101,6 +125,29 @@ class TaskCard(ctk.CTkFrame):
         )
         type_label.pack(side="left")
 
+        # Separator
+        ctk.CTkLabel(
+            row1_frame,
+            text="•",
+            font=theme_config.get_font("small"),
+            text_color=self.theme["text_disabled"],
+            anchor="w"
+        ).pack(side="left", padx=(10, 10))
+
+        # Description
+        desc_text = self.task['description'][:60] + "..." if len(self.task['description']) > 60 else self.task[
+            'description']
+
+        desc_label = ctk.CTkLabel(
+            row1_frame,
+            text=desc_text,
+            font=theme_config.get_font("normal"),
+            text_color=self.theme["text_secondary"],
+            anchor="w"
+        )
+        desc_label.pack(side="left", fill="x", expand=True)
+
+#-----------------------------------------------------------------------------------------------#
         # RIGHT: Priority + Status
         priority_label = ctk.CTkLabel(
             row1_frame,
@@ -122,43 +169,9 @@ class TaskCard(ctk.CTkFrame):
         row2_frame = ctk.CTkFrame(self, fg_color="transparent")
         row2_frame.pack(fill="x", padx=12, pady=(2, 8))
 
-        # Chain indicator FIRST (if exists)
-        # ✅ OPTIMIZED: Use utils_refactored instead of duplicate code
-        if self.show_relations:
-            full_chain = utils_refactored.get_full_task_chain(self.task['id'])
-            if len(full_chain) > 1:
-                position = next((i for i, t in enumerate(full_chain, 1) if t['id'] == self.task['id']), 1)
-                chain_length = len(full_chain)
 
-                chain_widget = ctk.CTkLabel(
-                    row2_frame,
-                    text=f"🔗 {position}/{chain_length}",
-                    font=theme_config.get_font("small", "bold"),
-                    text_color=self.theme["accent_blue"],
-                    anchor="w"
-                )
-                chain_widget.pack(side="left", padx=(0, 5))
 
-                # Separator
-                ctk.CTkLabel(
-                    row2_frame,
-                    text="•",
-                    font=theme_config.get_font("small"),
-                    text_color=self.theme["text_disabled"]
-                ).pack(side="left", padx=(0, 5))
 
-        # Description
-        desc_text = self.task['description'][:60] + "..." if len(self.task['description']) > 60 else self.task[
-            'description']
-
-        desc_label = ctk.CTkLabel(
-            row2_frame,
-            text=desc_text,
-            font=theme_config.get_font("small"),
-            text_color=self.theme["text_secondary"],
-            anchor="w"
-        )
-        desc_label.pack(side="left", fill="x", expand=True)
 
         # Bind click to all widgets
         if self.on_click:
