@@ -203,13 +203,19 @@ class TaskManagement(ctk.CTkFrame):
 
             desc = desc_text.get("1.0", "end-1c").strip()
 
-            result = database.add_task_type(name, desc)
-            if result:
-                custom_dialogs.show_success("Επιτυχία", "Ο τύπος εργασίας προστέθηκε με επιτυχία!")
-                dialog.destroy()
-                self.refresh_ui()
-            else:
-                custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+            try:
+                result = database.add_task_type(name, desc)
+                if result:
+                    custom_dialogs.show_success("Επιτυχία", "Ο τύπος εργασίας προστέθηκε με επιτυχία!")
+                    dialog.destroy()
+                    self.refresh_ui()
+                else:
+                    custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη!")
+            except Exception as e:
+                import logger_config
+                logger = logger_config.get_logger(__name__)
+                logger.error(f"Failed to add task type: {e}", exc_info=True)
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία προσθήκης: {str(e)}")
 
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
                       height=40).pack(pady=10)
@@ -223,14 +229,20 @@ class TaskManagement(ctk.CTkFrame):
         )
 
         if result:
-            delete_result = database.delete_task_type(task_type['id'])
+            try:
+                delete_result = database.delete_task_type(task_type['id'])
 
-            if delete_result:
-                custom_dialogs.show_success("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
-                self.refresh_ui()
-            else:
-                custom_dialogs.show_error("Σφάλμα",
-                                     "Ο τύπος δεν μπορεί να διαγραφεί (είτε είναι προκαθορισμένος, είτε χρησιμοποιείται σε εργασίες).")
+                if delete_result:
+                    custom_dialogs.show_success("Επιτυχία", "Ο τύπος εργασίας διαγράφηκε!")
+                    self.refresh_ui()
+                else:
+                    custom_dialogs.show_error("Σφάλμα",
+                                              "Ο τύπος δεν μπορεί να διαγραφεί (είτε είναι προκαθορισμένος, είτε χρησιμοποιείται σε εργασίες).")
+            except Exception as e:
+                import logger_config
+                logger = logger_config.get_logger(__name__)
+                logger.error(f"Failed to delete task type {task_type['id']}: {e}", exc_info=True)
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
 
     def create_task_items_tab(self, parent):
         """Tab για διαχείριση ειδών εργασιών - Phase 2.3"""
@@ -454,8 +466,13 @@ class TaskManagement(ctk.CTkFrame):
                         self.load_items_for_selected_type()
                     else:
                         custom_dialogs.show_error("Σφάλμα", "Το όνομα υπάρχει ήδη για αυτόν τον τύπο!")
+
             except Exception as e:
+                import logger_config
+                logger = logger_config.get_logger(__name__)
+                logger.error(f"Failed to save task item: {e}", exc_info=True)
                 custom_dialogs.show_error("Σφάλμα", f"Αποτυχία: {str(e)}")
+
 
         ctk.CTkButton(dialog, text="💾 Αποθήκευση", command=save, **theme_config.get_button_style("success"),
                       height=40).pack(pady=10)
@@ -473,15 +490,20 @@ class TaskManagement(ctk.CTkFrame):
         )
 
         if result:
-            delete_result = database.delete_task_item(item['id'])
+            try:
+                delete_result = database.delete_task_item(item['id'])
 
-            if delete_result:
-                custom_dialogs.show_success("Επιτυχία", "Το είδος διαγράφηκε!")
-                self.load_items_for_selected_type()
-            else:
-                custom_dialogs.show_error("Σφάλμα",
-                                     "Το είδος δεν μπορεί να διαγραφεί γιατί χρησιμοποιείται σε υπάρχουσες εργασίες!")
-
+                if delete_result:
+                    custom_dialogs.show_success("Επιτυχία", "Το είδος διαγράφηκε!")
+                    self.load_items_for_selected_type()
+                else:
+                    custom_dialogs.show_error("Σφάλμα",
+                                              "Το είδος δεν μπορεί να διαγραφεί (χρησιμοποιείται σε εργασίες).")
+            except Exception as e:
+                import logger_config
+                logger = logger_config.get_logger(__name__)
+                logger.error(f"Failed to delete task item {item['id']}: {e}", exc_info=True)
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
 
 # ----- PHASE 2: NEW COMPONENTS -----
 

@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 import os
+import logger_config
+
+# Create logger για αυτό το module
+logger = logger_config.get_logger(__name__)
 
 DB_NAME = "hvacr_maintenance.db"
 
@@ -113,6 +117,8 @@ def get_connection():
 
 def init_database():
     """Αρχικοποίηση της database με τους πίνακες"""
+
+    logger.info("Initializing database tables...")
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -705,20 +711,45 @@ def get_recent_tasks(limit=5):
 def add_task(unit_id, task_type_id, description, status, priority, created_date,
              completed_date, technician_name, notes, task_item_id=None, location=None):
     """Προσθήκη νέας εργασίας - Updated Phase 2.3"""
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute('''
-                   INSERT INTO tasks (unit_id, task_type_id, task_item_id, description, status, priority,
-                                      created_date, completed_date, technician_name, notes, location)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
-                         completed_date, technician_name, notes, location))
+    # ✨ LOG: Starting operation
+    logger.info(f"Adding new task: unit_id={unit_id}, type={task_type_id}, status={status}, priority={priority}")
+    logger.debug(f"Task details: description='{description[:50]}...', technician={technician_name}, location={location}")
 
-    task_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return task_id
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+                       INSERT INTO tasks (unit_id, task_type_id, task_item_id, description, status, priority,
+                                          created_date, completed_date, technician_name, notes, location)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
+                             completed_date, technician_name, notes, location))
+
+        task_id = cursor.lastrowid
+        conn.commit()
+
+        # ✨ LOG: Success
+        logger.info(f"✅ Task created successfully with ID: {task_id}")
+
+        conn.close()
+        return task_id
+
+    except sqlite3.IntegrityError as e:
+        logger.error(f"❌ Failed to create task - Integrity error: {e}", exc_info=True)
+        conn.close()
+        raise ValueError(f"Σφάλμα δημιουργίας εργασίας: Μη έγκυρα δεδομένα")
+
+    except sqlite3.Error as e:
+        logger.error(f"❌ Failed to create task - Database error: {e}", exc_info=True)
+        conn.close()
+        raise RuntimeError(f"Σφάλμα βάσης δεδομένων: {str(e)}")
+
+    except Exception as e:
+        logger.critical(f"❌ Failed to create task - Unexpected error: {e}", exc_info=True)
+        conn.close()
+        raise RuntimeError(f"Απροσδόκητο σφάλμα: {str(e)}")
 
 
 def get_all_units():
@@ -742,6 +773,10 @@ def add_unit(name, group_id, location, model, notes, installation_date):
     conn = get_connection()
     cursor = conn.cursor()
 
+    # ✨ LOG: Starting operation
+    logger.info(f"Adding new unit: name='{name}', group_id={group_id}, location='{location}'")
+
+
     cursor.execute('''
                    INSERT INTO units (name, group_id, location, model, notes, installation_date)
                    VALUES (?, ?, ?, ?, ?, ?)
@@ -749,6 +784,11 @@ def add_unit(name, group_id, location, model, notes, installation_date):
 
     unit_id = cursor.lastrowid
     conn.commit()
+
+    # ✨ LOG: Success
+    logger.info(f"✅ Unit '{name}' created successfully with ID: {unit_id}")
+
+
     conn.close()
     return unit_id
 
@@ -822,81 +862,133 @@ def get_task_by_id(task_id):
 def update_task(task_id, unit_id, task_type_id, description, status, priority,
                 created_date, completed_date, technician_name, notes, task_item_id=None, location=None):
     """Ενημέρωση υπάρχουσας εργασίας - Updated Phase 2.3"""
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute('''
-                   UPDATE tasks
-                   SET unit_id         = ?,
-                       task_type_id    = ?,
-                       task_item_id    = ?,
-                       description     = ?,
-                       status          = ?,
-                       priority        = ?,
-                       created_date    = ?,
-                       completed_date  = ?,
-                       technician_name = ?,
-                       notes           = ?,
-                       location        = ?
-                   WHERE id = ?
-                   ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
-                         completed_date, technician_name, notes, location, task_id))
 
-    conn.commit()
-    conn.close()
-    return True
+    # ✨ LOG: Starting operation
+    logger.info(f"Updating task {task_id}: status={status}, priority={priority}")
+    logger.debug(f"Task {task_id} update details: unit_id={unit_id}, type={task_type_id}, technician={technician_name}")
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+                       UPDATE tasks
+                       SET unit_id         = ?,
+                           task_type_id    = ?,
+                           task_item_id    = ?,
+                           description     = ?,
+                           status          = ?,
+                           priority        = ?,
+                           created_date    = ?,
+                           completed_date  = ?,
+                           technician_name = ?,
+                           notes           = ?,
+                           location        = ?
+                       WHERE id = ?
+                       ''', (unit_id, task_type_id, task_item_id, description, status, priority, created_date,
+                             completed_date, technician_name, notes, location, task_id))
+
+        conn.commit()
+
+        # ✨ LOG: Success
+        logger.info(f"✅ Task {task_id} updated successfully")
+
+        conn.close()
+        return True
+
+    except sqlite3.Error as e:
+        logger.error(f"❌ Failed to update task {task_id}: {e}", exc_info=True)
+        conn.close()
+        raise RuntimeError(f"Σφάλμα ενημέρωσης εργασίας: {str(e)}")
+
+    except Exception as e:
+        logger.critical(f"❌ Unexpected error updating task {task_id}: {e}", exc_info=True)
+        conn.close()
+        raise RuntimeError(f"Απροσδόκητο σφάλμα: {str(e)}")
 
 
 def delete_task(task_id):
     """Smart delete με auto-reconnect (bypass) - FIXED"""
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    # ═════════════════════════════════════════════════
-    # STEP 1: Get relationships before delete
-    # ═════════════════════════════════════════════════
-    relations = get_related_tasks(task_id)
-    parents = relations['parents']
-    children = relations['children']
 
-    # ═════════════════════════════════════════════════
-    # STEP 2: Create bypass (ONLY if 1 parent + 1 child)
-    # ═════════════════════════════════════════════════
-    if len(parents) == 1 and len(children) == 1:
-        parent = parents[0]
-        child = children[0]
+    # ✨ LOG: Starting operation
+    logger.warning(f"⚠️  Deleting task {task_id}...")
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        # ═════════════════════════════════════════════════
+        # STEP 1: Get relationships before delete
+        # ═════════════════════════════════════════════════
+        relations = get_related_tasks(task_id)
+        parents = relations['parents']
+        children = relations['children']
 
-        # Create bypass:  parent → child (skip deleted task)
-        try:
-            cursor.execute("""
-                           INSERT
-                           OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
-                VALUES (?, ?, 'related', 0)
-                           """, (parent['id'], child['id']))
-        except:
-            pass  # Relationship already exists
+        # ✨ LOG: Relationship info
+        logger.debug(f"Task {task_id} has {len(parents)} parent(s) and {len(children)} child(ren)")
 
-    # ═════════════════════════════════════════════════
-    # STEP 3: Mark task as deleted
-    # ═════════════════════════════════════════════════
-    cursor.execute("""
-                   UPDATE tasks
-                   SET is_deleted = 1
-                   WHERE id = ?
-                   """, (task_id,))
 
-    # ═════════════════════════════════════════════════
-    # STEP 4: Mark task's relationships as deleted (backup)
-    # ═════════════════════════════════════════════════
-    cursor.execute("""
-                   UPDATE task_relationships
-                   SET is_deleted = 1
-                   WHERE parent_task_id = ?
-                      OR child_task_id = ?
-                   """, (task_id, task_id))
+        # ═════════════════════════════════════════════════
+        # STEP 2: Create bypass (ONLY if 1 parent + 1 child)
+        # ═════════════════════════════════════════════════
+        if len(parents) == 1 and len(children) == 1:
+            parent = parents[0]
+            child = children[0]
 
-    conn.commit()
-    conn.close()
+            # Create bypass:  parent → child (skip deleted task)
+            try:
+                cursor.execute("""
+                               INSERT
+                               OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+                    VALUES (?, ?, 'related', 0)
+                               """, (parent['id'], child['id']))
+                logger.debug(f"Created bypass relationship: parent {parent['id']} -> child {child['id']}")
+            except sqlite3.IntegrityError as e:
+                # Expected: Relationship already exists (OR IGNORE handles it)
+                logger.debug(f"Bypass relationship already exists or constraint violation: {e}")
+            except Exception as e:
+                # Unexpected error - log it
+                logger.error(f"Failed to create bypass relationship: {e}", exc_info=True)
+
+        # ═════════════════════════════════════════════════
+        # STEP 3: Mark task as deleted
+        # ═════════════════════════════════════════════════
+        cursor.execute("""
+                       UPDATE tasks
+                       SET is_deleted = 1
+                       WHERE id = ?
+                       """, (task_id,))
+
+        # ═════════════════════════════════════════════════
+        # STEP 4: Mark task's relationships as deleted (backup)
+        # ═════════════════════════════════════════════════
+        cursor.execute("""
+                       UPDATE task_relationships
+                       SET is_deleted = 1
+                       WHERE parent_task_id = ?
+                          OR child_task_id = ?
+                       """, (task_id, task_id))
+
+        conn.commit()
+
+        # ✨ LOG: Success
+        logger.warning(f"✅ Task {task_id} deleted successfully")
+
+
+        conn.close()
+        return True
+
+    except sqlite3.Error as e:
+        logger.error(f"❌ Failed to delete task {task_id}: {e}", exc_info=True)
+        conn.rollback()  # ← ΣΗΜΑΝΤΙΚΟ: Rollback changes
+        conn.close()
+        raise RuntimeError(f"Σφάλμα διαγραφής εργασίας: {str(e)}")
+
+    except Exception as e:
+        logger.critical(f"❌ Unexpected error deleting task {task_id}: {e}", exc_info=True)
+        conn.rollback()
+        conn.close()
+        raise RuntimeError(f"Απροσδόκητο σφάλμα: {str(e)}")
 
 
 def restore_task(task_id):
@@ -1094,11 +1186,20 @@ def permanent_delete_task(task_id):
 
     # Δημιουργούμε τη σχέση Task1 → Task3 (γονέας → παιδί) αν υπάρχουν
     if parent_id and child_id:
-        cursor.execute("""
-                       INSERT
-                       OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
-            VALUES (?, ?, 'related', 0)
-                       """, (parent_id, child_id))
+        try:
+            cursor.execute("""
+                           INSERT
+                           OR IGNORE INTO task_relationships (parent_task_id, child_task_id, relationship_type, is_deleted)
+                VALUES (?, ?, 'related', 0)
+                           """, (parent_id, child_id))
+            logger.debug(f"Created bypass relationship: parent {parent['id']} -> child {child['id']}")
+        except sqlite3.IntegrityError as e:
+            # Expected: Relationship already exists (OR IGNORE handles it)
+            logger.debug(f"Bypass relationship already exists or constraint violation: {e}")
+        except Exception as e:
+            # Unexpected error - log it
+            logger.error(f"Failed to create bypass relationship: {e}", exc_info=True)
+
 
     # Διαγράφουμε τις σχέσεις που περιλαμβάνουν το task_id
     cursor.execute("""
@@ -1490,6 +1591,10 @@ def update_unit(unit_id, name, group_id, location, model, notes, installation_da
     conn = get_connection()
     cursor = conn.cursor()
 
+    # ✨ LOG: Starting operation
+    logger.info(f"Updating unit {unit_id}: name='{name}', group_id={group_id}, location='{location}'")
+
+
     cursor.execute('''
                    UPDATE units
                    SET name              = ?,
@@ -1502,6 +1607,11 @@ def update_unit(unit_id, name, group_id, location, model, notes, installation_da
                    ''', (name, group_id, location, model, notes, installation_date, unit_id))
 
     conn.commit()
+
+    # ✨ LOG: Success
+    logger.info(f"✅ Unit {unit_id} ('{name}') updated successfully")
+
+
     conn.close()
     return True
 

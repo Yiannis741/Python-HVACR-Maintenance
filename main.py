@@ -2,45 +2,92 @@
 HVACR Maintenance System - Phase 2
 Σύστημα Διαχείρισης Συντηρήσεων HVACR για Νοσοκομείο
 """
-
+import os
+import sys
 import customtkinter as ctk
 from datetime import datetime
 import database_refactored as database
 import ui_components
 import theme_config
 import utils_refactored
+import logger_config
+import backup_manager
+import custom_dialogs
 
 
 class HVACRApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Φόρτωση theme
-        self.theme = theme_config.get_current_theme()
+        # ✨ Initialize logging FIRST
+        logger_config.setup_logging()
+        self.logger = logger_config.get_logger(__name__)
+        try:
+            self.logger.info("=" * 70)
+            self.logger.info("HVAC Maintenance App Starting...")
+            self.logger.info("=" * 70)
+            # Φόρτωση theme
+            self.theme = theme_config.get_current_theme()
 
-        # ✨ NEW: Debounce timer για search (για FIX 2.1)
-        self.search_timer = None
-        # ✨ NEW: Tab tracking
-        self.current_tab = None
+            # ✨ NEW: Debounce timer για search (για FIX 2.1)
+            self.search_timer = None
+            # ✨ NEW: Tab tracking
+            self.current_tab = None
 
 
-        # Ρυθμίσεις παραθύρου
-        self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
-        
-        self.minsize(1200, 700)
-        self.configure(fg_color=self.theme["bg_primary"])
+            # Ρυθμίσεις παραθύρου
+            self.title("HVACR Maintenance System - Σύστημα Συντήρησης v2.0")
 
-        # Αρχικοποίηση database
-        database.init_database()
+            self.minsize(1200, 700)
+            self.configure(fg_color=self.theme["bg_primary"])
 
-        # Δημιουργία UI layout
-        self.create_layout()
+            # Αρχικοποίηση database
+            self.logger.info("Initializing database...")
+            try:
+                database.init_database()
+                self.logger.info("Database initialized successfully")
+            except Exception as e:
+                self.logger.error(f"Database initialization failed: {e}", exc_info=True)
+                raise
 
-        # Φόρτωση αρχικών δεδομένων
-        self.load_initial_data()
-        
-        # Maximize window (μετά το UI setup)
-        self.after(10, lambda: self.state('zoomed'))
+            # ✨ AUTO BACKUP
+            self.logger.info("Creating automatic backup...")
+            backup_file = backup_manager.create_backup("Auto backup on startup")
+            if backup_file:
+                self.logger.info(f"✅ Backup created: {backup_file}")
+            else:
+                self.logger.warning("⚠️  Backup failed (app will continue)")
+
+
+            # Δημιουργία UI layout
+            self.logger.info("Creating UI layout...")
+            self.create_layout()
+            self.logger.info("UI layout created successfully")
+
+            # Φόρτωση αρχικών δεδομένων
+            self.logger.info("Loading initial data...")
+            self.load_initial_data()
+            self.logger.info("Initial data loaded successfully")
+
+            # Maximize window (μετά το UI setup)
+            self.after(10, lambda: self.state('zoomed'))
+
+            # ✨ Log app ready
+            self.logger.info("=" * 70)
+            self.logger.info("HVAC Maintenance App is READY!")
+            self.logger.info("=" * 70)
+        except Exception as e:
+            self.logger.critical(f"❌ FATAL: App initialization failed: {e}", exc_info=True)
+
+            # Show error to user
+            import tkinter.messagebox as messagebox
+            messagebox.showerror(
+                "Κρίσιμο Σφάλμα",
+                f"Το app δεν μπόρεσε να ξεκινήσει:\n\n{str(e)}\n\nΕλέγξτε το log file για λεπτομέρειες."
+            )
+
+            # Exit gracefully
+            raise
 
     def create_layout(self):
         """Δημιουργία του βασικού layout"""
@@ -1495,6 +1542,88 @@ class HVACRApp(ctk.CTk):
             justify="left"
         ).pack(anchor="w", padx=15, pady=(0, 15))
 
+        # ═══════════════════════════════════════════════════════════════
+        # ✨ NEW: Database Backups Section
+        # ═══════════════════════════════════════════════════════════════
+
+        backup_section = ctk.CTkFrame(
+            settings_container,
+            fg_color=self.theme["card_bg"],
+            corner_radius=15,
+            border_width=1,
+            border_color=self.theme["card_border"]
+        )
+        backup_section.pack(fill="x", padx=40, pady=20)
+
+        # Section title
+        ctk.CTkLabel(
+            backup_section,
+            text="🗄️ Αντίγραφα Ασφαλείας (Backups)",
+            font=theme_config.get_font("heading", "bold"),
+            text_color=self.theme["text_primary"]
+        ).pack(anchor="w", padx=20, pady=(20, 10))
+
+        # Info
+        info_text = (
+            "Το σύστημα δημιουργεί αυτόματα backup κάθε φορά που ανοίγει η εφαρμογή.\n"
+            "Κρατούνται τα τελευταία 7 backups."
+        )
+        ctk.CTkLabel(
+            backup_section,
+            text=info_text,
+            font=theme_config.get_font("body"),
+            text_color=self.theme["text_secondary"],
+            justify="left"
+        ).pack(anchor="w", padx=20, pady=(0, 10))
+
+        # Backup stats
+        stats = backup_manager.get_backup_stats()
+        if stats and stats['count'] > 0:
+            stats_text = (
+                f"📊 Διαθέσιμα backups: {stats['count']} "
+                f"(Συνολικό μέγεθος: {stats['total_size_mb']:.1f} MB)"
+            )
+            ctk.CTkLabel(
+                backup_section,
+                text=stats_text,
+                font=theme_config.get_font("body", "bold"),
+                text_color=self.theme["accent_blue"]
+            ).pack(anchor="w", padx=20, pady=(0, 15))
+
+        # Buttons frame
+        buttons_frame = ctk.CTkFrame(backup_section, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
+
+        # Create manual backup button
+        ctk.CTkButton(
+            buttons_frame,
+            text="💾 Δημιουργία Backup Τώρα",
+            command=self.create_manual_backup,
+            **theme_config.get_button_style("primary"),
+            width=200,
+            height=40
+        ).pack(side="left", padx=(0, 10))
+
+        # Restore from backup button
+        ctk.CTkButton(
+            buttons_frame,
+            text="♻️ Επαναφορά από Backup",
+            command=self.show_restore_dialog,
+            **theme_config.get_button_style("warning"),
+            width=200,
+            height=40
+        ).pack(side="left", padx=(0, 10))
+
+        # Open backups folder button
+        ctk.CTkButton(
+            buttons_frame,
+            text="📁 Άνοιγμα Φακέλου Backups",
+            command=self.open_backups_folder,
+            **theme_config.get_button_style("secondary"),
+            width=200,
+            height=40
+        ).pack(side="left")
+
     def change_theme(self, theme_name):
         """Αλλαγή θέματος"""
         if theme_config.set_theme(theme_name):
@@ -1551,6 +1680,166 @@ class HVACRApp(ctk.CTk):
         
         # Maximize window μετά από rendering (100ms delay)
         self.after(100, lambda: self.state('zoomed'))
+
+    # ═══════════════════════════════════════════════════════════════
+    # BACKUP MANAGEMENT METHODS
+    # ═══════════════════════════════════════════════════════════════
+
+    def create_manual_backup(self):
+        """Δημιουργία manual backup"""
+
+        self.logger.info("User requested manual backup")
+
+        backup_file = backup_manager.create_backup("Manual backup")
+
+        if backup_file:
+            custom_dialogs.show_success(
+                "Επιτυχία",
+                f"Το backup δημιουργήθηκε επιτυχώς!\n\n{os.path.basename(backup_file)}"
+            )
+            # Refresh settings to update stats
+            self.show_settings()
+        else:
+            custom_dialogs.show_error(
+                "Σφάλμα",
+                "Το backup απέτυχε! Ελέγξτε το log file."
+            )
+
+    def show_restore_dialog(self):
+        """Εμφάνιση dialog για επιλογή backup προς επαναφορά"""
+
+        backups = backup_manager.list_backups()
+
+        if not backups:
+            custom_dialogs.show_error(
+                "Σφάλμα",
+                "Δεν υπάρχουν διαθέσιμα backups!"
+            )
+            return
+
+        # Create dialog
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Επαναφορά από Backup")
+        dialog.geometry("600x500")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Title
+        ctk.CTkLabel(
+            dialog,
+            text="♻️ Επιλέξτε Backup για Επαναφορά",
+            font=theme_config.get_font("heading", "bold")
+        ).pack(pady=20)
+
+        # Warning
+        warning = ctk.CTkLabel(
+            dialog,
+            text="⚠️  ΠΡΟΣΟΧΗ: Αυτή η ενέργεια θα αντικαταστήσει την τρέχουσα βάση δεδομένων!\n"
+                 "Θα δημιουργηθεί backup ασφαλείας πριν την επαναφορά.",
+            font=theme_config.get_font("body"),
+            text_color=self.theme["warning"],
+            justify="center"
+        )
+        warning.pack(pady=(0, 20))
+
+        # Backups list
+        list_frame = ctk.CTkScrollableFrame(dialog, height=250)
+        list_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        selected_backup = {'value': None}
+
+        for backup in backups:
+            backup_frame = ctk.CTkFrame(list_frame, fg_color=self.theme["card_bg"])
+            backup_frame.pack(fill="x", pady=5)
+
+            # Backup info
+            backup_name = backup_manager.format_backup_name(backup)
+
+            def select_backup(b=backup):
+                selected_backup['value'] = b
+                dialog.destroy()
+                self.confirm_restore(b)
+
+            ctk.CTkButton(
+                backup_frame,
+                text=backup_name,
+                command=select_backup,
+                **theme_config.get_button_style("secondary"),
+                anchor="w"
+            ).pack(fill="x", padx=10, pady=10)
+
+        # Cancel button
+        ctk.CTkButton(
+            dialog,
+            text="❌ Ακύρωση",
+            command=dialog.destroy,
+            **theme_config.get_button_style("secondary"),
+            width=150
+        ).pack(pady=(0, 20))
+
+    def confirm_restore(self, backup):
+        """Επιβεβαίωση και εκτέλεση restore"""
+
+        backup_name = backup_manager.format_backup_name(backup)
+
+        result = custom_dialogs.ask_yes_no(
+            "Τελική Επιβεβαίωση",
+            f"Είστε ΣΙΓΟΥΡΟΙ ότι θέλετε να επαναφέρετε από:\n\n"
+            f"{backup_name}\n\n"
+            f"Η τρέχουσα βάση θα αντικατασταθεί!\n"
+            f"(Θα δημιουργηθεί backup ασφαλείας)"
+        )
+
+        if result:
+            self.logger.warning(f"User confirmed restore from: {backup['filename']}")
+
+            success = backup_manager.restore_backup(backup['path'])
+
+            if success:
+                custom_dialogs.show_success(
+                    "Επιτυχία",
+                    "Η βάση δεδομένων επαναφέρθηκε επιτυχώς!\n\n"
+                    "Η εφαρμογή θα κλείσει. Παρακαλώ ανοίξτε την ξανά."
+                )
+
+                # Exit app (user needs to restart)
+                self.logger.info("App closing after restore - user must restart")
+                self.quit()
+            else:
+                custom_dialogs.show_error(
+                    "Σφάλμα",
+                    "Η επαναφορά απέτυχε! Ελέγξτε το log file.\n\n"
+                    "Η βάση δεδομένων δεν άλλαξε."
+                )
+
+    def open_backups_folder(self):
+        """Άνοιγμα του φακέλου backups"""
+
+        import subprocess
+        import platform
+
+        backup_dir = "backups"
+
+        # Create if not exists
+        from pathlib import Path
+        Path(backup_dir).mkdir(exist_ok=True)
+
+        try:
+            if platform.system() == "Windows":
+                os.startfile(backup_dir)
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.run(["open", backup_dir])
+            else:  # Linux
+                subprocess.run(["xdg-open", backup_dir])
+
+            self.logger.info(f"Opened backups folder: {backup_dir}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to open backups folder: {e}")
+            custom_dialogs.show_error(
+                "Σφάλμα",
+                f"Δεν μπόρεσε να ανοίξει ο φάκελος:\n{backup_dir}"
+            )
 
 
 if __name__ == "__main__":

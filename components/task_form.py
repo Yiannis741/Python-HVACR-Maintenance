@@ -439,7 +439,7 @@ class TaskForm(ctk.CTkFrame):
             self.created_date_entry.delete(0, "end")
             self.created_date_entry.insert(0, selected_date)
 
-        DatePickerDialog(self, current_date, on_date_selected)
+            DatePickerDialog(self, current_date, on_date_selected)
     def on_group_change(self, selected_group):
         """Callback όταν αλλάζει η ομάδα - φιλτράρει τις μονάδες - Phase 2.3"""
         if not selected_group:
@@ -695,13 +695,11 @@ class TaskForm(ctk.CTkFrame):
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία αποθηκεύτηκε με επιτυχία!")
             
             self.on_save_callback()
-            
+
         except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"=== SAVE ERROR ===")
-            print(error_details)
-            print("==================")
+            import logger_config
+            logger = logger_config.get_logger(__name__)
+            logger.error(f"Failed to save task: {e}", exc_info=True)
             custom_dialogs.show_error("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
 
 
@@ -720,7 +718,10 @@ class TaskForm(ctk.CTkFrame):
                 custom_dialogs.show_success("Επιτυχία", "Η εργασία διαγράφηκε!")
                 self.on_save_callback()
             except Exception as e:
-                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία διαγραφής: {str(e)}")
+                import logger_config
+                logger = logger_config.get_logger(__name__)
+                logger.error(f"Failed to save task: {e}", exc_info=True)
+                custom_dialogs.show_error("Σφάλμα", f"Αποτυχία αποθήκευσης: {str(e)}")
 
     def add_compact_chain_preview(self, parent):
         """Προσθήκη compact chain preview κάτω από τα buttons - Edit mode only"""
